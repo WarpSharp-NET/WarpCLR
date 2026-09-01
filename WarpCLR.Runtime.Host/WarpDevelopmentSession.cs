@@ -6,6 +6,7 @@ namespace WarpCLR.Runtime.Host;
 public enum WarpDevelopmentExecutionMode
 {
     SemanticEmulation,
+    CoreClrReference,
 }
 
 public sealed class WarpDevelopmentSession

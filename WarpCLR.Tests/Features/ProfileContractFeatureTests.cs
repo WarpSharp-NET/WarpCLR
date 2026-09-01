@@ -7,7 +7,7 @@ public sealed class ProfileContractFeatureTests
 {
     [TestMethod]
     [FourBackends]
-    public void Profile_declares_all_eight_approved_features(WarpBackendKind backend)
+    public void Profile_declares_all_approved_features(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
 
@@ -21,6 +21,7 @@ public sealed class ProfileContractFeatureTests
             WarpProfileFeature.DeterministicAotPackaging,
             WarpProfileFeature.ExplicitHostDispatch,
             WarpProfileFeature.ExactUnsignedReductions,
+            WarpProfileFeature.StructuredReferenceStages,
         ];
 
         CollectionAssert.AreEqual(

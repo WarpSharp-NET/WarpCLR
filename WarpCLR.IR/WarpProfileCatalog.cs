@@ -12,6 +12,7 @@ public enum WarpProfileFeature
     DeterministicAotPackaging,
     ExplicitHostDispatch,
     ExactUnsignedReductions,
+    StructuredReferenceStages,
 }
 
 public enum WarpFeatureLayer
@@ -50,6 +51,7 @@ public static class WarpProfileCatalog
             new(WarpProfileFeature.DeterministicAotPackaging, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExplicitHostDispatch, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExactUnsignedReductions, WarpFeatureLayer.WarpCil),
+            new(WarpProfileFeature.StructuredReferenceStages, WarpFeatureLayer.WarpClr),
         ]);
 
     private static readonly ReadOnlyCollection<string> CapabilityIdentifiers =
