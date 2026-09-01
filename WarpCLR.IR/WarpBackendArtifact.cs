@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 
 namespace WarpCLR.IR;
@@ -56,6 +57,7 @@ public sealed class WarpBackendArtifact
         Format = format;
         EntryPoint = entryPoint;
         Content = content.ToArray();
+        ContentHash = Convert.ToHexString(SHA256.HashData(Content.Span));
         ConformanceStatus = WarpConformanceStatus.DevelopmentNonconforming;
     }
 
@@ -68,6 +70,8 @@ public sealed class WarpBackendArtifact
     public WarpConformanceStatus ConformanceStatus { get; }
 
     public ReadOnlyMemory<byte> Content { get; }
+
+    public string ContentHash { get; }
 
     public string GetText() => Encoding.UTF8.GetString(Content.Span);
 }

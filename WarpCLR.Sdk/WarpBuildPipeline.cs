@@ -64,6 +64,12 @@ public sealed class WarpBuildPipeline
     public WarpModuleCompilation CompileModule(ReadOnlyMemory<byte> assemblyBytes) =>
         CompileVerifiedModule(moduleVerifier.Verify(assemblyBytes));
 
+    public WarpAotPackage CompilePackage(string assemblyPath) =>
+        WarpAotPackageBuilder.Build(CompileModule(assemblyPath));
+
+    public WarpAotPackage CompilePackage(ReadOnlyMemory<byte> assemblyBytes) =>
+        WarpAotPackageBuilder.Build(CompileModule(assemblyBytes));
+
     private WarpModuleCompilation CompileVerifiedModule(WarpVerifiedModule module)
     {
         var compilations = new Dictionary<string, WarpCompilation>(StringComparer.Ordinal);

@@ -18,7 +18,8 @@ public sealed class VerifiedAuthorityPolicyTests
             .ToArray();
 
         Assert.IsNotEmpty(publicCompileMethods);
-        Assert.IsTrue(publicCompileMethods.All(method => method.Name == nameof(WarpBuildPipeline.CompileModule)));
+        Assert.IsTrue(publicCompileMethods.All(method =>
+            method.Name is nameof(WarpBuildPipeline.CompileModule) or nameof(WarpBuildPipeline.CompilePackage)));
         Assert.HasCount(0, typeof(WarpIntegerMapKernel).GetConstructors(BindingFlags.Public | BindingFlags.Instance));
         Assert.HasCount(0, typeof(WarpVerifiedModule).GetConstructors(BindingFlags.Public | BindingFlags.Instance));
         Assert.HasCount(0, typeof(WarpVerifiedEntry).GetConstructors(BindingFlags.Public | BindingFlags.Instance));
