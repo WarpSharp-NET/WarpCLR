@@ -1,1 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\WarpCLR.Backend.Cpu\WarpCLR.Backend.Cpu.csproj" />
+    <ProjectReference Include="..\WarpCLR.Compiler\WarpCLR.Compiler.csproj" />
+    <ProjectReference Include="..\WarpCLR.IR\WarpCLR.IR.csproj" />
+    <ProjectReference Include="..\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />
+  </ItemGroup>
+</Project>

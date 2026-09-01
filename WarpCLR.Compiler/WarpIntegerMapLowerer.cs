@@ -2,7 +2,7 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Compiler;
 
-internal sealed class WarpIntegerMapLowerer
+public sealed class WarpIntegerMapLowerer
 {
     public WarpLinearKernel Lower(WarpIntegerMapKernel kernel)
     {

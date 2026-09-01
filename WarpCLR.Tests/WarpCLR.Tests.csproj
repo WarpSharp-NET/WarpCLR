@@ -12,6 +12,7 @@
     <ProjectReference Include="..\WarpCLR.Backend.Nvidia\WarpCLR.Backend.Nvidia.csproj" />
     <ProjectReference Include="..\WarpCLR.Compiler\WarpCLR.Compiler.csproj" />
     <ProjectReference Include="..\WarpCLR.IR\WarpCLR.IR.csproj" />
+    <ProjectReference Include="..\WarpCLR.Runtime.Host\WarpCLR.Runtime.Host.csproj" />
     <ProjectReference Include="..\WarpCLR.Sdk\WarpCLR.Sdk.csproj" />
     <ProjectReference Include="..\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />
   </ItemGroup>
