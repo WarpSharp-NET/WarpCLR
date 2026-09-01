@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="WarpCLR.Backend.Amd/WarpCLR.Backend.Amd.csproj" />
+  <Project Path="WarpCLR.Backend.Nvidia/WarpCLR.Backend.Nvidia.csproj" />
+  <Project Path="WarpCLR.Compiler/WarpCLR.Compiler.csproj" />
+  <Project Path="WarpCLR.IR/WarpCLR.IR.csproj" />
+  <Project Path="WarpCLR.Runtime.Device/WarpCLR.Runtime.Device.csproj" />
+  <Project Path="WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj" />
+  <Project Path="WarpCLR.Sdk/WarpCLR.Sdk.csproj" />
+  <Project Path="WarpCLR.Verifier/WarpCLR.Verifier.csproj" />
+</Solution>
