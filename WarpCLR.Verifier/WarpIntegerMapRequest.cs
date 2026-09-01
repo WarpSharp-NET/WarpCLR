@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace WarpCLR.Verifier;
 
-public sealed class WarpIntegerMapRequest
+internal sealed class WarpIntegerMapRequest
 {
     public WarpIntegerMapRequest(MethodInfo method, int inputBufferCount)
     {

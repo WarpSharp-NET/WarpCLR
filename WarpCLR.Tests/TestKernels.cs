@@ -2,6 +2,8 @@ namespace WarpCLR.Tests;
 
 internal static class TestKernels
 {
+    public static uint ManifestMap(uint input, uint scalar) => (input * 33u) + scalar;
+
     public static uint Grayscale(uint rgba) =>
         (rgba & 0xFF000000u) |
         (((

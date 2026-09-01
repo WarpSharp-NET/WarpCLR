@@ -2,7 +2,7 @@ namespace WarpCLR.IR;
 
 public sealed class WarpIntegerMapKernel
 {
-    public WarpIntegerMapKernel(
+    internal WarpIntegerMapKernel(
         string name,
         int inputBufferCount,
         int scalarArgumentCount,
