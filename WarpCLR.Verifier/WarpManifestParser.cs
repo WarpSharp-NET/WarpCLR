@@ -1,12 +1,14 @@
 using System.Buffers;
 using System.Text;
 using System.Text.Json;
+using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
 
 internal sealed record WarpManifestEntryData(
     string Type,
     string Method,
+    WarpReductionOperation? Reduction,
     IReadOnlyList<WarpParameterRole> ParameterRoles,
     IReadOnlyList<string> Capabilities,
     string GraphHash);
@@ -97,12 +99,14 @@ internal static class WarpManifestParser
             element,
             "type",
             "method",
+            "execution",
             "parameterRoles",
             "capabilities",
             "graphHash");
 
         string type = RequireString(element, "type");
         string method = RequireString(element, "method");
+        WarpReductionOperation? reduction = ParseExecution(RequireString(element, "execution"));
         string graphHash = RequireString(element, "graphHash");
         if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(method))
         {
@@ -166,7 +170,7 @@ internal static class WarpManifestParser
                 : throw Error("WRPCIL2001", "A capability identifier must be a string."))
             .ToArray();
 
-        return new WarpManifestEntryData(type, method, roles, capabilities, graphHash);
+        return new WarpManifestEntryData(type, method, reduction, roles, capabilities, graphHash);
     }
 
     private static byte[] WriteCanonical(WarpManifestData manifest)
@@ -184,6 +188,7 @@ internal static class WarpManifestParser
                 writer.WriteStartObject();
                 writer.WriteString("type", entry.Type);
                 writer.WriteString("method", entry.Method);
+                writer.WriteString("execution", GetExecutionName(entry.Reduction));
                 writer.WriteStartArray("parameterRoles");
                 foreach (WarpParameterRole role in entry.ParameterRoles)
                 {
@@ -263,6 +268,24 @@ internal static class WarpManifestParser
 
         return true;
     }
+
+    private static string GetExecutionName(WarpReductionOperation? reduction) => reduction switch
+    {
+        null => "map",
+        WarpReductionOperation.WrappingSum => "reduce-wrapping-sum",
+        WarpReductionOperation.Minimum => "reduce-minimum",
+        WarpReductionOperation.Maximum => "reduce-maximum",
+        _ => throw Error("WRPCIL2001", "A manifest execution mode is not registered."),
+    };
+
+    private static WarpReductionOperation? ParseExecution(string value) => value switch
+    {
+        "map" => null,
+        "reduce-wrapping-sum" => WarpReductionOperation.WrappingSum,
+        "reduce-minimum" => WarpReductionOperation.Minimum,
+        "reduce-maximum" => WarpReductionOperation.Maximum,
+        _ => throw Error("WRPCIL2001", $"Manifest execution mode '{value}' is not registered."),
+    };
 
     private static WarpVerificationException Error(string code, string message) => new(code, message);
 }

@@ -13,7 +13,7 @@ public sealed class CpuBackendCompiler : IWarpBackendCompiler
         return new WarpBackendArtifact(
             Backend,
             WarpArtifactFormat.CpuExpressionPlan,
-            WarpDeviceAbi.IntegerMapEntryPoint,
+            WarpDeviceAbi.GetEntryPoint(kernel),
             WarpCpuPlanCodec.Serialize(kernel));
     }
 }

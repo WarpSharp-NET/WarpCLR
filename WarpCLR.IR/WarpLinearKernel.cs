@@ -32,13 +32,18 @@ public sealed class WarpLinearKernel
         int inputBufferCount,
         int scalarArgumentCount,
         IEnumerable<WarpIrInstruction> instructions,
-        int result)
+        int result,
+        WarpReductionOperation? reduction = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(scalarArgumentCount);
         ArgumentNullException.ThrowIfNull(instructions);
         ArgumentOutOfRangeException.ThrowIfNegative(result);
+        if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(reduction));
+        }
 
         WarpIrInstruction[] instructionArray = instructions.ToArray();
         if ((uint)result >= (uint)instructionArray.Length)
@@ -60,6 +65,7 @@ public sealed class WarpLinearKernel
         ScalarArgumentCount = scalarArgumentCount;
         Instructions = Array.AsReadOnly(instructionArray);
         Result = result;
+        Reduction = reduction;
     }
 
     public string Name { get; }
@@ -71,6 +77,8 @@ public sealed class WarpLinearKernel
     public ReadOnlyCollection<WarpIrInstruction> Instructions { get; }
 
     public int Result { get; }
+
+    public WarpReductionOperation? Reduction { get; }
 
     public int ValueCount => Instructions.Count;
 

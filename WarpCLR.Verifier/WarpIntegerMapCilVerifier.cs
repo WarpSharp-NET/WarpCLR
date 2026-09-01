@@ -12,7 +12,8 @@ internal sealed class WarpIntegerMapMethodBody
         int inputBufferCount,
         int maxStack,
         int localCount,
-        ReadOnlySpan<byte> il)
+        ReadOnlySpan<byte> il,
+        WarpReductionOperation? reduction = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
         ArgumentOutOfRangeException.ThrowIfNegative(parameterCount);
@@ -20,6 +21,10 @@ internal sealed class WarpIntegerMapMethodBody
         ArgumentOutOfRangeException.ThrowIfGreaterThan(inputBufferCount, parameterCount);
         ArgumentOutOfRangeException.ThrowIfNegative(maxStack);
         ArgumentOutOfRangeException.ThrowIfNegative(localCount);
+        if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(reduction));
+        }
 
         Identity = identity;
         ParameterCount = parameterCount;
@@ -27,6 +32,7 @@ internal sealed class WarpIntegerMapMethodBody
         MaxStack = maxStack;
         LocalCount = localCount;
         Il = il.ToArray();
+        Reduction = reduction;
     }
 
     public string Identity { get; }
@@ -40,6 +46,8 @@ internal sealed class WarpIntegerMapMethodBody
     public int LocalCount { get; }
 
     public byte[] Il { get; }
+
+    public WarpReductionOperation? Reduction { get; }
 }
 
 internal static class WarpIntegerMapCilVerifier
@@ -137,7 +145,8 @@ internal static class WarpIntegerMapCilVerifier
                     method.Identity,
                     method.InputBufferCount,
                     method.ParameterCount - method.InputBufferCount,
-                    stack[0]);
+                    stack[0],
+                    method.Reduction);
             }
 
             throw CilError(

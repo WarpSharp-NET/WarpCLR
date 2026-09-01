@@ -11,7 +11,7 @@ internal static class BackendArtifactAssertions
     {
         Assert.AreEqual(backend, artifact.Backend);
         Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), artifact.Format);
-        Assert.AreEqual(WarpDeviceAbi.IntegerMapEntryPoint, artifact.EntryPoint);
+        Assert.AreEqual(WarpDeviceAbi.GetEntryPoint(kernel), artifact.EntryPoint);
         Assert.AreEqual(
             WarpConformanceStatus.DevelopmentNonconforming,
             artifact.ConformanceStatus);
@@ -23,24 +23,24 @@ internal static class BackendArtifactAssertions
         {
             case WarpBackendKind.CpuReference:
                 StringAssert.Contains(text, "warp.cpu.linear/0.1");
-                StringAssert.Contains(text, $"entry={WarpDeviceAbi.IntegerMapEntryPoint}");
+                StringAssert.Contains(text, $"entry={WarpDeviceAbi.GetEntryPoint(kernel)}");
                 break;
 
             case WarpBackendKind.Nvidia:
                 StringAssert.Contains(text, ".target sm_50");
-                StringAssert.Contains(text, $".visible .entry {WarpDeviceAbi.IntegerMapEntryPoint}");
+                StringAssert.Contains(text, $".visible .entry {WarpDeviceAbi.GetEntryPoint(kernel)}");
                 break;
 
             case WarpBackendKind.Amd:
                 StringAssert.Contains(text, "target triple = \"amdgcn-amd-amdhsa\"");
-                StringAssert.Contains(text, $"define amdgpu_kernel void @{WarpDeviceAbi.IntegerMapEntryPoint}");
+                StringAssert.Contains(text, $"define amdgpu_kernel void @{WarpDeviceAbi.GetEntryPoint(kernel)}");
                 Assert.IsFalse(text.Contains(" nsw ", StringComparison.Ordinal));
                 Assert.IsFalse(text.Contains(" nuw ", StringComparison.Ordinal));
                 break;
 
             case WarpBackendKind.Intel:
                 StringAssert.Contains(text, "target triple = \"spirv64-unknown-unknown\"");
-                StringAssert.Contains(text, $"define spir_kernel void @{WarpDeviceAbi.IntegerMapEntryPoint}");
+                StringAssert.Contains(text, $"define spir_kernel void @{WarpDeviceAbi.GetEntryPoint(kernel)}");
                 Assert.IsFalse(text.Contains("SPV_INTEL_", StringComparison.Ordinal));
                 Assert.IsFalse(text.Contains(" nsw ", StringComparison.Ordinal));
                 Assert.IsFalse(text.Contains(" nuw ", StringComparison.Ordinal));
@@ -54,6 +54,41 @@ internal static class BackendArtifactAssertions
         {
             StringAssert.Contains(text, GetInstructionMarker(backend, instruction));
         }
+
+        if (kernel.Reduction.HasValue)
+        {
+            IsValidReduction(text, backend, kernel.Reduction.Value);
+        }
+    }
+
+    private static void IsValidReduction(
+        string text,
+        WarpBackendKind backend,
+        WarpReductionOperation operation)
+    {
+        string operationMarker = (backend, operation) switch
+        {
+            (WarpBackendKind.CpuReference, WarpReductionOperation.WrappingSum) =>
+                "operation=reduce-wrapping-sum",
+            (WarpBackendKind.CpuReference, WarpReductionOperation.Minimum) =>
+                "operation=reduce-minimum",
+            (WarpBackendKind.CpuReference, WarpReductionOperation.Maximum) =>
+                "operation=reduce-maximum",
+            (WarpBackendKind.Nvidia, WarpReductionOperation.WrappingSum) => "warp_reduce_loop:",
+            (WarpBackendKind.Nvidia, WarpReductionOperation.Minimum) => "setp.lt.u32 %p1",
+            (WarpBackendKind.Nvidia, WarpReductionOperation.Maximum) => "setp.gt.u32 %p1",
+            (WarpBackendKind.Amd or WarpBackendKind.Intel, WarpReductionOperation.WrappingSum) =>
+                "%warp_next_accumulator = add i32",
+            (WarpBackendKind.Amd or WarpBackendKind.Intel, WarpReductionOperation.Minimum) =>
+                "%warp_reduce_compare = icmp ult i32",
+            (WarpBackendKind.Amd or WarpBackendKind.Intel, WarpReductionOperation.Maximum) =>
+                "%warp_reduce_compare = icmp ugt i32",
+            _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+        };
+
+        StringAssert.Contains(text, operationMarker);
+        Assert.IsFalse(text.Contains("atomic", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(text.Contains("subgroup", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string GetInstructionMarker(

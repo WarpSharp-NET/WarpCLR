@@ -16,6 +16,7 @@ public static class WarpIrHash
         AppendInt32(hash, kernel.InputBufferCount);
         AppendInt32(hash, kernel.ScalarArgumentCount);
         AppendInt32(hash, kernel.Result);
+        AppendInt32(hash, kernel.Reduction.HasValue ? (int)kernel.Reduction.Value : -1);
         AppendInt32(hash, kernel.Instructions.Count);
 
         foreach (WarpIrInstruction instruction in kernel.Instructions)

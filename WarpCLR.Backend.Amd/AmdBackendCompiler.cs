@@ -11,6 +11,10 @@ public sealed class AmdBackendCompiler : IWarpBackendCompiler
     public WarpBackendArtifact Compile(WarpLinearKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        if (kernel.Reduction.HasValue)
+        {
+            return CompileReduction(kernel);
+        }
 
         var llvm = new StringBuilder();
         llvm.Append("; ").AppendLine(WarpDeviceAbi.DevelopmentConformanceMarker);
@@ -38,7 +42,7 @@ public sealed class AmdBackendCompiler : IWarpBackendCompiler
 
         foreach (WarpIrInstruction instruction in kernel.Instructions)
         {
-            AppendInstruction(llvm, instruction);
+            AppendInstruction(llvm, instruction, "%warp_index");
         }
 
         llvm.Append("  %warp_output_ptr = getelementptr i32, ptr addrspace(1) %warp_output, i32 %warp_index")
@@ -62,6 +66,75 @@ public sealed class AmdBackendCompiler : IWarpBackendCompiler
             Backend,
             WarpArtifactFormat.AmdLlvmIr,
             WarpDeviceAbi.IntegerMapEntryPoint,
+            Encoding.UTF8.GetBytes(llvm.ToString()));
+    }
+
+    private WarpBackendArtifact CompileReduction(WarpLinearKernel kernel)
+    {
+        WarpReductionOperation operation = kernel.Reduction
+            ?? throw new ArgumentException("A reduction operation is required.", nameof(kernel));
+        uint identity = WarpReductionContract.GetDescriptor(operation).Identity;
+
+        var llvm = new StringBuilder();
+        llvm.Append("; ").AppendLine(WarpDeviceAbi.DevelopmentConformanceMarker);
+        llvm.AppendLine("target triple = \"amdgcn-amd-amdhsa\"");
+        llvm.AppendLine();
+        llvm.AppendLine("declare i32 @llvm.amdgcn.workitem.id.x()");
+        llvm.AppendLine("declare i32 @llvm.amdgcn.workgroup.id.x()");
+        llvm.AppendLine();
+        llvm.Append("define amdgpu_kernel void @")
+            .Append(WarpDeviceAbi.IntegerReductionEntryPoint)
+            .AppendLine("(");
+        AppendParameters(llvm, kernel);
+        llvm.AppendLine(") #0 {");
+        llvm.AppendLine("entry:");
+        llvm.AppendLine("  %warp_local_id = call i32 @llvm.amdgcn.workitem.id.x()");
+        llvm.AppendLine("  %warp_group_id = call i32 @llvm.amdgcn.workgroup.id.x()");
+        llvm.AppendLine("  %warp_is_first_item = icmp eq i32 %warp_local_id, 0");
+        llvm.AppendLine("  %warp_is_first_group = icmp eq i32 %warp_group_id, 0");
+        llvm.AppendLine("  %warp_is_leader = and i1 %warp_is_first_item, %warp_is_first_group");
+        llvm.AppendLine("  br i1 %warp_is_leader, label %leader, label %done");
+        llvm.AppendLine();
+        llvm.AppendLine("leader:");
+        llvm.AppendLine("  br label %reduce_loop");
+        llvm.AppendLine();
+        llvm.AppendLine("reduce_loop:");
+        llvm.AppendLine("  %warp_reduce_index = phi i32 [ 0, %leader ], [ %warp_next_index, %reduce_body ]");
+        llvm.Append("  %warp_accumulator = phi i32 [ ")
+            .Append(Signed(identity))
+            .AppendLine(", %leader ], [ %warp_next_accumulator, %reduce_body ]");
+        llvm.AppendLine("  %warp_has_item = icmp ult i32 %warp_reduce_index, %warp_count");
+        llvm.AppendLine("  br i1 %warp_has_item, label %reduce_body, label %reduce_store");
+        llvm.AppendLine();
+        llvm.AppendLine("reduce_body:");
+
+        foreach (WarpIrInstruction instruction in kernel.Instructions)
+        {
+            AppendInstruction(llvm, instruction, "%warp_reduce_index");
+        }
+
+        AppendReduction(llvm, operation, kernel.Result);
+        llvm.AppendLine("  %warp_next_index = add i32 %warp_reduce_index, 1");
+        llvm.AppendLine("  br label %reduce_loop");
+        llvm.AppendLine();
+        llvm.AppendLine("reduce_store:");
+        llvm.AppendLine("  store i32 %warp_accumulator, ptr addrspace(1) %warp_output, align 4");
+        llvm.AppendLine("  br label %done");
+        llvm.AppendLine();
+        llvm.AppendLine("done:");
+        llvm.AppendLine("  ret void");
+        llvm.AppendLine("}");
+        llvm.AppendLine();
+        llvm.Append("attributes #0 = { nounwind \"amdgpu-flat-work-group-size\"=\"")
+            .Append(Invariant(WarpDeviceAbi.IntegerMapWorkgroupSize))
+            .Append(',')
+            .Append(Invariant(WarpDeviceAbi.IntegerMapWorkgroupSize))
+            .AppendLine("\" }");
+
+        return new WarpBackendArtifact(
+            Backend,
+            WarpArtifactFormat.AmdLlvmIr,
+            WarpDeviceAbi.IntegerReductionEntryPoint,
             Encoding.UTF8.GetBytes(llvm.ToString()));
     }
 
@@ -91,7 +164,10 @@ public sealed class AmdBackendCompiler : IWarpBackendCompiler
         }
     }
 
-    private static void AppendInstruction(StringBuilder llvm, WarpIrInstruction instruction)
+    private static void AppendInstruction(
+        StringBuilder llvm,
+        WarpIrInstruction instruction,
+        string indexValue)
     {
         string result = Value(instruction.Result);
         string left = Value(instruction.Left);
@@ -104,7 +180,8 @@ public sealed class AmdBackendCompiler : IWarpBackendCompiler
                     .Append(Invariant(instruction.Result))
                     .Append(" = getelementptr i32, ptr addrspace(1) %warp_input_")
                     .Append(Invariant(instruction.Immediate))
-                    .AppendLine(", i32 %warp_index");
+                    .Append(", i32 ")
+                    .AppendLine(indexValue);
                 llvm.Append("  ")
                     .Append(result)
                     .Append(" = load i32, ptr addrspace(1) %warp_input_ptr_")
@@ -167,6 +244,49 @@ public sealed class AmdBackendCompiler : IWarpBackendCompiler
             default:
                 throw new ArgumentOutOfRangeException(nameof(instruction));
         }
+    }
+
+    private static void AppendReduction(
+        StringBuilder llvm,
+        WarpReductionOperation operation,
+        int resultIndex)
+    {
+        string value = Value(resultIndex);
+        switch (operation)
+        {
+            case WarpReductionOperation.WrappingSum:
+                AppendBinary(
+                    llvm,
+                    "%warp_next_accumulator",
+                    "add",
+                    "%warp_accumulator",
+                    value);
+                break;
+
+            case WarpReductionOperation.Minimum:
+                llvm.Append("  %warp_reduce_compare = icmp ult i32 ")
+                    .Append(value)
+                    .AppendLine(", %warp_accumulator");
+                AppendSelection(llvm, value);
+                break;
+
+            case WarpReductionOperation.Maximum:
+                llvm.Append("  %warp_reduce_compare = icmp ugt i32 ")
+                    .Append(value)
+                    .AppendLine(", %warp_accumulator");
+                AppendSelection(llvm, value);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(operation));
+        }
+    }
+
+    private static void AppendSelection(StringBuilder llvm, string value)
+    {
+        llvm.Append("  %warp_next_accumulator = select i1 %warp_reduce_compare, i32 ")
+            .Append(value)
+            .AppendLine(", i32 %warp_accumulator");
     }
 
     private static void AppendBinary(

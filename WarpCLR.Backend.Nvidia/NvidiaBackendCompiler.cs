@@ -13,6 +13,10 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
     public WarpBackendArtifact Compile(WarpLinearKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        if (kernel.Reduction.HasValue)
+        {
+            return CompileReduction(kernel);
+        }
 
         int shiftRegister = FirstValueRegister + kernel.ValueCount;
         int registerCount = shiftRegister + 1;
@@ -89,6 +93,160 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
             WarpArtifactFormat.NvidiaPtx,
             WarpDeviceAbi.IntegerMapEntryPoint,
             Encoding.UTF8.GetBytes(ptx.ToString()));
+    }
+
+    private WarpBackendArtifact CompileReduction(WarpLinearKernel kernel)
+    {
+        WarpReductionOperation operation = kernel.Reduction
+            ?? throw new ArgumentException("A reduction operation is required.", nameof(kernel));
+        int shiftRegister = FirstValueRegister + kernel.ValueCount;
+        int accumulatorRegister = shiftRegister + 1;
+        int registerCount = accumulatorRegister + 1;
+        int firstInputBaseRegister = 2;
+        int addressRegister = firstInputBaseRegister + kernel.InputBufferCount;
+        int addressRegisterCount = addressRegister + 1;
+
+        var ptx = new StringBuilder();
+        ptx.AppendLine(".version 6.0");
+        ptx.AppendLine(".target sm_50");
+        ptx.AppendLine(".address_size 64");
+        ptx.Append("// ").AppendLine(WarpDeviceAbi.DevelopmentConformanceMarker);
+        ptx.AppendLine();
+        ptx.Append(".visible .entry ")
+            .Append(WarpDeviceAbi.IntegerReductionEntryPoint)
+            .AppendLine("(");
+        AppendParameters(ptx, kernel);
+        ptx.AppendLine(")");
+        ptx.AppendLine("{");
+        ptx.AppendLine("    .reg .pred %p<2>;");
+        ptx.Append("    .reg .b32 %r<")
+            .Append(Invariant(registerCount))
+            .AppendLine(">;");
+        ptx.Append("    .reg .b64 %rd<")
+            .Append(Invariant(addressRegisterCount))
+            .AppendLine(">;");
+        ptx.AppendLine();
+        ptx.AppendLine("    mov.u32 %r0, %tid.x;");
+        ptx.AppendLine("    mov.u32 %r1, %ctaid.x;");
+        ptx.AppendLine("    setp.ne.u32 %p0, %r0, 0;");
+        ptx.AppendLine("    @%p0 bra warp_reduce_done;");
+        ptx.AppendLine("    setp.ne.u32 %p0, %r1, 0;");
+        ptx.AppendLine("    @%p0 bra warp_reduce_done;");
+        ptx.AppendLine("    ld.param.u32 %r4, [warp_count];");
+        ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
+
+        for (int inputIndex = 0; inputIndex < kernel.InputBufferCount; inputIndex++)
+        {
+            ptx.Append("    ld.param.u64 %rd")
+                .Append(Invariant(firstInputBaseRegister + inputIndex))
+                .Append(", [warp_input_")
+                .Append(Invariant(inputIndex))
+                .AppendLine("];");
+        }
+
+        ptx.Append("    mov.u32 %r")
+            .Append(Invariant(accumulatorRegister))
+            .Append(", ")
+            .Append(Invariant(WarpReductionContract.GetDescriptor(operation).Identity))
+            .AppendLine(";");
+        ptx.AppendLine("    mov.u32 %r3, 0;");
+        ptx.AppendLine();
+        ptx.AppendLine("warp_reduce_loop:");
+        ptx.AppendLine("    setp.ge.u32 %p0, %r3, %r4;");
+        ptx.AppendLine("    @%p0 bra warp_reduce_store;");
+        ptx.AppendLine("    mul.wide.u32 %rd0, %r3, 4;");
+
+        foreach (WarpIrInstruction instruction in kernel.Instructions)
+        {
+            AppendInstruction(
+                ptx,
+                instruction,
+                firstInputBaseRegister,
+                addressRegister,
+                shiftRegister);
+        }
+
+        AppendReduction(
+            ptx,
+            operation,
+            accumulatorRegister,
+            ValueRegister(kernel.Result));
+        ptx.AppendLine("    add.u32 %r3, %r3, 1;");
+        ptx.AppendLine("    bra warp_reduce_loop;");
+        ptx.AppendLine();
+        ptx.AppendLine("warp_reduce_store:");
+        ptx.Append("    st.global.u32 [%rd1], %r")
+            .Append(Invariant(accumulatorRegister))
+            .AppendLine(";");
+        ptx.AppendLine("warp_reduce_done:");
+        ptx.AppendLine("    ret;");
+        ptx.AppendLine("}");
+
+        return new WarpBackendArtifact(
+            Backend,
+            WarpArtifactFormat.NvidiaPtx,
+            WarpDeviceAbi.IntegerReductionEntryPoint,
+            Encoding.UTF8.GetBytes(ptx.ToString()));
+    }
+
+    private static void AppendReduction(
+        StringBuilder ptx,
+        WarpReductionOperation operation,
+        int accumulatorRegister,
+        int valueRegister)
+    {
+        switch (operation)
+        {
+            case WarpReductionOperation.WrappingSum:
+                AppendBinary(
+                    ptx,
+                    "add.u32",
+                    accumulatorRegister,
+                    accumulatorRegister,
+                    valueRegister);
+                break;
+
+            case WarpReductionOperation.Minimum:
+                AppendSelection(
+                    ptx,
+                    "setp.lt.u32",
+                    accumulatorRegister,
+                    valueRegister);
+                break;
+
+            case WarpReductionOperation.Maximum:
+                AppendSelection(
+                    ptx,
+                    "setp.gt.u32",
+                    accumulatorRegister,
+                    valueRegister);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(operation));
+        }
+    }
+
+    private static void AppendSelection(
+        StringBuilder ptx,
+        string comparison,
+        int accumulatorRegister,
+        int valueRegister)
+    {
+        ptx.Append("    ")
+            .Append(comparison)
+            .Append(" %p1, %r")
+            .Append(Invariant(valueRegister))
+            .Append(", %r")
+            .Append(Invariant(accumulatorRegister))
+            .AppendLine(";");
+        ptx.Append("    selp.u32 %r")
+            .Append(Invariant(accumulatorRegister))
+            .Append(", %r")
+            .Append(Invariant(valueRegister))
+            .Append(", %r")
+            .Append(Invariant(accumulatorRegister))
+            .AppendLine(", %p1;");
     }
 
     private static void AppendParameters(StringBuilder ptx, WarpLinearKernel kernel)

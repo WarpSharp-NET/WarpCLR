@@ -44,19 +44,51 @@ public sealed class WarpDevelopmentSession
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint>? scalarArguments = null)
     {
+        WarpLoadedEntry entry = GetEntry(entryIdentity);
+        if (entry.Kernel.Reduction.HasValue)
+        {
+            throw Error("WRPHOST1005", $"Entry point '{entryIdentity}' is not a map.");
+        }
+
+        ValidateArguments(entry, inputs, scalarArguments);
+        WarpBackendArtifact artifact = GetArtifact(entry);
+        return emulator.Execute(artifact, entry.Kernel, inputs, scalarArguments);
+    }
+
+    public uint DispatchUInt32Reduction(
+        string entryIdentity,
+        IReadOnlyList<uint[]> inputs,
+        IReadOnlyList<uint>? scalarArguments = null)
+    {
+        WarpLoadedEntry entry = GetEntry(entryIdentity);
+        if (!entry.Kernel.Reduction.HasValue)
+        {
+            throw Error("WRPHOST1005", $"Entry point '{entryIdentity}' is not a reduction.");
+        }
+
+        ValidateArguments(entry, inputs, scalarArguments);
+        WarpBackendArtifact artifact = GetArtifact(entry);
+        return emulator.ExecuteReduction(artifact, entry.Kernel, inputs, scalarArguments);
+    }
+
+    private WarpLoadedEntry GetEntry(string entryIdentity)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(entryIdentity);
-        ArgumentNullException.ThrowIfNull(inputs);
         if (!module.Entries.TryGetValue(entryIdentity, out WarpLoadedEntry? entry))
         {
             throw Error("WRPHOST1001", $"Entry point '{entryIdentity}' is not loaded.");
         }
 
-        ValidateArguments(entry, inputs, scalarArguments);
+        return entry;
+    }
+
+    private WarpBackendArtifact GetArtifact(WarpLoadedEntry entry)
+    {
         WarpLoadedArtifact loadedArtifact = entry.Artifacts[backend];
         var artifact = new WarpBackendArtifact(
             backend,
             loadedArtifact.Sidecar.Format,
-            WarpDeviceAbi.IntegerMapEntryPoint,
+            WarpDeviceAbi.GetEntryPoint(entry.Kernel),
             loadedArtifact.Content);
 
         if (!string.Equals(
@@ -67,7 +99,7 @@ public sealed class WarpDevelopmentSession
             throw Error("WRPHOST1000", "The selected module changed after package loading.");
         }
 
-        return emulator.Execute(artifact, entry.Kernel, inputs, scalarArguments);
+        return artifact;
     }
 
     private static void ValidateArguments(
@@ -75,6 +107,7 @@ public sealed class WarpDevelopmentSession
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint>? scalarArguments)
     {
+        ArgumentNullException.ThrowIfNull(inputs);
         if (inputs.Count != entry.InputBufferCount)
         {
             throw Error("WRPHOST1004", "The input buffer count does not match the entry point.");

@@ -18,7 +18,8 @@ public sealed class AotPackageRegressionTests
         {
             package.WriteToDirectory(directory);
             WarpPackagedArtifact artifact = package.Artifacts.Single(
-                candidate => candidate.Sidecar.Backend == backend);
+                candidate => candidate.Sidecar.Backend == backend &&
+                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
             string modulePath = Path.Combine(directory, artifact.ModulePath);
             byte[] module = File.ReadAllBytes(modulePath);
             module[0] ^= 0x01;
@@ -50,7 +51,8 @@ public sealed class AotPackageRegressionTests
         {
             package.WriteToDirectory(directory);
             WarpPackagedArtifact artifact = package.Artifacts.Single(
-                candidate => candidate.Sidecar.Backend == backend);
+                candidate => candidate.Sidecar.Backend == backend &&
+                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
             string sidecarPath = Path.Combine(directory, artifact.SidecarPath);
             byte[] sidecar = File.ReadAllBytes(sidecarPath);
             string changedHash = $"{(artifact.Sidecar.ModuleHash[0] == '0' ? '1' : '0')}" +

@@ -17,7 +17,8 @@ public sealed class WarpIntegerMapLowerer
             kernel.InputBufferCount,
             kernel.ScalarArgumentCount,
             instructions,
-            result);
+            result,
+            kernel.Reduction);
     }
 
     private static int LowerExpression(

@@ -15,7 +15,8 @@ public static class WarpCpuPlanCodec
         var plan = new StringBuilder();
         plan.Append(Header).Append('\n');
         plan.Append(WarpDeviceAbi.DevelopmentConformanceMarker).Append('\n');
-        plan.Append("entry=").Append(WarpDeviceAbi.IntegerMapEntryPoint).Append('\n');
+        plan.Append("entry=").Append(WarpDeviceAbi.GetEntryPoint(kernel)).Append('\n');
+        plan.Append("operation=").Append(GetOperationName(kernel.Reduction)).Append('\n');
 
         foreach (WarpIrInstruction instruction in kernel.Instructions)
         {
@@ -46,20 +47,30 @@ public static class WarpCpuPlanCodec
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         string text = new UTF8Encoding(false, true).GetString(content);
         string[] lines = text.Split('\n');
-        if (lines.Length < 5 || lines[^1].Length != 0)
+        if (lines.Length < 6 || lines[^1].Length != 0)
         {
             throw new InvalidDataException("The CPU plan does not have canonical line endings.");
         }
 
         if (!string.Equals(lines[0], Header, StringComparison.Ordinal) ||
             !string.Equals(lines[1], WarpDeviceAbi.DevelopmentConformanceMarker, StringComparison.Ordinal) ||
-            !string.Equals(lines[2], $"entry={WarpDeviceAbi.IntegerMapEntryPoint}", StringComparison.Ordinal))
+            !lines[2].StartsWith("entry=", StringComparison.Ordinal) ||
+            !lines[3].StartsWith("operation=", StringComparison.Ordinal))
         {
             throw new InvalidDataException("The CPU plan header is invalid.");
         }
 
-        var instructions = new List<WarpIrInstruction>(lines.Length - 4);
-        for (int lineIndex = 3; lineIndex < lines.Length - 2; lineIndex++)
+        WarpReductionOperation? reduction = ParseOperation(lines[3]["operation=".Length..]);
+        string entryPoint = reduction.HasValue
+            ? WarpDeviceAbi.IntegerReductionEntryPoint
+            : WarpDeviceAbi.IntegerMapEntryPoint;
+        if (!string.Equals(lines[2], $"entry={entryPoint}", StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("The CPU plan entry point does not match its operation.");
+        }
+
+        var instructions = new List<WarpIrInstruction>(lines.Length - 5);
+        for (int lineIndex = 4; lineIndex < lines.Length - 2; lineIndex++)
         {
             instructions.Add(ParseInstruction(lines[lineIndex]));
         }
@@ -81,7 +92,8 @@ public static class WarpCpuPlanCodec
             inputBufferCount,
             scalarArgumentCount,
             instructions,
-            result);
+            result,
+            reduction);
         if (!content.SequenceEqual(Serialize(kernel)))
         {
             throw new InvalidDataException("The CPU plan is not canonical.");
@@ -109,4 +121,22 @@ public static class WarpCpuPlanCodec
 
         return new WarpIrInstruction(result, opCode, left, right, immediate);
     }
+
+    private static string GetOperationName(WarpReductionOperation? reduction) => reduction switch
+    {
+        null => "map",
+        WarpReductionOperation.WrappingSum => "reduce-wrapping-sum",
+        WarpReductionOperation.Minimum => "reduce-minimum",
+        WarpReductionOperation.Maximum => "reduce-maximum",
+        _ => throw new ArgumentOutOfRangeException(nameof(reduction)),
+    };
+
+    private static WarpReductionOperation? ParseOperation(string value) => value switch
+    {
+        "map" => null,
+        "reduce-wrapping-sum" => WarpReductionOperation.WrappingSum,
+        "reduce-minimum" => WarpReductionOperation.Minimum,
+        "reduce-maximum" => WarpReductionOperation.Maximum,
+        _ => throw new InvalidDataException($"CPU plan operation '{value}' is not registered."),
+    };
 }

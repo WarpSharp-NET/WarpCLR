@@ -68,7 +68,7 @@ internal sealed class WarpCompiler
 
             if (!string.Equals(
                     artifact.EntryPoint,
-                    WarpDeviceAbi.IntegerMapEntryPoint,
+                    WarpDeviceAbi.GetEntryPoint(kernel),
                     StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(

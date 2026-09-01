@@ -115,7 +115,8 @@ public sealed class WarpModuleVerifier
                 inputBufferCount,
                 body.MaxStack,
                 localCount,
-                il));
+                il,
+                entry.Reduction));
 
         return new WarpVerifiedEntry(
             identity,

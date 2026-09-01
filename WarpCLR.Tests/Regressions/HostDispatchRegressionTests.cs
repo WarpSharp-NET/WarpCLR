@@ -7,7 +7,7 @@ namespace WarpCLR.Tests.Regressions;
 [TestClass]
 public sealed class HostDispatchRegressionTests
 {
-    private const string EntryIdentity = "WarpCLR.Tests.TestKernels.ManifestMap";
+    private const string EntryIdentity = ManifestAssemblyFixture.MapEntryIdentity;
 
     [TestMethod]
     [FourBackends]
@@ -21,7 +21,8 @@ public sealed class HostDispatchRegressionTests
         {
             package.WriteToDirectory(directory);
             WarpPackagedArtifact artifact = package.Artifacts.Single(
-                candidate => candidate.Sidecar.Backend == backend);
+                candidate => candidate.Sidecar.Backend == backend &&
+                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
             File.Delete(Path.Combine(directory, artifact.SidecarPath));
 
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
@@ -104,6 +105,90 @@ public sealed class HostDispatchRegressionTests
 
             Assert.AreEqual("WRPHOST1004", exception.Code);
             StringAssert.Contains(exception.Message, "input buffer count");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Map_dispatch_rejects_a_reduction_entry(WarpBackendKind backend)
+    {
+        WarpLoadedModule module = LoadModule(backend, out string directory);
+
+        try
+        {
+            var session = new WarpDevelopmentSession(
+                module,
+                backend,
+                WarpDevelopmentExecutionMode.SemanticEmulation);
+
+            WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
+                () => session.DispatchIntegerMap(
+                    ManifestAssemblyFixture.ReductionEntryIdentity,
+                    [new uint[] { 1u }],
+                    [2u]));
+
+            Assert.AreEqual("WRPHOST1005", exception.Code);
+            StringAssert.Contains(exception.Message, "not a map");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Reduction_dispatch_rejects_a_map_entry(WarpBackendKind backend)
+    {
+        WarpLoadedModule module = LoadModule(backend, out string directory);
+
+        try
+        {
+            var session = new WarpDevelopmentSession(
+                module,
+                backend,
+                WarpDevelopmentExecutionMode.SemanticEmulation);
+
+            WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
+                () => session.DispatchUInt32Reduction(
+                    EntryIdentity,
+                    [new uint[] { 1u }],
+                    [2u]));
+
+            Assert.AreEqual("WRPHOST1005", exception.Code);
+            StringAssert.Contains(exception.Message, "not a reduction");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Invalid_reduction_arguments_are_rejected_before_dispatch(WarpBackendKind backend)
+    {
+        WarpLoadedModule module = LoadModule(backend, out string directory);
+
+        try
+        {
+            var session = new WarpDevelopmentSession(
+                module,
+                backend,
+                WarpDevelopmentExecutionMode.SemanticEmulation);
+
+            WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
+                () => session.DispatchUInt32Reduction(
+                    ManifestAssemblyFixture.ReductionEntryIdentity,
+                    [new uint[] { 1u }],
+                    []));
+
+            Assert.AreEqual("WRPHOST1004", exception.Code);
+            StringAssert.Contains(exception.Message, "scalar argument count");
         }
         finally
         {

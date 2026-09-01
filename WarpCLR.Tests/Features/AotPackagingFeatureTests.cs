@@ -13,10 +13,11 @@ public sealed class AotPackagingFeatureTests
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(
             ManifestAssemblyFixture.ReadAssembly());
 
-        Assert.HasCount(4, package.Artifacts);
-        Assert.HasCount(8, package.Files);
+        Assert.HasCount(8, package.Artifacts);
+        Assert.HasCount(16, package.Files);
         WarpPackagedArtifact artifact = package.Artifacts.Single(
-            candidate => candidate.Sidecar.Backend == backend);
+            candidate => candidate.Sidecar.Backend == backend &&
+                candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
         Assert.AreEqual(WarpProfileCatalog.ProfileId, artifact.Sidecar.Profile);
         Assert.AreEqual(WarpDeviceAbi.Version, artifact.Sidecar.DeviceAbi);
         Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), artifact.Sidecar.Format);
@@ -27,6 +28,14 @@ public sealed class AotPackagingFeatureTests
         CollectionAssert.AreEqual(
             WarpArtifactSidecarCodec.Serialize(decoded),
             sidecarBytes.ToArray());
+
+        WarpPackagedArtifact reductionArtifact = package.Artifacts.Single(
+            candidate => candidate.Sidecar.Backend == backend &&
+                candidate.Sidecar.Entry == ManifestAssemblyFixture.ReductionEntryIdentity);
+        Assert.AreEqual(
+            ManifestAssemblyFixture.ReductionGraphHash,
+            reductionArtifact.Sidecar.GraphHash);
+        Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), reductionArtifact.Sidecar.Format);
     }
 
     [TestMethod]
@@ -39,9 +48,11 @@ public sealed class AotPackagingFeatureTests
         WarpAotPackage second = pipeline.CompilePackage(assembly);
 
         WarpPackagedArtifact firstArtifact = first.Artifacts.Single(
-            candidate => candidate.Sidecar.Backend == backend);
+            candidate => candidate.Sidecar.Backend == backend &&
+                candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
         WarpPackagedArtifact secondArtifact = second.Artifacts.Single(
-            candidate => candidate.Sidecar.Backend == backend);
+            candidate => candidate.Sidecar.Backend == backend &&
+                candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
         Assert.AreEqual(firstArtifact, secondArtifact);
         CollectionAssert.AreEqual(
             first.Files.Keys.ToArray(),
@@ -69,7 +80,8 @@ public sealed class AotPackagingFeatureTests
             package.ValidateDirectory(directory);
 
             WarpPackagedArtifact artifact = package.Artifacts.Single(
-                candidate => candidate.Sidecar.Backend == backend);
+                candidate => candidate.Sidecar.Backend == backend &&
+                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
             Assert.IsTrue(File.Exists(Path.Combine(directory, artifact.ModulePath)));
             Assert.IsTrue(File.Exists(Path.Combine(directory, artifact.SidecarPath)));
         }

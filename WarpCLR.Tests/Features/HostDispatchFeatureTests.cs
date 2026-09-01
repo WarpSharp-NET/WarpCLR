@@ -7,7 +7,7 @@ namespace WarpCLR.Tests.Features;
 [TestClass]
 public sealed class HostDispatchFeatureTests
 {
-    private const string EntryIdentity = "WarpCLR.Tests.TestKernels.ManifestMap";
+    private const string EntryIdentity = ManifestAssemblyFixture.MapEntryIdentity;
 
     [TestMethod]
     [FourBackends]
