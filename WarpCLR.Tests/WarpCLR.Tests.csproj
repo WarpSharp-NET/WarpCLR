@@ -1,4 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WarpCLR.Backend.Amd\WarpCLR.Backend.Amd.csproj" />
     <ProjectReference Include="..\WarpCLR.Backend.Cpu\WarpCLR.Backend.Cpu.csproj" />
@@ -6,6 +12,10 @@
     <ProjectReference Include="..\WarpCLR.Backend.Nvidia\WarpCLR.Backend.Nvidia.csproj" />
     <ProjectReference Include="..\WarpCLR.Compiler\WarpCLR.Compiler.csproj" />
     <ProjectReference Include="..\WarpCLR.IR\WarpCLR.IR.csproj" />
+    <ProjectReference Include="..\WarpCLR.Sdk\WarpCLR.Sdk.csproj" />
     <ProjectReference Include="..\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 </Project>
