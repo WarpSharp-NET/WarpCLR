@@ -17,6 +17,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         [
             WarpIrOpCode.LoadInput,
             WarpIrOpCode.LoadScalar,
+            WarpIrOpCode.LoadArgument,
             WarpIrOpCode.Constant,
             WarpIrOpCode.BitwiseNot,
             WarpIrOpCode.Add,
@@ -34,6 +35,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
             WarpIrOpCode.GreaterThanUnsigned,
             WarpIrOpCode.GreaterThanOrEqualUnsigned,
             WarpIrOpCode.Select,
+            WarpIrOpCode.Call,
         ],
         [
             WarpControlFlowOperation.BlockArguments,
@@ -61,6 +63,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         llvm.AppendLine();
         llvm.AppendLine("declare spir_func i64 @_Z13get_global_idj(i32) #1");
         llvm.AppendLine();
+        AppendFunctions(llvm, kernel);
         llvm.Append("define spir_kernel void @")
             .Append(WarpDeviceAbi.IntegerMapEntryPoint)
             .AppendLine("(");
@@ -108,6 +111,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         llvm.AppendLine();
         llvm.AppendLine("declare spir_func i64 @_Z13get_global_idj(i32) #1");
         llvm.AppendLine();
+        AppendFunctions(llvm, kernel);
         llvm.Append("define spir_kernel void @")
             .Append(WarpDeviceAbi.IntegerReductionEntryPoint)
             .AppendLine("(");
@@ -184,13 +188,49 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         }
     }
 
+    private static void AppendFunctions(
+        StringBuilder llvm,
+        WarpControlFlowKernel kernel)
+    {
+        foreach (WarpControlFlowFunction function in kernel.Functions)
+        {
+            llvm.Append("define internal spir_func i32 @warp_function_")
+                .Append(Invariant(function.Id))
+                .Append('(');
+            for (int argument = 0; argument < function.ParameterCount; argument++)
+            {
+                if (argument != 0)
+                {
+                    llvm.Append(", ");
+                }
+
+                llvm.Append("i32 %warp_arg_").Append(Invariant(argument));
+            }
+
+            llvm.AppendLine(") {\nentry:");
+            llvm.AppendLine("  br label %warp_block_0");
+            llvm.AppendLine();
+            AppendControlFlow(llvm, function.Blocks, indexValue: "0");
+            llvm.AppendLine("warp_kernel_return:");
+            AppendReturnPhi(llvm, function.Blocks);
+            llvm.AppendLine("  ret i32 %warp_kernel_result");
+            llvm.AppendLine("}");
+            llvm.AppendLine();
+        }
+    }
+
     private static void AppendControlFlow(
         StringBuilder llvm,
         WarpControlFlowKernel kernel,
+        string indexValue) => AppendControlFlow(llvm, kernel.Blocks, indexValue);
+
+    private static void AppendControlFlow(
+        StringBuilder llvm,
+        IReadOnlyList<WarpBasicBlock> blocks,
         string indexValue)
     {
-        IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> incoming = GetIncomingEdges(kernel);
-        foreach (WarpBasicBlock block in kernel.Blocks)
+        IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> incoming = GetIncomingEdges(blocks);
+        foreach (WarpBasicBlock block in blocks)
         {
             llvm.Append("warp_block_").Append(Invariant(block.Id)).AppendLine(":");
             for (int parameterIndex = 0; parameterIndex < block.Parameters.Count; parameterIndex++)
@@ -263,8 +303,13 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
     }
 
     private static void AppendReturnPhi(StringBuilder llvm, WarpControlFlowKernel kernel)
+        => AppendReturnPhi(llvm, kernel.Blocks);
+
+    private static void AppendReturnPhi(
+        StringBuilder llvm,
+        IReadOnlyList<WarpBasicBlock> blocks)
     {
-        WarpBasicBlock[] returns = kernel.Blocks
+        WarpBasicBlock[] returns = blocks
             .Where(block => block.Terminator is WarpReturnTerminator)
             .ToArray();
         llvm.Append("  %warp_kernel_result = phi i32 ");
@@ -287,12 +332,12 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
     }
 
     private static IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> GetIncomingEdges(
-        WarpControlFlowKernel kernel)
+        IReadOnlyList<WarpBasicBlock> blocks)
     {
-        var result = kernel.Blocks.ToDictionary(
+        var result = blocks.ToDictionary(
             block => block.Id,
             _ => new List<IncomingEdge>());
-        foreach (WarpBasicBlock source in kernel.Blocks)
+        foreach (WarpBasicBlock source in blocks)
         {
             switch (source.Terminator)
             {
@@ -344,6 +389,14 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
                 llvm.Append("  ")
                     .Append(result)
                     .Append(" = add i32 0, %warp_scalar_")
+                    .Append(Invariant(instruction.Immediate))
+                    .AppendLine();
+                break;
+
+            case WarpIrOpCode.LoadArgument:
+                llvm.Append("  ")
+                    .Append(result)
+                    .Append(" = add i32 0, %warp_arg_")
                     .Append(Invariant(instruction.Immediate))
                     .AppendLine();
                 break;
@@ -425,8 +478,33 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
                     third);
                 break;
 
+            case WarpIrOpCode.Call:
+                llvm.Append("  ")
+                    .Append(result)
+                    .Append(" = call spir_func i32 @warp_function_")
+                    .Append(Invariant(instruction.Callee))
+                    .Append('(');
+                AppendCallArguments(llvm, instruction);
+                llvm.AppendLine(")");
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(instruction));
+        }
+    }
+
+    private static void AppendCallArguments(
+        StringBuilder llvm,
+        WarpIrInstruction instruction)
+    {
+        for (int index = 0; index < instruction.Arguments.Count; index++)
+        {
+            if (index != 0)
+            {
+                llvm.Append(", ");
+            }
+
+            llvm.Append("i32 ").Append(Value(instruction.Arguments[index]));
         }
     }
 

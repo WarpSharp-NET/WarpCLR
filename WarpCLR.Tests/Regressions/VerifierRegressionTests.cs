@@ -21,12 +21,27 @@ public sealed class VerifierRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Calls_are_rejected_for_every_target(WarpBackendKind backend)
+    public void Recursive_calls_are_rejected_until_the_portable_stack_exists(
+        WarpBackendKind backend)
     {
-        WarpVerificationException exception = CompileRejected(nameof(TestKernels.Call), 1, backend);
+        WarpVerificationException exception = CompileRejected(nameof(TestKernels.Recursive), 1, backend);
 
-        Assert.AreEqual("WRPCIL1001", exception.Code);
-        StringAssert.Contains(exception.Message, "call");
+        Assert.AreEqual("WRPCIL1014", exception.Code);
+        StringAssert.Contains(exception.Message, "portable logical stack");
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Calls_outside_the_closed_module_are_rejected_for_every_target(
+        WarpBackendKind backend)
+    {
+        WarpVerificationException exception = CompileRejected(
+            nameof(TestKernels.ExternalCall),
+            1,
+            backend);
+
+        Assert.AreEqual("WRPCIL1013", exception.Code);
+        StringAssert.Contains(exception.Message, "closed module");
     }
 
     [TestMethod]

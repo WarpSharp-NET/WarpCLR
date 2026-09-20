@@ -11,6 +11,7 @@ public enum WarpProfileFeature
     ConditionalControlFlow,
     ControlFlowGraph,
     BackwardControlFlow,
+    ClosedWorldStaticCalls,
     DeterministicAotPackaging,
     ExplicitHostDispatch,
     ExactUnsignedReductions,
@@ -35,11 +36,13 @@ public static class WarpCapabilityCatalog
     public const string Buffers = "warp.core.buffers/0.1";
 
     public const string ControlFlow = "warp.core.control-flow/0.2";
+
+    public const string Calls = "warp.core.calls/0.1";
 }
 
 public static class WarpProfileCatalog
 {
-    public const string ProfileId = "warpclr.profile/0.2";
+    public const string ProfileId = "warpclr.profile/0.3";
 
     private static readonly ReadOnlyCollection<WarpFeatureDescriptor> FeatureDescriptors =
         Array.AsReadOnly<WarpFeatureDescriptor>(
@@ -51,6 +54,7 @@ public static class WarpProfileCatalog
             new(WarpProfileFeature.ConditionalControlFlow, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.ControlFlowGraph, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.BackwardControlFlow, WarpFeatureLayer.WarpCil),
+            new(WarpProfileFeature.ClosedWorldStaticCalls, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.DeterministicAotPackaging, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExplicitHostDispatch, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExactUnsignedReductions, WarpFeatureLayer.WarpCil),
@@ -63,6 +67,7 @@ public static class WarpProfileCatalog
             WarpCapabilityCatalog.Parallel,
             WarpCapabilityCatalog.Buffers,
             WarpCapabilityCatalog.ControlFlow,
+            WarpCapabilityCatalog.Calls,
         ]);
 
     private static readonly ReadOnlyCollection<WarpIrOpCode> IntegerMapInstructionSet =
@@ -70,6 +75,7 @@ public static class WarpProfileCatalog
         [
             WarpIrOpCode.LoadInput,
             WarpIrOpCode.LoadScalar,
+            WarpIrOpCode.LoadArgument,
             WarpIrOpCode.Constant,
             WarpIrOpCode.BitwiseNot,
             WarpIrOpCode.Add,
@@ -87,6 +93,7 @@ public static class WarpProfileCatalog
             WarpIrOpCode.GreaterThanUnsigned,
             WarpIrOpCode.GreaterThanOrEqualUnsigned,
             WarpIrOpCode.Select,
+            WarpIrOpCode.Call,
         ]);
 
     private static readonly ReadOnlyCollection<WarpControlFlowOperation> ControlFlowOperations =

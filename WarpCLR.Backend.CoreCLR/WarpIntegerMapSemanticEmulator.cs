@@ -125,14 +125,29 @@ public sealed class WarpIntegerMapSemanticEmulator
     private static uint Evaluate(
         WarpControlFlowKernel kernel,
         IReadOnlyList<uint> inputs,
-        IReadOnlyList<uint> scalarArguments)
+        IReadOnlyList<uint> scalarArguments) =>
+        EvaluateBody(
+            kernel,
+            kernel.Blocks,
+            kernel.ValueCount,
+            inputs,
+            scalarArguments,
+            Array.Empty<uint>());
+
+    private static uint EvaluateBody(
+        WarpControlFlowKernel kernel,
+        IReadOnlyList<WarpBasicBlock> blocks,
+        int valueCount,
+        IReadOnlyList<uint> inputs,
+        IReadOnlyList<uint> scalarArguments,
+        IReadOnlyList<uint> functionArguments)
     {
-        var values = new uint[kernel.ValueCount];
+        var values = new uint[valueCount];
 
         int blockId = 0;
         while (true)
         {
-            WarpBasicBlock block = kernel.Blocks[blockId];
+            WarpBasicBlock block = blocks[blockId];
             foreach (WarpIrInstruction instruction in block.Instructions)
             {
                 uint left = instruction.Left < 0 ? 0 : values[instruction.Left];
@@ -143,6 +158,7 @@ public sealed class WarpIntegerMapSemanticEmulator
                 {
                     WarpIrOpCode.LoadInput => inputs[checked((int)instruction.Immediate)],
                     WarpIrOpCode.LoadScalar => scalarArguments[checked((int)instruction.Immediate)],
+                    WarpIrOpCode.LoadArgument => functionArguments[checked((int)instruction.Immediate)],
                     WarpIrOpCode.Constant => instruction.Immediate,
                     WarpIrOpCode.BitwiseNot => ~left,
                     WarpIrOpCode.Add => unchecked(left + right),
@@ -160,6 +176,7 @@ public sealed class WarpIntegerMapSemanticEmulator
                     WarpIrOpCode.GreaterThanUnsigned => left > right ? 1u : 0u,
                     WarpIrOpCode.GreaterThanOrEqualUnsigned => left >= right ? 1u : 0u,
                     WarpIrOpCode.Select => left != 0 ? right : third,
+                    WarpIrOpCode.Call => EvaluateFunction(kernel, instruction, values),
                     _ => throw new InvalidOperationException(
                         "The semantic emulator received an unregistered opcode."),
                 };
@@ -168,7 +185,7 @@ public sealed class WarpIntegerMapSemanticEmulator
             switch (block.Terminator)
             {
                 case WarpBranchTerminator branch:
-                    AssignParameters(kernel, values, branch.Target);
+                    AssignParameters(blocks, values, branch.Target);
                     blockId = branch.Target.Block;
                     break;
 
@@ -176,7 +193,7 @@ public sealed class WarpIntegerMapSemanticEmulator
                     WarpBranchTarget target = values[conditional.Condition] != 0
                         ? conditional.WhenNonZero
                         : conditional.WhenZero;
-                    AssignParameters(kernel, values, target);
+                    AssignParameters(blocks, values, target);
                     blockId = target.Block;
                     break;
 
@@ -190,12 +207,33 @@ public sealed class WarpIntegerMapSemanticEmulator
         }
     }
 
-    private static void AssignParameters(
+    private static uint EvaluateFunction(
         WarpControlFlowKernel kernel,
+        WarpIrInstruction instruction,
+        IReadOnlyList<uint> callerValues)
+    {
+        WarpControlFlowFunction function = kernel.Functions[instruction.Callee];
+        var arguments = new uint[instruction.Arguments.Count];
+        for (int index = 0; index < arguments.Length; index++)
+        {
+            arguments[index] = callerValues[instruction.Arguments[index]];
+        }
+
+        return EvaluateBody(
+            kernel,
+            function.Blocks,
+            function.ValueCount,
+            Array.Empty<uint>(),
+            Array.Empty<uint>(),
+            arguments);
+    }
+
+    private static void AssignParameters(
+        IReadOnlyList<WarpBasicBlock> blocks,
         uint[] values,
         WarpBranchTarget target)
     {
-        WarpBasicBlock destination = kernel.Blocks[target.Block];
+        WarpBasicBlock destination = blocks[target.Block];
         var arguments = new uint[target.Arguments.Count];
         for (int index = 0; index < arguments.Length; index++)
         {

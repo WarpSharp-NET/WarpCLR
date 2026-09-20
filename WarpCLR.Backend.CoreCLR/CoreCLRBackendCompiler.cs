@@ -26,6 +26,7 @@ public sealed class CoreCLRBackendCompiler : IWarpBackendCompiler
         [
             WarpIrOpCode.LoadInput,
             WarpIrOpCode.LoadScalar,
+            WarpIrOpCode.LoadArgument,
             WarpIrOpCode.Constant,
             WarpIrOpCode.BitwiseNot,
             WarpIrOpCode.Add,
@@ -43,6 +44,7 @@ public sealed class CoreCLRBackendCompiler : IWarpBackendCompiler
             WarpIrOpCode.GreaterThanUnsigned,
             WarpIrOpCode.GreaterThanOrEqualUnsigned,
             WarpIrOpCode.Select,
+            WarpIrOpCode.Call,
         ],
         [
             WarpControlFlowOperation.BlockArguments,

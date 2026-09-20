@@ -9,10 +9,10 @@ internal static class ManifestAssemblyFixture
     public const string ReductionEntryIdentity = "WarpCLR.Tests.TestKernels.ManifestReduction";
 
     public const string MapGraphHash =
-        "73EA6961D7383318BED4980E9B8EC8489C4322FC765E251A05001A5C08B9FDA0";
+        "9EE270B20F8DDB67E0134A1821813152B45B22261C303F5E8EA94D03D7385658";
 
     public const string ReductionGraphHash =
-        "A84B49A435675B1CE2FC775B9E5495C50E436AF4AFBDB507D3521A4582873CF2";
+        "350CCE4D1001CECC70247AE0367F4E5711499C21BB83B84D39FE2097A8947CC4";
 
     public static byte[] ReadAssembly() => File.ReadAllBytes(typeof(TestKernels).Assembly.Location);
 

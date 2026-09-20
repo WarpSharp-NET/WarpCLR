@@ -6,7 +6,7 @@ namespace WarpCLR.Backend.CoreCLR;
 
 public static class WarpCoreCLRPlanCodec
 {
-    private const string Header = "warp.coreclr.cfg/0.3";
+    private const string Header = "warp.coreclr.cfg/0.4";
 
     public static byte[] Serialize(WarpControlFlowKernel kernel)
     {
@@ -17,9 +17,33 @@ public static class WarpCoreCLRPlanCodec
         plan.Append(WarpDeviceAbi.DevelopmentConformanceMarker).Append('\n');
         plan.Append("entry=").Append(WarpDeviceAbi.GetEntryPoint(kernel)).Append('\n');
         plan.Append("operation=").Append(GetOperationName(kernel.Reduction)).Append('\n');
-        plan.Append("blocks=").Append(Invariant(kernel.Blocks.Count)).Append('\n');
+        plan.Append("functions=").Append(Invariant(kernel.Functions.Count)).Append('\n');
 
-        foreach (WarpBasicBlock block in kernel.Blocks)
+        foreach (WarpControlFlowFunction function in kernel.Functions)
+        {
+            plan.Append("function=")
+                .Append(Invariant(function.Id))
+                .Append(',')
+                .Append(Invariant(function.ParameterCount))
+                .Append(',')
+                .Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(function.Name)))
+                .Append('\n');
+            AppendBody(plan, function.Blocks);
+            plan.Append("endfunction\n");
+        }
+
+        AppendBody(plan, kernel.Blocks);
+
+        return Encoding.UTF8.GetBytes(plan.ToString());
+    }
+
+    private static void AppendBody(
+        StringBuilder plan,
+        IReadOnlyList<WarpBasicBlock> blocks)
+    {
+        plan.Append("blocks=").Append(Invariant(blocks.Count)).Append('\n');
+
+        foreach (WarpBasicBlock block in blocks)
         {
             plan.Append("block=").Append(Invariant(block.Id)).Append('\n');
             foreach (WarpBlockParameter parameter in block.Parameters)
@@ -47,14 +71,17 @@ public static class WarpCoreCLRPlanCodec
                     .Append(Invariant(instruction.Immediate))
                     .Append(',')
                     .Append(Invariant(instruction.Third))
+                    .Append(',')
+                    .Append(Invariant(instruction.Callee))
+                    .Append(',');
+                AppendList(plan, instruction.Arguments);
+                plan
                     .Append('\n');
             }
 
             AppendTerminator(plan, block.Terminator);
             plan.Append("endblock\n");
         }
-
-        return Encoding.UTF8.GetBytes(plan.ToString());
     }
 
     public static WarpControlFlowKernel Deserialize(
@@ -66,7 +93,7 @@ public static class WarpCoreCLRPlanCodec
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         string text = new UTF8Encoding(false, true).GetString(content);
         string[] lines = text.Split('\n');
-        if (lines.Length < 8 || lines[^1].Length != 0)
+        if (lines.Length < 9 || lines[^1].Length != 0)
         {
             throw new InvalidDataException("The CoreCLR plan does not have canonical line endings.");
         }
@@ -75,8 +102,8 @@ public static class WarpCoreCLRPlanCodec
             !string.Equals(lines[1], WarpDeviceAbi.DevelopmentConformanceMarker, StringComparison.Ordinal) ||
             !lines[2].StartsWith("entry=", StringComparison.Ordinal) ||
             !lines[3].StartsWith("operation=", StringComparison.Ordinal) ||
-            !TryParsePrefixedInt(lines[4], "blocks=", out int blockCount) ||
-            blockCount <= 0)
+            !TryParsePrefixedInt(lines[4], "functions=", out int functionCount) ||
+            functionCount < 0)
         {
             throw new InvalidDataException("The CoreCLR plan header is invalid.");
         }
@@ -91,45 +118,37 @@ public static class WarpCoreCLRPlanCodec
         }
 
         int lineIndex = 5;
-        var blocks = new List<WarpBasicBlock>(blockCount);
-        for (int expectedBlock = 0; expectedBlock < blockCount; expectedBlock++)
+        var functions = new List<WarpControlFlowFunction>(functionCount);
+        for (int expectedFunction = 0; expectedFunction < functionCount; expectedFunction++)
         {
+            if (lineIndex >= lines.Length - 1)
+            {
+                throw new InvalidDataException("The CoreCLR plan function sequence is incomplete.");
+            }
+
+            (int functionId, int parameterCount, string functionName) =
+                ParseFunction(lines[lineIndex++]);
+            if (functionId != expectedFunction)
+            {
+                throw new InvalidDataException("The CoreCLR plan function sequence is invalid.");
+            }
+
+            IReadOnlyList<WarpBasicBlock> functionBlocks = ParseBody(lines, ref lineIndex);
             if (lineIndex >= lines.Length - 1 ||
-                !TryParsePrefixedInt(lines[lineIndex++], "block=", out int blockId) ||
-                blockId != expectedBlock)
+                !string.Equals(lines[lineIndex++], "endfunction", StringComparison.Ordinal))
             {
-                throw new InvalidDataException("The CoreCLR plan block sequence is invalid.");
+                throw new InvalidDataException("The CoreCLR plan function ending is invalid.");
             }
 
-            var parameters = new List<WarpBlockParameter>();
-            while (lineIndex < lines.Length - 1 &&
-                   lines[lineIndex].StartsWith("parameter=", StringComparison.Ordinal))
-            {
-                parameters.Add(ParseParameter(lines[lineIndex++]));
-            }
-
-            var instructions = new List<WarpIrInstruction>();
-            while (lineIndex < lines.Length - 1 &&
-                   lines[lineIndex].StartsWith("instruction=", StringComparison.Ordinal))
-            {
-                instructions.Add(ParseInstruction(lines[lineIndex++]));
-            }
-
-            if (lineIndex >= lines.Length - 1 ||
-                !lines[lineIndex].StartsWith("terminator=", StringComparison.Ordinal))
-            {
-                throw new InvalidDataException("The CoreCLR plan block terminator is missing.");
-            }
-
-            WarpBlockTerminator terminator = ParseTerminator(lines[lineIndex++]);
-            if (lineIndex >= lines.Length - 1 ||
-                !string.Equals(lines[lineIndex++], "endblock", StringComparison.Ordinal))
-            {
-                throw new InvalidDataException("The CoreCLR plan block ending is invalid.");
-            }
-
-            blocks.Add(new WarpBasicBlock(blockId, parameters, instructions, terminator));
+            functions.Add(
+                new WarpControlFlowFunction(
+                    functionId,
+                    functionName,
+                    parameterCount,
+                    functionBlocks));
         }
+
+        IReadOnlyList<WarpBasicBlock> blocks = ParseBody(lines, ref lineIndex);
 
         if (lineIndex != lines.Length - 1)
         {
@@ -141,13 +160,97 @@ public static class WarpCoreCLRPlanCodec
             inputBufferCount,
             scalarArgumentCount,
             blocks,
-            reduction);
+            reduction,
+            functions);
         if (!content.SequenceEqual(Serialize(kernel)))
         {
             throw new InvalidDataException("The CoreCLR plan is not canonical.");
         }
 
         return kernel;
+    }
+
+    private static IReadOnlyList<WarpBasicBlock> ParseBody(
+        IReadOnlyList<string> lines,
+        ref int lineIndex)
+    {
+        if (lineIndex >= lines.Count - 1 ||
+            !TryParsePrefixedInt(lines[lineIndex++], "blocks=", out int blockCount) ||
+            blockCount <= 0)
+        {
+            throw new InvalidDataException("The CoreCLR plan body header is invalid.");
+        }
+
+        var blocks = new List<WarpBasicBlock>(blockCount);
+        for (int expectedBlock = 0; expectedBlock < blockCount; expectedBlock++)
+        {
+            if (lineIndex >= lines.Count - 1 ||
+                !TryParsePrefixedInt(lines[lineIndex++], "block=", out int blockId) ||
+                blockId != expectedBlock)
+            {
+                throw new InvalidDataException("The CoreCLR plan block sequence is invalid.");
+            }
+
+            var parameters = new List<WarpBlockParameter>();
+            while (lineIndex < lines.Count - 1 &&
+                   lines[lineIndex].StartsWith("parameter=", StringComparison.Ordinal))
+            {
+                parameters.Add(ParseParameter(lines[lineIndex++]));
+            }
+
+            var instructions = new List<WarpIrInstruction>();
+            while (lineIndex < lines.Count - 1 &&
+                   lines[lineIndex].StartsWith("instruction=", StringComparison.Ordinal))
+            {
+                instructions.Add(ParseInstruction(lines[lineIndex++]));
+            }
+
+            if (lineIndex >= lines.Count - 1 ||
+                !lines[lineIndex].StartsWith("terminator=", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("The CoreCLR plan block terminator is missing.");
+            }
+
+            WarpBlockTerminator terminator = ParseTerminator(lines[lineIndex++]);
+            if (lineIndex >= lines.Count - 1 ||
+                !string.Equals(lines[lineIndex++], "endblock", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("The CoreCLR plan block ending is invalid.");
+            }
+
+            blocks.Add(new WarpBasicBlock(blockId, parameters, instructions, terminator));
+        }
+
+        return blocks;
+    }
+
+    private static (int Id, int ParameterCount, string Name) ParseFunction(string line)
+    {
+        string[] fields = line.StartsWith("function=", StringComparison.Ordinal)
+            ? line["function=".Length..].Split(',')
+            : [];
+        if (fields.Length != 3 ||
+            !TryParseInt(fields[0], out int id) || id < 0 ||
+            !TryParseInt(fields[1], out int parameterCount) || parameterCount < 0)
+        {
+            throw new InvalidDataException("The CoreCLR plan contains an invalid function header.");
+        }
+
+        try
+        {
+            string name = new UTF8Encoding(false, true).GetString(Convert.FromBase64String(fields[2]));
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new InvalidDataException("The CoreCLR plan function name is empty.");
+            }
+
+            return (id, parameterCount, name);
+        }
+        catch (Exception exception) when (
+            exception is FormatException or DecoderFallbackException)
+        {
+            throw new InvalidDataException("The CoreCLR plan function name is invalid.", exception);
+        }
     }
 
     private static void AppendTerminator(StringBuilder plan, WarpBlockTerminator terminator)
@@ -217,7 +320,7 @@ public static class WarpCoreCLRPlanCodec
     private static WarpIrInstruction ParseInstruction(string line)
     {
         string[] fields = line["instruction=".Length..].Split(',');
-        if (fields.Length != 7 ||
+        if (fields.Length != 9 ||
             !TryParseInt(fields[0], out int result) ||
             !Enum.TryParse(fields[1], ignoreCase: false, out WarpIrValueType resultType) ||
             !Enum.IsDefined(resultType) ||
@@ -226,12 +329,23 @@ public static class WarpCoreCLRPlanCodec
             !TryParseInt(fields[3], out int left) ||
             !TryParseInt(fields[4], out int right) ||
             !uint.TryParse(fields[5], NumberStyles.None, CultureInfo.InvariantCulture, out uint immediate) ||
-            !TryParseInt(fields[6], out int third))
+            !TryParseInt(fields[6], out int third) ||
+            !TryParseInt(fields[7], out int callee))
         {
             throw new InvalidDataException("The CoreCLR plan contains an invalid instruction.");
         }
 
-        return new WarpIrInstruction(result, opCode, left, right, immediate, third, resultType);
+        int[] arguments = ParseList(fields[8]);
+        return new WarpIrInstruction(
+            result,
+            opCode,
+            left,
+            right,
+            immediate,
+            third,
+            resultType,
+            callee,
+            arguments);
     }
 
     private static WarpBlockTerminator ParseTerminator(string line)
@@ -259,11 +373,32 @@ public static class WarpCoreCLRPlanCodec
             throw new InvalidDataException("The CoreCLR plan contains an invalid branch target.");
         }
 
-        int[] arguments = argumentText == "-"
-            ? []
-            : argumentText.Split(';').Select(ParseRequiredInt).ToArray();
+        int[] arguments = ParseList(argumentText);
         return new WarpBranchTarget(block, arguments);
     }
+
+    private static void AppendList(StringBuilder plan, IReadOnlyList<int> values)
+    {
+        if (values.Count == 0)
+        {
+            plan.Append('-');
+            return;
+        }
+
+        for (int index = 0; index < values.Count; index++)
+        {
+            if (index != 0)
+            {
+                plan.Append(';');
+            }
+
+            plan.Append(Invariant(values[index]));
+        }
+    }
+
+    private static int[] ParseList(string value) => value == "-"
+        ? []
+        : value.Split(';').Select(ParseRequiredInt).ToArray();
 
     private static int ParseRequiredInt(string value) => TryParseInt(value, out int result)
         ? result

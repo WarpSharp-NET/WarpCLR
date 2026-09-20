@@ -134,6 +134,39 @@ public sealed class IntegerMapFeatureTests
         CollectionAssert.AreEqual(expected, actual);
     }
 
+    [TestMethod]
+    [FourBackends]
+    public void Closed_world_static_call_graphs_have_exact_results(
+        WarpBackendKind backend)
+    {
+        MethodInfo method = GetKernel(nameof(TestKernels.Call));
+        WarpIntegerMapKernel verified = new WarpIntegerMapVerifier().Verify(
+            new WarpIntegerMapRequest(method, 1));
+
+        Assert.HasCount(4, verified.ControlFlow.Functions);
+        Assert.IsTrue(
+            verified.ControlFlow.Instructions.Any(
+                instruction => instruction.OpCode == WarpIrOpCode.Call));
+        Assert.IsTrue(
+            verified.ControlFlow.Functions.Any(
+                function => function.Instructions.Any(
+                    instruction => instruction.OpCode == WarpIrOpCode.Call)));
+        Assert.IsTrue(
+            verified.ControlFlow.Functions
+                .SelectMany(function => function.Blocks)
+                .Any(HasBackEdge));
+
+        uint[] input = [0u, 1u, 7u, 8u, uint.MaxValue, 0x80000000u];
+        uint[] expected = input.Select(TestKernels.Call).ToArray();
+        uint[] actual = KernelTestHarness.CompileAndEmulate(
+            method,
+            1,
+            backend,
+            [input]);
+
+        CollectionAssert.AreEqual(expected, actual);
+    }
+
     private static bool HasBackEdge(WarpBasicBlock block) => block.Terminator switch
     {
         WarpBranchTerminator branch => branch.Target.Block <= block.Id,

@@ -22,7 +22,7 @@ internal static class BackendArtifactAssertions
         switch (backend)
         {
             case WarpBackendKind.CoreCLR:
-                StringAssert.Contains(text, "warp.coreclr.cfg/0.3");
+                StringAssert.Contains(text, "warp.coreclr.cfg/0.4");
                 StringAssert.Contains(text, $"entry={WarpDeviceAbi.GetEntryPoint(kernel)}");
                 break;
 
@@ -53,6 +53,24 @@ internal static class BackendArtifactAssertions
         foreach (WarpIrInstruction instruction in kernel.Instructions)
         {
             StringAssert.Contains(text, GetInstructionMarker(backend, instruction));
+        }
+
+        foreach (WarpControlFlowFunction function in kernel.Functions)
+        {
+            string functionMarker = backend switch
+            {
+                WarpBackendKind.CoreCLR => $"function={function.Id},{function.ParameterCount},",
+                WarpBackendKind.NVPTX => $".func (.param .b32 warp_function_{function.Id}_result) warp_function_{function.Id}",
+                WarpBackendKind.AMDGPU => $"define internal i32 @warp_function_{function.Id}",
+                WarpBackendKind.SPIRV => $"define internal spir_func i32 @warp_function_{function.Id}",
+                _ => throw new ArgumentOutOfRangeException(nameof(backend)),
+            };
+            StringAssert.Contains(text, functionMarker);
+
+            foreach (WarpIrInstruction instruction in function.Instructions)
+            {
+                StringAssert.Contains(text, GetInstructionMarker(backend, instruction));
+            }
         }
 
         foreach (WarpBasicBlock block in kernel.Blocks)
@@ -120,7 +138,25 @@ internal static class BackendArtifactAssertions
 
     private static string GetInstructionMarker(
         WarpBackendKind backend,
-        WarpIrInstruction instruction) => backend switch
+        WarpIrInstruction instruction)
+    {
+        if (instruction.OpCode == WarpIrOpCode.Call)
+        {
+            return backend switch
+            {
+                WarpBackendKind.CoreCLR =>
+                    $"instruction={instruction.Result},{instruction.ResultType},Call,",
+                WarpBackendKind.NVPTX =>
+                    $"ld.param.u32 %r{instruction.Result + 5}, [warp_call_result]",
+                WarpBackendKind.AMDGPU =>
+                    $"%warp_v{instruction.Result} = call i32 @warp_function_{instruction.Callee}",
+                WarpBackendKind.SPIRV =>
+                    $"%warp_v{instruction.Result} = call spir_func i32 @warp_function_{instruction.Callee}",
+                _ => throw new ArgumentOutOfRangeException(nameof(backend)),
+            };
+        }
+
+        return backend switch
         {
             WarpBackendKind.CoreCLR =>
                 $"instruction={instruction.Result},{instruction.ResultType},{instruction.OpCode},",
@@ -128,6 +164,7 @@ internal static class BackendArtifactAssertions
             WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV => GetLlvmMarker(instruction),
             _ => throw new ArgumentOutOfRangeException(nameof(backend), backend, "The backend is not registered."),
         };
+    }
 
     private static string GetNVPTXMarker(WarpIrInstruction instruction)
     {
@@ -136,6 +173,7 @@ internal static class BackendArtifactAssertions
         {
             WarpIrOpCode.LoadInput => "ld.global.u32",
             WarpIrOpCode.LoadScalar => "ld.param.u32",
+            WarpIrOpCode.LoadArgument => "ld.param.u32",
             WarpIrOpCode.Constant => "mov.u32",
             WarpIrOpCode.BitwiseNot => "not.b32",
             WarpIrOpCode.Add => "add.u32",
@@ -181,6 +219,7 @@ internal static class BackendArtifactAssertions
         {
             WarpIrOpCode.LoadInput => "load",
             WarpIrOpCode.LoadScalar => "add",
+            WarpIrOpCode.LoadArgument => "add",
             WarpIrOpCode.Constant => "add",
             WarpIrOpCode.BitwiseNot => "xor",
             WarpIrOpCode.Add => "add",

@@ -16,9 +16,26 @@ public static class WarpIrHash
         AppendInt32(hash, kernel.InputBufferCount);
         AppendInt32(hash, kernel.ScalarArgumentCount);
         AppendInt32(hash, kernel.Reduction.HasValue ? (int)kernel.Reduction.Value : -1);
-        AppendInt32(hash, kernel.Blocks.Count);
+        AppendBody(hash, kernel.Blocks);
+        AppendInt32(hash, kernel.Functions.Count);
+        foreach (WarpControlFlowFunction function in kernel.Functions)
+        {
+            AppendInt32(hash, function.Id);
+            AppendString(hash, function.Name);
+            AppendInt32(hash, function.ParameterCount);
+            AppendBody(hash, function.Blocks);
+        }
 
-        foreach (WarpBasicBlock block in kernel.Blocks)
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    private static void AppendBody(
+        IncrementalHash hash,
+        IReadOnlyList<WarpBasicBlock> blocks)
+    {
+        AppendInt32(hash, blocks.Count);
+
+        foreach (WarpBasicBlock block in blocks)
         {
             AppendInt32(hash, block.Id);
             AppendInt32(hash, block.Parameters.Count);
@@ -38,12 +55,17 @@ public static class WarpIrHash
                 AppendInt32(hash, instruction.Right);
                 AppendUInt32(hash, instruction.Immediate);
                 AppendInt32(hash, instruction.Third);
+                AppendInt32(hash, instruction.Callee);
+                AppendInt32(hash, instruction.Arguments.Count);
+                foreach (int argument in instruction.Arguments)
+                {
+                    AppendInt32(hash, argument);
+                }
             }
 
             AppendTerminator(hash, block.Terminator);
         }
 
-        return Convert.ToHexString(hash.GetHashAndReset());
     }
 
     private static void AppendTerminator(IncrementalHash hash, WarpBlockTerminator terminator)

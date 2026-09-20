@@ -11,6 +11,7 @@ public enum WarpIrOpCode
 {
     LoadInput,
     LoadScalar,
+    LoadArgument,
     Constant,
     BitwiseNot,
     Add,
@@ -28,6 +29,7 @@ public enum WarpIrOpCode
     GreaterThanUnsigned,
     GreaterThanOrEqualUnsigned,
     Select,
+    Call,
 }
 
 public enum WarpControlFlowOperation
@@ -44,6 +46,8 @@ public readonly record struct WarpBlockParameter(
 
 public readonly record struct WarpIrInstruction
 {
+    private readonly ReadOnlyCollection<int>? arguments;
+
     public WarpIrInstruction(
         int result,
         WarpIrOpCode opCode,
@@ -51,7 +55,9 @@ public readonly record struct WarpIrInstruction
         int right = -1,
         uint immediate = 0,
         int third = -1,
-        WarpIrValueType resultType = WarpIrValueType.UInt32)
+        WarpIrValueType resultType = WarpIrValueType.UInt32,
+        int callee = -1,
+        IEnumerable<int>? arguments = null)
     {
         Result = result;
         ResultType = resultType;
@@ -60,6 +66,8 @@ public readonly record struct WarpIrInstruction
         Right = right;
         Immediate = immediate;
         Third = third;
+        Callee = callee;
+        this.arguments = Array.AsReadOnly(arguments?.ToArray() ?? []);
     }
 
     public int Result { get; }
@@ -75,6 +83,12 @@ public readonly record struct WarpIrInstruction
     public uint Immediate { get; }
 
     public int Third { get; }
+
+    public int Callee { get; }
+
+    public IReadOnlyList<int> Arguments => arguments is null
+        ? Array.Empty<int>()
+        : arguments;
 }
 
 public sealed class WarpBranchTarget
@@ -175,6 +189,46 @@ public sealed class WarpBasicBlock
     public WarpBlockTerminator Terminator { get; }
 }
 
+public sealed class WarpControlFlowFunction
+{
+    public WarpControlFlowFunction(
+        int id,
+        string name,
+        int parameterCount,
+        IEnumerable<WarpBasicBlock> blocks)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentOutOfRangeException.ThrowIfNegative(parameterCount);
+        ArgumentNullException.ThrowIfNull(blocks);
+
+        WarpBasicBlock[] blockArray = blocks.ToArray();
+        WarpControlFlowKernel.ValidateBodyShape(blockArray, nameof(blocks));
+        Dictionary<int, WarpIrValueType> valueTypes =
+            WarpControlFlowKernel.CollectBodyDefinitions(blockArray);
+        WarpControlFlowKernel.ValidateBodyValues(valueTypes);
+
+        Id = id;
+        Name = name;
+        ParameterCount = parameterCount;
+        Blocks = Array.AsReadOnly(blockArray);
+        Instructions = Array.AsReadOnly(blockArray.SelectMany(block => block.Instructions).ToArray());
+        ValueCount = valueTypes.Count;
+    }
+
+    public int Id { get; }
+
+    public string Name { get; }
+
+    public int ParameterCount { get; }
+
+    public ReadOnlyCollection<WarpBasicBlock> Blocks { get; }
+
+    public ReadOnlyCollection<WarpIrInstruction> Instructions { get; }
+
+    public int ValueCount { get; }
+}
+
 public sealed class WarpControlFlowKernel
 {
     public WarpControlFlowKernel(
@@ -182,7 +236,8 @@ public sealed class WarpControlFlowKernel
         int inputBufferCount,
         int scalarArgumentCount,
         IEnumerable<WarpBasicBlock> blocks,
-        WarpReductionOperation? reduction = null)
+        WarpReductionOperation? reduction = null,
+        IEnumerable<WarpControlFlowFunction>? functions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, 1);
@@ -194,30 +249,53 @@ public sealed class WarpControlFlowKernel
         }
 
         WarpBasicBlock[] blockArray = blocks.ToArray();
-        if (blockArray.Length == 0)
-        {
-            throw new ArgumentException("A control-flow kernel requires an entry block.", nameof(blocks));
-        }
+        ValidateBodyShape(blockArray, nameof(blocks));
 
-        for (int index = 0; index < blockArray.Length; index++)
+        WarpControlFlowFunction[] functionArray = functions?.ToArray() ?? [];
+        for (int index = 0; index < functionArray.Length; index++)
         {
-            if (blockArray[index].Id != index)
+            if (functionArray[index].Id != index)
             {
                 throw new ArgumentException(
-                    "Control-flow block identifiers must be sequential and entry must be block zero.",
-                    nameof(blocks));
+                    "Control-flow function identifiers must be sequential and start at zero.",
+                    nameof(functions));
             }
         }
 
-        if (blockArray[0].Parameters.Count != 0)
+        if (functionArray.Select(function => function.Name).Distinct(StringComparer.Ordinal).Count() !=
+            functionArray.Length)
         {
-            throw new ArgumentException("The entry block cannot declare block parameters.", nameof(blocks));
+            throw new ArgumentException("Control-flow function names must be unique.", nameof(functions));
         }
 
-        Dictionary<int, WarpIrValueType> valueTypes = CollectDefinitions(blockArray);
-        ValidateContiguousValues(valueTypes);
-        ValidateBlocks(blockArray, valueTypes, inputBufferCount, scalarArgumentCount);
+        Dictionary<int, WarpIrValueType> valueTypes = CollectBodyDefinitions(blockArray);
+        ValidateBodyValues(valueTypes);
+        ValidateBlocks(
+            blockArray,
+            valueTypes,
+            inputBufferCount,
+            scalarArgumentCount,
+            argumentCount: 0,
+            functionArray,
+            isEntry: true);
         ValidateReachability(blockArray);
+
+        foreach (WarpControlFlowFunction function in functionArray)
+        {
+            Dictionary<int, WarpIrValueType> functionValueTypes =
+                CollectBodyDefinitions(function.Blocks);
+            ValidateBlocks(
+                function.Blocks,
+                functionValueTypes,
+                inputBufferCount: 0,
+                scalarArgumentCount: 0,
+                function.ParameterCount,
+                functionArray,
+                isEntry: false);
+            ValidateReachability(function.Blocks);
+        }
+
+        ValidateAcyclicCallGraph(blockArray, functionArray);
 
         Name = name;
         InputBufferCount = inputBufferCount;
@@ -226,6 +304,7 @@ public sealed class WarpControlFlowKernel
         Instructions = Array.AsReadOnly(blockArray.SelectMany(block => block.Instructions).ToArray());
         ValueCount = valueTypes.Count;
         Reduction = reduction;
+        Functions = Array.AsReadOnly(functionArray);
     }
 
     public string Name { get; }
@@ -242,7 +321,34 @@ public sealed class WarpControlFlowKernel
 
     public WarpReductionOperation? Reduction { get; }
 
-    private static Dictionary<int, WarpIrValueType> CollectDefinitions(
+    public ReadOnlyCollection<WarpControlFlowFunction> Functions { get; }
+
+    internal static void ValidateBodyShape(
+        IReadOnlyList<WarpBasicBlock> blocks,
+        string parameterName)
+    {
+        if (blocks.Count == 0)
+        {
+            throw new ArgumentException("A control-flow body requires an entry block.", parameterName);
+        }
+
+        for (int index = 0; index < blocks.Count; index++)
+        {
+            if (blocks[index].Id != index)
+            {
+                throw new ArgumentException(
+                    "Control-flow block identifiers must be sequential and entry must be block zero.",
+                    parameterName);
+            }
+        }
+
+        if (blocks[0].Parameters.Count != 0)
+        {
+            throw new ArgumentException("A control-flow entry block cannot declare block parameters.", parameterName);
+        }
+    }
+
+    internal static Dictionary<int, WarpIrValueType> CollectBodyDefinitions(
         IReadOnlyList<WarpBasicBlock> blocks)
     {
         var result = new Dictionary<int, WarpIrValueType>();
@@ -279,7 +385,7 @@ public sealed class WarpControlFlowKernel
         }
     }
 
-    private static void ValidateContiguousValues(
+    internal static void ValidateBodyValues(
         IReadOnlyDictionary<int, WarpIrValueType> valueTypes)
     {
         for (int value = 0; value < valueTypes.Count; value++)
@@ -295,7 +401,10 @@ public sealed class WarpControlFlowKernel
         IReadOnlyList<WarpBasicBlock> blocks,
         IReadOnlyDictionary<int, WarpIrValueType> valueTypes,
         int inputBufferCount,
-        int scalarArgumentCount)
+        int scalarArgumentCount,
+        int argumentCount,
+        IReadOnlyList<WarpControlFlowFunction> functions,
+        bool isEntry)
     {
         bool hasReturn = false;
         foreach (WarpBasicBlock block in blocks)
@@ -312,7 +421,10 @@ public sealed class WarpControlFlowKernel
                     instruction,
                     available,
                     inputBufferCount,
-                    scalarArgumentCount);
+                    scalarArgumentCount,
+                    argumentCount,
+                    functions,
+                    isEntry);
                 available.Add(instruction.Result);
             }
 
@@ -357,17 +469,26 @@ public sealed class WarpControlFlowKernel
         WarpIrInstruction instruction,
         IReadOnlySet<int> available,
         int inputBufferCount,
-        int scalarArgumentCount)
+        int scalarArgumentCount,
+        int argumentCount,
+        IReadOnlyList<WarpControlFlowFunction> functions,
+        bool isEntry)
     {
         if (instruction.ResultType != WarpIrValueType.UInt32)
         {
             throw new ArgumentException("The current profile only defines UInt32 SSA values.");
         }
 
+        if (instruction.OpCode != WarpIrOpCode.Call)
+        {
+            RequireNoCallMetadata(instruction);
+        }
+
         switch (instruction.OpCode)
         {
             case WarpIrOpCode.LoadInput:
                 RequireNoOperands(instruction);
+                RequireEntrySource(instruction, isEntry);
                 if (instruction.Immediate >= (uint)inputBufferCount)
                 {
                     throw new ArgumentException("An instruction references an invalid input buffer.");
@@ -377,9 +498,19 @@ public sealed class WarpControlFlowKernel
 
             case WarpIrOpCode.LoadScalar:
                 RequireNoOperands(instruction);
+                RequireEntrySource(instruction, isEntry);
                 if (instruction.Immediate >= (uint)scalarArgumentCount)
                 {
                     throw new ArgumentException("An instruction references an invalid scalar argument.");
+                }
+
+                break;
+
+            case WarpIrOpCode.LoadArgument:
+                RequireNoOperands(instruction);
+                if (isEntry || instruction.Immediate >= (uint)argumentCount)
+                {
+                    throw new ArgumentException("An instruction references an invalid function argument.");
                 }
 
                 break;
@@ -390,7 +521,9 @@ public sealed class WarpControlFlowKernel
 
             case WarpIrOpCode.BitwiseNot:
                 RequireAvailable(instruction.Left, available);
-                if (instruction.Right != -1 || instruction.Third != -1)
+                if (instruction.Right != -1 ||
+                    instruction.Third != -1 ||
+                    instruction.Immediate != 0)
                 {
                     throw new ArgumentException("A unary instruction has an unexpected operand.");
                 }
@@ -413,7 +546,7 @@ public sealed class WarpControlFlowKernel
             case WarpIrOpCode.GreaterThanOrEqualUnsigned:
                 RequireAvailable(instruction.Left, available);
                 RequireAvailable(instruction.Right, available);
-                if (instruction.Third != -1)
+                if (instruction.Third != -1 || instruction.Immediate != 0)
                 {
                     throw new ArgumentException("A binary instruction has an unexpected third operand.");
                 }
@@ -424,6 +557,38 @@ public sealed class WarpControlFlowKernel
                 RequireAvailable(instruction.Left, available);
                 RequireAvailable(instruction.Right, available);
                 RequireAvailable(instruction.Third, available);
+                if (instruction.Immediate != 0)
+                {
+                    throw new ArgumentException("A select instruction has an unexpected immediate.");
+                }
+
+                break;
+
+            case WarpIrOpCode.Call:
+                if (instruction.Left != -1 ||
+                    instruction.Right != -1 ||
+                    instruction.Third != -1 ||
+                    instruction.Immediate != 0)
+                {
+                    throw new ArgumentException("A call instruction has an unexpected fixed operand.");
+                }
+
+                if ((uint)instruction.Callee >= (uint)functions.Count)
+                {
+                    throw new ArgumentException("A call instruction references an invalid function.");
+                }
+
+                WarpControlFlowFunction callee = functions[instruction.Callee];
+                if (instruction.Arguments.Count != callee.ParameterCount)
+                {
+                    throw new ArgumentException("A call argument count does not match its function signature.");
+                }
+
+                foreach (int argument in instruction.Arguments)
+                {
+                    RequireAvailable(argument, available);
+                }
+
                 break;
 
             default:
@@ -501,7 +666,71 @@ public sealed class WarpControlFlowKernel
         {
             throw new ArgumentException("A load or constant instruction has unexpected operands.");
         }
+
+        RequireNoCallMetadata(instruction);
     }
+
+    private static void RequireNoCallMetadata(WarpIrInstruction instruction)
+    {
+        if (instruction.Callee != -1 || instruction.Arguments.Count != 0)
+        {
+            throw new ArgumentException("A non-call instruction has unexpected call metadata.");
+        }
+    }
+
+    private static void RequireEntrySource(WarpIrInstruction instruction, bool isEntry)
+    {
+        if (!isEntry)
+        {
+            throw new ArgumentException(
+                $"Function bodies cannot contain '{instruction.OpCode}' instructions.");
+        }
+    }
+
+    private static void ValidateAcyclicCallGraph(
+        IReadOnlyList<WarpBasicBlock> entryBlocks,
+        IReadOnlyList<WarpControlFlowFunction> functions)
+    {
+        var states = new byte[functions.Count];
+
+        foreach (int callee in GetCallees(entryBlocks))
+        {
+            Visit(callee);
+        }
+
+        if (states.Any(state => state == 0))
+        {
+            throw new ArgumentException(
+                "Every control-flow function must be reachable from the kernel entry point.");
+        }
+
+        void Visit(int function)
+        {
+            if (states[function] == 2)
+            {
+                return;
+            }
+
+            if (states[function] == 1)
+            {
+                throw new ArgumentException(
+                    "Recursive call graphs require the portable logical stack and are not in this profile.");
+            }
+
+            states[function] = 1;
+            foreach (int callee in GetCallees(functions[function].Blocks))
+            {
+                Visit(callee);
+            }
+
+            states[function] = 2;
+        }
+    }
+
+    private static IEnumerable<int> GetCallees(IEnumerable<WarpBasicBlock> blocks) =>
+        blocks.SelectMany(block => block.Instructions)
+            .Where(instruction => instruction.OpCode == WarpIrOpCode.Call)
+            .Select(instruction => instruction.Callee);
 
     private static void RequireAvailable(int value, IReadOnlySet<int> available)
     {
