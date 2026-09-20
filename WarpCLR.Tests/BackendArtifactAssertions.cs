@@ -21,24 +21,24 @@ internal static class BackendArtifactAssertions
         StringAssert.Contains(text, WarpDeviceAbi.DevelopmentConformanceMarker);
         switch (backend)
         {
-            case WarpBackendKind.CpuReference:
-                StringAssert.Contains(text, "warp.cpu.linear/0.1");
+            case WarpBackendKind.CoreCLR:
+                StringAssert.Contains(text, "warp.coreclr.linear/0.2");
                 StringAssert.Contains(text, $"entry={WarpDeviceAbi.GetEntryPoint(kernel)}");
                 break;
 
-            case WarpBackendKind.Nvidia:
+            case WarpBackendKind.NVPTX:
                 StringAssert.Contains(text, ".target sm_50");
                 StringAssert.Contains(text, $".visible .entry {WarpDeviceAbi.GetEntryPoint(kernel)}");
                 break;
 
-            case WarpBackendKind.Amd:
+            case WarpBackendKind.AMDGPU:
                 StringAssert.Contains(text, "target triple = \"amdgcn-amd-amdhsa\"");
                 StringAssert.Contains(text, $"define amdgpu_kernel void @{WarpDeviceAbi.GetEntryPoint(kernel)}");
                 Assert.IsFalse(text.Contains(" nsw ", StringComparison.Ordinal));
                 Assert.IsFalse(text.Contains(" nuw ", StringComparison.Ordinal));
                 break;
 
-            case WarpBackendKind.Intel:
+            case WarpBackendKind.SPIRV:
                 StringAssert.Contains(text, "target triple = \"spirv64-unknown-unknown\"");
                 StringAssert.Contains(text, $"define spir_kernel void @{WarpDeviceAbi.GetEntryPoint(kernel)}");
                 Assert.IsFalse(text.Contains("SPV_INTEL_", StringComparison.Ordinal));
@@ -68,20 +68,20 @@ internal static class BackendArtifactAssertions
     {
         string operationMarker = (backend, operation) switch
         {
-            (WarpBackendKind.CpuReference, WarpReductionOperation.WrappingSum) =>
+            (WarpBackendKind.CoreCLR, WarpReductionOperation.WrappingSum) =>
                 "operation=reduce-wrapping-sum",
-            (WarpBackendKind.CpuReference, WarpReductionOperation.Minimum) =>
+            (WarpBackendKind.CoreCLR, WarpReductionOperation.Minimum) =>
                 "operation=reduce-minimum",
-            (WarpBackendKind.CpuReference, WarpReductionOperation.Maximum) =>
+            (WarpBackendKind.CoreCLR, WarpReductionOperation.Maximum) =>
                 "operation=reduce-maximum",
-            (WarpBackendKind.Nvidia, WarpReductionOperation.WrappingSum) => "warp_reduce_loop:",
-            (WarpBackendKind.Nvidia, WarpReductionOperation.Minimum) => "setp.lt.u32 %p1",
-            (WarpBackendKind.Nvidia, WarpReductionOperation.Maximum) => "setp.gt.u32 %p1",
-            (WarpBackendKind.Amd or WarpBackendKind.Intel, WarpReductionOperation.WrappingSum) =>
+            (WarpBackendKind.NVPTX, WarpReductionOperation.WrappingSum) => "warp_reduce_loop:",
+            (WarpBackendKind.NVPTX, WarpReductionOperation.Minimum) => "setp.lt.u32 %p1",
+            (WarpBackendKind.NVPTX, WarpReductionOperation.Maximum) => "setp.gt.u32 %p1",
+            (WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV, WarpReductionOperation.WrappingSum) =>
                 "%warp_next_accumulator = add i32",
-            (WarpBackendKind.Amd or WarpBackendKind.Intel, WarpReductionOperation.Minimum) =>
+            (WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV, WarpReductionOperation.Minimum) =>
                 "%warp_reduce_compare = icmp ult i32",
-            (WarpBackendKind.Amd or WarpBackendKind.Intel, WarpReductionOperation.Maximum) =>
+            (WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV, WarpReductionOperation.Maximum) =>
                 "%warp_reduce_compare = icmp ugt i32",
             _ => throw new ArgumentOutOfRangeException(nameof(operation)),
         };
@@ -95,13 +95,13 @@ internal static class BackendArtifactAssertions
         WarpBackendKind backend,
         WarpIrInstruction instruction) => backend switch
         {
-            WarpBackendKind.CpuReference => $"{instruction.Result}={instruction.OpCode},",
-            WarpBackendKind.Nvidia => GetNvidiaMarker(instruction),
-            WarpBackendKind.Amd or WarpBackendKind.Intel => GetLlvmMarker(instruction),
+            WarpBackendKind.CoreCLR => $"{instruction.Result}={instruction.OpCode},",
+            WarpBackendKind.NVPTX => GetNVPTXMarker(instruction),
+            WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV => GetLlvmMarker(instruction),
             _ => throw new ArgumentOutOfRangeException(nameof(backend), backend, "The backend is not registered."),
         };
 
-    private static string GetNvidiaMarker(WarpIrInstruction instruction)
+    private static string GetNVPTXMarker(WarpIrInstruction instruction)
     {
         int resultRegister = instruction.Result + 5;
         string opcode = instruction.OpCode switch
@@ -118,6 +118,13 @@ internal static class BackendArtifactAssertions
             WarpIrOpCode.ExclusiveOr => "xor.b32",
             WarpIrOpCode.ShiftLeft => "shl.b32",
             WarpIrOpCode.ShiftRightLogical => "shr.u32",
+            WarpIrOpCode.Equal or
+            WarpIrOpCode.NotEqual or
+            WarpIrOpCode.LessThanUnsigned or
+            WarpIrOpCode.LessThanOrEqualUnsigned or
+            WarpIrOpCode.GreaterThanUnsigned or
+            WarpIrOpCode.GreaterThanOrEqualUnsigned or
+            WarpIrOpCode.Select => "selp.u32",
             _ => throw new ArgumentOutOfRangeException(nameof(instruction)),
         };
 
@@ -126,6 +133,22 @@ internal static class BackendArtifactAssertions
 
     private static string GetLlvmMarker(WarpIrInstruction instruction)
     {
+        if (instruction.OpCode is
+            WarpIrOpCode.Equal or
+            WarpIrOpCode.NotEqual or
+            WarpIrOpCode.LessThanUnsigned or
+            WarpIrOpCode.LessThanOrEqualUnsigned or
+            WarpIrOpCode.GreaterThanUnsigned or
+            WarpIrOpCode.GreaterThanOrEqualUnsigned)
+        {
+            return $"%warp_v{instruction.Result} = zext i1";
+        }
+
+        if (instruction.OpCode == WarpIrOpCode.Select)
+        {
+            return $"%warp_v{instruction.Result} = select i1";
+        }
+
         string opcode = instruction.OpCode switch
         {
             WarpIrOpCode.LoadInput => "load",

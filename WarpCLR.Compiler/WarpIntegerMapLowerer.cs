@@ -80,6 +80,30 @@ public sealed class WarpIntegerMapLowerer
                     break;
                 }
 
+            case WarpConditionalExpression conditional:
+                {
+                    int condition = LowerExpression(
+                        conditional.Condition,
+                        instructions,
+                        results);
+                    int whenNonZero = LowerExpression(
+                        conditional.WhenNonZero,
+                        instructions,
+                        results);
+                    int whenZero = LowerExpression(
+                        conditional.WhenZero,
+                        instructions,
+                        results);
+                    result = instructions.Count;
+                    instructions.Add(new WarpIrInstruction(
+                        result,
+                        WarpIrOpCode.Select,
+                        Left: condition,
+                        Right: whenNonZero,
+                        Third: whenZero));
+                    break;
+                }
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(expression));
         }
@@ -104,6 +128,12 @@ public sealed class WarpIntegerMapLowerer
         WarpBinaryOperator.ExclusiveOr => WarpIrOpCode.ExclusiveOr,
         WarpBinaryOperator.ShiftLeft => WarpIrOpCode.ShiftLeft,
         WarpBinaryOperator.ShiftRightLogical => WarpIrOpCode.ShiftRightLogical,
+        WarpBinaryOperator.Equal => WarpIrOpCode.Equal,
+        WarpBinaryOperator.NotEqual => WarpIrOpCode.NotEqual,
+        WarpBinaryOperator.LessThanUnsigned => WarpIrOpCode.LessThanUnsigned,
+        WarpBinaryOperator.LessThanOrEqualUnsigned => WarpIrOpCode.LessThanOrEqualUnsigned,
+        WarpBinaryOperator.GreaterThanUnsigned => WarpIrOpCode.GreaterThanUnsigned,
+        WarpBinaryOperator.GreaterThanOrEqualUnsigned => WarpIrOpCode.GreaterThanOrEqualUnsigned,
         _ => throw new ArgumentOutOfRangeException(nameof(@operator)),
     };
 }

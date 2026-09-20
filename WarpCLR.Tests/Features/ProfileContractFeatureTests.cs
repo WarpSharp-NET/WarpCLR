@@ -17,11 +17,10 @@ public sealed class ProfileContractFeatureTests
             WarpProfileFeature.UnsignedScalar,
             WarpProfileFeature.TypedUnsignedBuffers,
             WarpProfileFeature.OneDimensionalParallelMap,
-            WarpProfileFeature.ScopedManagedMemory,
+            WarpProfileFeature.ConditionalControlFlow,
             WarpProfileFeature.DeterministicAotPackaging,
             WarpProfileFeature.ExplicitHostDispatch,
             WarpProfileFeature.ExactUnsignedReductions,
-            WarpProfileFeature.StructuredReferenceStages,
         ];
 
         CollectionAssert.AreEqual(
@@ -41,10 +40,19 @@ public sealed class ProfileContractFeatureTests
             "warp.core.scalar/0.1",
             "warp.core.parallel/0.1",
             "warp.core.buffers/0.1",
-            "warp.memory.scoped/0.1",
+            "warp.core.control-flow/0.1",
         ];
 
         CollectionAssert.AreEqual(expected, WarpProfileCatalog.RequiredCapabilities.ToArray());
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Every_backend_declares_the_exact_portable_contract(WarpBackendKind backend)
+    {
+        IWarpBackendCompiler compiler = BackendCompilerFactory.Create(backend);
+
+        Assert.IsTrue(compiler.Contract.ExactlyMatches(WarpProfileCatalog.BackendContract));
     }
 
     [TestMethod]

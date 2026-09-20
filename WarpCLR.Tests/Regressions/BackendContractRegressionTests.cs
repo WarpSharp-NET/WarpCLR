@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Text;
-using WarpCLR.Backend.Amd;
-using WarpCLR.Backend.Cpu;
-using WarpCLR.Backend.Intel;
-using WarpCLR.Backend.Nvidia;
+using WarpCLR.Backend.AMDGPU;
+using WarpCLR.Backend.CoreCLR;
+using WarpCLR.Backend.SPIRV;
+using WarpCLR.Backend.NVPTX;
 using WarpCLR.Compiler;
 using WarpCLR.IR;
 using WarpCLR.Sdk;
@@ -27,6 +27,31 @@ public sealed class BackendContractRegressionTests
             () => new WarpCompiler().Compile(verifiedKernel, compilers));
 
         StringAssert.Contains(exception.Message, backend.ToString());
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void A_backend_with_a_smaller_feature_set_prevents_compilation(
+        WarpBackendKind backend)
+    {
+        WarpIntegerMapKernel verifiedKernel = VerifyCombine();
+        var incompleteContract = new WarpBackendContract(
+            WarpProfileCatalog.ProfileId,
+            WarpProfileCatalog.IntegerMapInstructions.Where(
+                instruction => instruction != WarpIrOpCode.Multiply),
+            WarpProfileCatalog.BackendContract.Reductions);
+        IWarpBackendCompiler[] compilers = CreateCompilers()
+            .Select(
+                compiler => compiler.Backend == backend
+                    ? new ContractOverrideCompiler(compiler, incompleteContract)
+                    : compiler)
+            .ToArray();
+
+        InvalidOperationException exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => new WarpCompiler().Compile(verifiedKernel, compilers));
+
+        StringAssert.Contains(exception.Message, backend.ToString());
+        StringAssert.Contains(exception.Message, nameof(WarpIrOpCode.Multiply));
     }
 
     [TestMethod]
@@ -118,9 +143,29 @@ public sealed class BackendContractRegressionTests
 
     private static IEnumerable<IWarpBackendCompiler> CreateCompilers()
     {
-        yield return new CpuBackendCompiler();
-        yield return new NvidiaBackendCompiler();
-        yield return new AmdBackendCompiler();
-        yield return new IntelBackendCompiler();
+        yield return new CoreCLRBackendCompiler();
+        yield return new NVPTXBackendCompiler();
+        yield return new AMDGPUBackendCompiler();
+        yield return new SPIRVBackendCompiler();
+    }
+
+    private sealed class ContractOverrideCompiler : IWarpBackendCompiler
+    {
+        private readonly IWarpBackendCompiler compiler;
+
+        public ContractOverrideCompiler(
+            IWarpBackendCompiler compiler,
+            WarpBackendContract contract)
+        {
+            this.compiler = compiler;
+            Contract = contract;
+        }
+
+        public WarpBackendKind Backend => compiler.Backend;
+
+        public WarpBackendContract Contract { get; }
+
+        public WarpBackendArtifact Compile(WarpLinearKernel kernel) =>
+            compiler.Compile(kernel);
     }
 }

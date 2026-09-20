@@ -5,10 +5,10 @@ namespace WarpCLR.IR;
 
 public enum WarpArtifactFormat
 {
-    CpuExpressionPlan,
-    NvidiaPtx,
-    AmdLlvmIr,
-    IntelSpirvLlvmIr,
+    CoreCLRPlan,
+    NVPTX,
+    AMDGPULLVMIR,
+    SPIRVLLVMIR,
 }
 
 public enum WarpConformanceStatus
@@ -20,10 +20,10 @@ public static class WarpArtifactFormatCatalog
 {
     public static WarpArtifactFormat ForBackend(WarpBackendKind backend) => backend switch
     {
-        WarpBackendKind.CpuReference => WarpArtifactFormat.CpuExpressionPlan,
-        WarpBackendKind.Nvidia => WarpArtifactFormat.NvidiaPtx,
-        WarpBackendKind.Amd => WarpArtifactFormat.AmdLlvmIr,
-        WarpBackendKind.Intel => WarpArtifactFormat.IntelSpirvLlvmIr,
+        WarpBackendKind.CoreCLR => WarpArtifactFormat.CoreCLRPlan,
+        WarpBackendKind.NVPTX => WarpArtifactFormat.NVPTX,
+        WarpBackendKind.AMDGPU => WarpArtifactFormat.AMDGPULLVMIR,
+        WarpBackendKind.SPIRV => WarpArtifactFormat.SPIRVLLVMIR,
         _ => throw new ArgumentOutOfRangeException(
             nameof(backend),
             backend,

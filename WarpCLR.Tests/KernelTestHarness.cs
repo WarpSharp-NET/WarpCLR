@@ -1,5 +1,5 @@
 using System.Reflection;
-using WarpCLR.Backend.Cpu;
+using WarpCLR.Backend.CoreCLR;
 using WarpCLR.Compiler;
 using WarpCLR.IR;
 using WarpCLR.Sdk;

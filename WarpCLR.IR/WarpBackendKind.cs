@@ -4,10 +4,10 @@ namespace WarpCLR.IR;
 
 public enum WarpBackendKind
 {
-    CpuReference,
-    Nvidia,
-    Amd,
-    Intel,
+    CoreCLR,
+    NVPTX,
+    AMDGPU,
+    SPIRV,
 }
 
 public static class WarpBackendCatalog
@@ -15,10 +15,10 @@ public static class WarpBackendCatalog
     private static readonly ReadOnlyCollection<WarpBackendKind> RequiredBackends =
         Array.AsReadOnly(
         [
-            WarpBackendKind.CpuReference,
-            WarpBackendKind.Nvidia,
-            WarpBackendKind.Amd,
-            WarpBackendKind.Intel,
+            WarpBackendKind.CoreCLR,
+            WarpBackendKind.NVPTX,
+            WarpBackendKind.AMDGPU,
+            WarpBackendKind.SPIRV,
         ]);
 
     public static IReadOnlyList<WarpBackendKind> Required => RequiredBackends;

@@ -1,7 +1,7 @@
-using WarpCLR.Backend.Amd;
-using WarpCLR.Backend.Cpu;
-using WarpCLR.Backend.Intel;
-using WarpCLR.Backend.Nvidia;
+using WarpCLR.Backend.AMDGPU;
+using WarpCLR.Backend.CoreCLR;
+using WarpCLR.Backend.SPIRV;
+using WarpCLR.Backend.NVPTX;
 using WarpCLR.Compiler;
 using WarpCLR.IR;
 using WarpCLR.Runtime.Host;
@@ -124,10 +124,10 @@ public sealed class ReductionFeatureTests
         return new WarpCompiler().Compile(
             kernel,
             [
-                new CpuBackendCompiler(),
-                new NvidiaBackendCompiler(),
-                new AmdBackendCompiler(),
-                new IntelBackendCompiler(),
+                new CoreCLRBackendCompiler(),
+                new NVPTXBackendCompiler(),
+                new AMDGPUBackendCompiler(),
+                new SPIRVBackendCompiler(),
             ]);
     }
 

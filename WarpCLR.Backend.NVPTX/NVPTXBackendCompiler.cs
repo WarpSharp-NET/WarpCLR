@@ -2,13 +2,45 @@ using System.Globalization;
 using System.Text;
 using WarpCLR.IR;
 
-namespace WarpCLR.Backend.Nvidia;
+namespace WarpCLR.Backend.NVPTX;
 
-public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
+public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
 {
     private const int FirstValueRegister = 5;
+    private static readonly WarpBackendContract DeclaredContract = CreateContract();
 
-    public WarpBackendKind Backend => WarpBackendKind.Nvidia;
+    public WarpBackendKind Backend => WarpBackendKind.NVPTX;
+
+    public WarpBackendContract Contract => DeclaredContract;
+
+    private static WarpBackendContract CreateContract() => new(
+        WarpProfileCatalog.ProfileId,
+        [
+            WarpIrOpCode.LoadInput,
+            WarpIrOpCode.LoadScalar,
+            WarpIrOpCode.Constant,
+            WarpIrOpCode.BitwiseNot,
+            WarpIrOpCode.Add,
+            WarpIrOpCode.Subtract,
+            WarpIrOpCode.Multiply,
+            WarpIrOpCode.BitwiseAnd,
+            WarpIrOpCode.BitwiseOr,
+            WarpIrOpCode.ExclusiveOr,
+            WarpIrOpCode.ShiftLeft,
+            WarpIrOpCode.ShiftRightLogical,
+            WarpIrOpCode.Equal,
+            WarpIrOpCode.NotEqual,
+            WarpIrOpCode.LessThanUnsigned,
+            WarpIrOpCode.LessThanOrEqualUnsigned,
+            WarpIrOpCode.GreaterThanUnsigned,
+            WarpIrOpCode.GreaterThanOrEqualUnsigned,
+            WarpIrOpCode.Select,
+        ],
+        [
+            WarpReductionOperation.WrappingSum,
+            WarpReductionOperation.Minimum,
+            WarpReductionOperation.Maximum,
+        ]);
 
     public WarpBackendArtifact Compile(WarpLinearKernel kernel)
     {
@@ -36,7 +68,7 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
         AppendParameters(ptx, kernel);
         ptx.AppendLine(")");
         ptx.AppendLine("{");
-        ptx.AppendLine("    .reg .pred %p<1>;");
+        ptx.AppendLine("    .reg .pred %p<2>;");
         ptx.Append("    .reg .b32 %r<")
             .Append(Invariant(registerCount))
             .AppendLine(">;");
@@ -90,7 +122,7 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
 
         return new WarpBackendArtifact(
             Backend,
-            WarpArtifactFormat.NvidiaPtx,
+            WarpArtifactFormat.NVPTX,
             WarpDeviceAbi.IntegerMapEntryPoint,
             Encoding.UTF8.GetBytes(ptx.ToString()));
     }
@@ -184,7 +216,7 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
 
         return new WarpBackendArtifact(
             Backend,
-            WarpArtifactFormat.NvidiaPtx,
+            WarpArtifactFormat.NVPTX,
             WarpDeviceAbi.IntegerReductionEntryPoint,
             Encoding.UTF8.GetBytes(ptx.ToString()));
     }
@@ -285,6 +317,7 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
         int result = ValueRegister(instruction.Result);
         int left = ValueRegister(instruction.Left);
         int right = ValueRegister(instruction.Right);
+        int third = ValueRegister(instruction.Third);
 
         switch (instruction.OpCode)
         {
@@ -353,6 +386,34 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
                 AppendShift(ptx, "shr.u32", result, left, right, shiftRegister);
                 break;
 
+            case WarpIrOpCode.Equal:
+                AppendComparison(ptx, "setp.eq.u32", result, left, right);
+                break;
+
+            case WarpIrOpCode.NotEqual:
+                AppendComparison(ptx, "setp.ne.u32", result, left, right);
+                break;
+
+            case WarpIrOpCode.LessThanUnsigned:
+                AppendComparison(ptx, "setp.lt.u32", result, left, right);
+                break;
+
+            case WarpIrOpCode.LessThanOrEqualUnsigned:
+                AppendComparison(ptx, "setp.le.u32", result, left, right);
+                break;
+
+            case WarpIrOpCode.GreaterThanUnsigned:
+                AppendComparison(ptx, "setp.gt.u32", result, left, right);
+                break;
+
+            case WarpIrOpCode.GreaterThanOrEqualUnsigned:
+                AppendComparison(ptx, "setp.ge.u32", result, left, right);
+                break;
+
+            case WarpIrOpCode.Select:
+                AppendConditionalSelection(ptx, result, left, right, third);
+                break;
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(instruction));
         }
@@ -401,6 +462,44 @@ public sealed class NvidiaBackendCompiler : IWarpBackendCompiler
             .Append(Invariant(right))
             .AppendLine(", 31;");
         AppendBinary(ptx, opcode, result, left, shiftRegister);
+    }
+
+    private static void AppendComparison(
+        StringBuilder ptx,
+        string opcode,
+        int result,
+        int left,
+        int right)
+    {
+        ptx.Append("    ")
+            .Append(opcode)
+            .Append(" %p1, %r")
+            .Append(Invariant(left))
+            .Append(", %r")
+            .Append(Invariant(right))
+            .AppendLine(";");
+        ptx.Append("    selp.u32 %r")
+            .Append(Invariant(result))
+            .AppendLine(", 1, 0, %p1;");
+    }
+
+    private static void AppendConditionalSelection(
+        StringBuilder ptx,
+        int result,
+        int condition,
+        int whenNonZero,
+        int whenZero)
+    {
+        ptx.Append("    setp.ne.u32 %p1, %r")
+            .Append(Invariant(condition))
+            .AppendLine(", 0;");
+        ptx.Append("    selp.u32 %r")
+            .Append(Invariant(result))
+            .Append(", %r")
+            .Append(Invariant(whenNonZero))
+            .Append(", %r")
+            .Append(Invariant(whenZero))
+            .AppendLine(", %p1;");
     }
 
     private static int ValueRegister(int result) => FirstValueRegister + result;

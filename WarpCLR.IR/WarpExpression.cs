@@ -17,6 +17,11 @@ public sealed record WarpBinaryExpression(
     WarpExpression Left,
     WarpExpression Right) : WarpExpression;
 
+public sealed record WarpConditionalExpression(
+    WarpExpression Condition,
+    WarpExpression WhenNonZero,
+    WarpExpression WhenZero) : WarpExpression;
+
 public enum WarpUnaryOperator
 {
     BitwiseNot,
@@ -32,4 +37,10 @@ public enum WarpBinaryOperator
     ExclusiveOr,
     ShiftLeft,
     ShiftRightLogical,
+    Equal,
+    NotEqual,
+    LessThanUnsigned,
+    LessThanOrEqualUnsigned,
+    GreaterThanUnsigned,
+    GreaterThanOrEqualUnsigned,
 }

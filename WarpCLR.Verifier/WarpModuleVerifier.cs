@@ -171,9 +171,13 @@ public sealed class WarpModuleVerifier
         ImmutableArray<WarpMetadataType> locals = localSignature.DecodeLocalSignature(
             new WarpMetadataTypeProvider(),
             genericContext: null);
-        if (locals.Any(type => type != WarpMetadataType.UInt32))
+        if (locals.Any(
+                type => type is not WarpMetadataType.UInt32 and
+                    not WarpMetadataType.Boolean))
         {
-            throw EntryError(entry, "All local variables must have type System.UInt32.");
+            throw EntryError(
+                entry,
+                "All local variables must have type System.UInt32 or System.Boolean.");
         }
 
         return locals.Length;

@@ -47,6 +47,8 @@ internal sealed class WarpCompiler
                 $"The compiler set contains unregistered backends: {string.Join(", ", unsupported)}.");
         }
 
+        ValidateBackendContracts(compilers);
+
         WarpLinearKernel kernel = lowerer.Lower(verifiedKernel);
         var artifacts = new Dictionary<WarpBackendKind, WarpBackendArtifact>();
 
@@ -79,5 +81,53 @@ internal sealed class WarpCompiler
         }
 
         return new WarpCompilation(kernel, artifacts);
+    }
+
+    private static void ValidateBackendContracts(
+        IReadOnlyDictionary<WarpBackendKind, IWarpBackendCompiler> compilers)
+    {
+        WarpBackendContract expected = WarpProfileCatalog.BackendContract;
+        foreach (WarpBackendKind backend in WarpBackendCatalog.Required)
+        {
+            WarpBackendContract actual = compilers[backend].Contract
+                ?? throw new InvalidOperationException(
+                    $"The {backend} compiler did not declare a backend contract.");
+            if (actual.ExactlyMatches(expected))
+            {
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"The {backend} compiler does not implement the exact portable " +
+                $"WarpCLR contract: {DescribeContractMismatch(expected, actual)}.");
+        }
+    }
+
+    private static string DescribeContractMismatch(
+        WarpBackendContract expected,
+        WarpBackendContract actual)
+    {
+        var differences = new List<string>();
+        if (!string.Equals(expected.ProfileId, actual.ProfileId, StringComparison.Ordinal))
+        {
+            differences.Add(
+                $"profile '{actual.ProfileId}' was declared instead of '{expected.ProfileId}'");
+        }
+
+        if (!actual.Instructions.SequenceEqual(expected.Instructions))
+        {
+            differences.Add(
+                $"instructions [{string.Join(", ", actual.Instructions)}] do not equal " +
+                $"[{string.Join(", ", expected.Instructions)}]");
+        }
+
+        if (!actual.Reductions.SequenceEqual(expected.Reductions))
+        {
+            differences.Add(
+                $"reductions [{string.Join(", ", actual.Reductions)}] do not equal " +
+                $"[{string.Join(", ", expected.Reductions)}]");
+        }
+
+        return string.Join("; ", differences);
     }
 }

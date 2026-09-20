@@ -8,11 +8,10 @@ public enum WarpProfileFeature
     UnsignedScalar,
     TypedUnsignedBuffers,
     OneDimensionalParallelMap,
-    ScopedManagedMemory,
+    ConditionalControlFlow,
     DeterministicAotPackaging,
     ExplicitHostDispatch,
     ExactUnsignedReductions,
-    StructuredReferenceStages,
 }
 
 public enum WarpFeatureLayer
@@ -33,7 +32,7 @@ public static class WarpCapabilityCatalog
 
     public const string Buffers = "warp.core.buffers/0.1";
 
-    public const string ScopedMemory = "warp.memory.scoped/0.1";
+    public const string ControlFlow = "warp.core.control-flow/0.1";
 }
 
 public static class WarpProfileCatalog
@@ -47,11 +46,10 @@ public static class WarpProfileCatalog
             new(WarpProfileFeature.UnsignedScalar, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.TypedUnsignedBuffers, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.OneDimensionalParallelMap, WarpFeatureLayer.WarpCil),
-            new(WarpProfileFeature.ScopedManagedMemory, WarpFeatureLayer.WarpCil),
+            new(WarpProfileFeature.ConditionalControlFlow, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.DeterministicAotPackaging, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExplicitHostDispatch, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExactUnsignedReductions, WarpFeatureLayer.WarpCil),
-            new(WarpProfileFeature.StructuredReferenceStages, WarpFeatureLayer.WarpClr),
         ]);
 
     private static readonly ReadOnlyCollection<string> CapabilityIdentifiers =
@@ -60,7 +58,7 @@ public static class WarpProfileCatalog
             WarpCapabilityCatalog.Scalar,
             WarpCapabilityCatalog.Parallel,
             WarpCapabilityCatalog.Buffers,
-            WarpCapabilityCatalog.ScopedMemory,
+            WarpCapabilityCatalog.ControlFlow,
         ]);
 
     private static readonly ReadOnlyCollection<WarpIrOpCode> IntegerMapInstructionSet =
@@ -78,11 +76,25 @@ public static class WarpProfileCatalog
             WarpIrOpCode.ExclusiveOr,
             WarpIrOpCode.ShiftLeft,
             WarpIrOpCode.ShiftRightLogical,
+            WarpIrOpCode.Equal,
+            WarpIrOpCode.NotEqual,
+            WarpIrOpCode.LessThanUnsigned,
+            WarpIrOpCode.LessThanOrEqualUnsigned,
+            WarpIrOpCode.GreaterThanUnsigned,
+            WarpIrOpCode.GreaterThanOrEqualUnsigned,
+            WarpIrOpCode.Select,
         ]);
+
+    private static readonly WarpBackendContract PortableContract = new(
+        ProfileId,
+        IntegerMapInstructionSet,
+        WarpReductionContract.Operations.Select(descriptor => descriptor.Operation));
 
     public static IReadOnlyList<WarpFeatureDescriptor> Features => FeatureDescriptors;
 
     public static IReadOnlyList<string> RequiredCapabilities => CapabilityIdentifiers;
 
     public static IReadOnlyList<WarpIrOpCode> IntegerMapInstructions => IntegerMapInstructionSet;
+
+    public static WarpBackendContract BackendContract => PortableContract;
 }

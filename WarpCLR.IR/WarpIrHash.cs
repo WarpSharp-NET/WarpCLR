@@ -26,6 +26,7 @@ public static class WarpIrHash
             AppendInt32(hash, instruction.Left);
             AppendInt32(hash, instruction.Right);
             AppendUInt32(hash, instruction.Immediate);
+            AppendInt32(hash, instruction.Third);
         }
 
         return Convert.ToHexString(hash.GetHashAndReset());

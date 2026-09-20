@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using WarpCLR.Backend.Cpu;
+using WarpCLR.Backend.CoreCLR;
 using WarpCLR.Compiler;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
@@ -59,17 +59,17 @@ public sealed class WarpDevelopmentModuleLoader
                 entryArtifacts.Add(backend, artifact);
             }
 
-            WarpLoadedArtifact cpuArtifact = entryArtifacts[WarpBackendKind.CpuReference];
-            byte[] expectedCpuPlan = WarpCpuPlanCodec.Serialize(expectedKernel);
-            if (!cpuArtifact.Content.AsSpan().SequenceEqual(expectedCpuPlan))
+            WarpLoadedArtifact coreClrArtifact = entryArtifacts[WarpBackendKind.CoreCLR];
+            byte[] expectedCoreCLRPlan = WarpCoreCLRPlanCodec.Serialize(expectedKernel);
+            if (!coreClrArtifact.Content.AsSpan().SequenceEqual(expectedCoreCLRPlan))
             {
                 throw Error(
                     "WRPHOST1000",
-                    $"The CPU plan does not match entry '{entry.Identity}'.");
+                    $"The CoreCLR plan does not match entry '{entry.Identity}'.");
             }
 
-            _ = WarpCpuPlanCodec.Deserialize(
-                cpuArtifact.Content,
+            _ = WarpCoreCLRPlanCodec.Deserialize(
+                coreClrArtifact.Content,
                 entry.Identity,
                 expectedKernel.InputBufferCount,
                 expectedKernel.ScalarArgumentCount);

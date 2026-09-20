@@ -58,10 +58,10 @@ public static class WarpAotPackageBuilder
         string backend = WarpArtifactSidecarCodec.GetBackendName(artifact.Backend);
         string extension = artifact.Format switch
         {
-            WarpArtifactFormat.CpuExpressionPlan => ".warpplan",
-            WarpArtifactFormat.NvidiaPtx => ".ptx",
-            WarpArtifactFormat.AmdLlvmIr => ".amdgpu.ll",
-            WarpArtifactFormat.IntelSpirvLlvmIr => ".spirv.ll",
+            WarpArtifactFormat.CoreCLRPlan => ".warpplan",
+            WarpArtifactFormat.NVPTX => ".ptx",
+            WarpArtifactFormat.AMDGPULLVMIR => ".amdgpu.ll",
+            WarpArtifactFormat.SPIRVLLVMIR => ".spirv.ll",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(artifact),
                 artifact.Format,

@@ -135,19 +135,19 @@ public static class WarpArtifactSidecarCodec
 
     public static string GetBackendName(WarpBackendKind backend) => backend switch
     {
-        WarpBackendKind.CpuReference => "cpu",
-        WarpBackendKind.Nvidia => "nvidia",
-        WarpBackendKind.Amd => "amd",
-        WarpBackendKind.Intel => "intel",
+        WarpBackendKind.CoreCLR => "coreclr",
+        WarpBackendKind.NVPTX => "nvptx",
+        WarpBackendKind.AMDGPU => "amdgpu",
+        WarpBackendKind.SPIRV => "spirv",
         _ => throw new ArgumentOutOfRangeException(nameof(backend), backend, "The backend is not registered."),
     };
 
     public static string GetFormatName(WarpArtifactFormat format) => format switch
     {
-        WarpArtifactFormat.CpuExpressionPlan => "cpu-expression-plan",
-        WarpArtifactFormat.NvidiaPtx => "nvidia-ptx",
-        WarpArtifactFormat.AmdLlvmIr => "amd-llvm-ir",
-        WarpArtifactFormat.IntelSpirvLlvmIr => "intel-spirv-llvm-ir",
+        WarpArtifactFormat.CoreCLRPlan => "coreclr-plan",
+        WarpArtifactFormat.NVPTX => "nvptx",
+        WarpArtifactFormat.AMDGPULLVMIR => "amdgpu-llvm-ir",
+        WarpArtifactFormat.SPIRVLLVMIR => "spirv-llvm-ir",
         _ => throw new ArgumentOutOfRangeException(nameof(format), format, "The artifact format is not registered."),
     };
 
@@ -159,19 +159,19 @@ public static class WarpArtifactSidecarCodec
 
     private static WarpBackendKind ParseBackend(string value) => value switch
     {
-        "cpu" => WarpBackendKind.CpuReference,
-        "nvidia" => WarpBackendKind.Nvidia,
-        "amd" => WarpBackendKind.Amd,
-        "intel" => WarpBackendKind.Intel,
+        "coreclr" => WarpBackendKind.CoreCLR,
+        "nvptx" => WarpBackendKind.NVPTX,
+        "amdgpu" => WarpBackendKind.AMDGPU,
+        "spirv" => WarpBackendKind.SPIRV,
         _ => throw new InvalidDataException($"Artifact backend '{value}' is not registered."),
     };
 
     private static WarpArtifactFormat ParseFormat(string value) => value switch
     {
-        "cpu-expression-plan" => WarpArtifactFormat.CpuExpressionPlan,
-        "nvidia-ptx" => WarpArtifactFormat.NvidiaPtx,
-        "amd-llvm-ir" => WarpArtifactFormat.AmdLlvmIr,
-        "intel-spirv-llvm-ir" => WarpArtifactFormat.IntelSpirvLlvmIr,
+        "coreclr-plan" => WarpArtifactFormat.CoreCLRPlan,
+        "nvptx" => WarpArtifactFormat.NVPTX,
+        "amdgpu-llvm-ir" => WarpArtifactFormat.AMDGPULLVMIR,
+        "spirv-llvm-ir" => WarpArtifactFormat.SPIRVLLVMIR,
         _ => throw new InvalidDataException($"Artifact format '{value}' is not registered."),
     };
 

@@ -1,6 +1,6 @@
 using WarpCLR.IR;
 
-namespace WarpCLR.Backend.Cpu;
+namespace WarpCLR.Backend.CoreCLR;
 
 public sealed class WarpIntegerMapSemanticEmulator
 {
@@ -133,6 +133,7 @@ public sealed class WarpIntegerMapSemanticEmulator
         {
             uint left = instruction.Left < 0 ? 0 : values[instruction.Left];
             uint right = instruction.Right < 0 ? 0 : values[instruction.Right];
+            uint third = instruction.Third < 0 ? 0 : values[instruction.Third];
 
             values[instruction.Result] = instruction.OpCode switch
             {
@@ -148,6 +149,13 @@ public sealed class WarpIntegerMapSemanticEmulator
                 WarpIrOpCode.ExclusiveOr => left ^ right,
                 WarpIrOpCode.ShiftLeft => left << (int)(right & 31),
                 WarpIrOpCode.ShiftRightLogical => left >> (int)(right & 31),
+                WarpIrOpCode.Equal => left == right ? 1u : 0u,
+                WarpIrOpCode.NotEqual => left != right ? 1u : 0u,
+                WarpIrOpCode.LessThanUnsigned => left < right ? 1u : 0u,
+                WarpIrOpCode.LessThanOrEqualUnsigned => left <= right ? 1u : 0u,
+                WarpIrOpCode.GreaterThanUnsigned => left > right ? 1u : 0u,
+                WarpIrOpCode.GreaterThanOrEqualUnsigned => left >= right ? 1u : 0u,
+                WarpIrOpCode.Select => left != 0 ? right : third,
                 _ => throw new InvalidOperationException(
                     "The semantic emulator received an unregistered opcode."),
             };

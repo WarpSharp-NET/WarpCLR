@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\WarpCLR.Backend.Amd\WarpCLR.Backend.Amd.csproj" />
-    <ProjectReference Include="..\WarpCLR.Backend.Cpu\WarpCLR.Backend.Cpu.csproj" />
-    <ProjectReference Include="..\WarpCLR.Backend.Intel\WarpCLR.Backend.Intel.csproj" />
-    <ProjectReference Include="..\WarpCLR.Backend.Nvidia\WarpCLR.Backend.Nvidia.csproj" />
+    <ProjectReference Include="..\WarpCLR.Backend.AMDGPU\WarpCLR.Backend.AMDGPU.csproj" />
+    <ProjectReference Include="..\WarpCLR.Backend.CoreCLR\WarpCLR.Backend.CoreCLR.csproj" />
+    <ProjectReference Include="..\WarpCLR.Backend.SPIRV\WarpCLR.Backend.SPIRV.csproj" />
+    <ProjectReference Include="..\WarpCLR.Backend.NVPTX\WarpCLR.Backend.NVPTX.csproj" />
     <ProjectReference Include="..\WarpCLR.Compiler\WarpCLR.Compiler.csproj" />
     <ProjectReference Include="..\WarpCLR.IR\WarpCLR.IR.csproj" />
     <ProjectReference Include="..\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />

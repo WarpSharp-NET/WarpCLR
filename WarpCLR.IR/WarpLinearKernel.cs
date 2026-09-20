@@ -16,6 +16,13 @@ public enum WarpIrOpCode
     ExclusiveOr,
     ShiftLeft,
     ShiftRightLogical,
+    Equal,
+    NotEqual,
+    LessThanUnsigned,
+    LessThanOrEqualUnsigned,
+    GreaterThanUnsigned,
+    GreaterThanOrEqualUnsigned,
+    Select,
 }
 
 public readonly record struct WarpIrInstruction(
@@ -23,7 +30,8 @@ public readonly record struct WarpIrInstruction(
     WarpIrOpCode OpCode,
     int Left = -1,
     int Right = -1,
-    uint Immediate = 0);
+    uint Immediate = 0,
+    int Third = -1);
 
 public sealed class WarpLinearKernel
 {
@@ -119,9 +127,9 @@ public sealed class WarpLinearKernel
 
             case WarpIrOpCode.BitwiseNot:
                 RequirePriorValue(instruction.Left, index);
-                if (instruction.Right != -1)
+                if (instruction.Right != -1 || instruction.Third != -1)
                 {
-                    throw new ArgumentException("A unary instruction has an unexpected right operand.");
+                    throw new ArgumentException("A unary instruction has an unexpected operand.");
                 }
 
                 break;
@@ -134,8 +142,25 @@ public sealed class WarpLinearKernel
             case WarpIrOpCode.ExclusiveOr:
             case WarpIrOpCode.ShiftLeft:
             case WarpIrOpCode.ShiftRightLogical:
+            case WarpIrOpCode.Equal:
+            case WarpIrOpCode.NotEqual:
+            case WarpIrOpCode.LessThanUnsigned:
+            case WarpIrOpCode.LessThanOrEqualUnsigned:
+            case WarpIrOpCode.GreaterThanUnsigned:
+            case WarpIrOpCode.GreaterThanOrEqualUnsigned:
                 RequirePriorValue(instruction.Left, index);
                 RequirePriorValue(instruction.Right, index);
+                if (instruction.Third != -1)
+                {
+                    throw new ArgumentException("A binary instruction has an unexpected third operand.");
+                }
+
+                break;
+
+            case WarpIrOpCode.Select:
+                RequirePriorValue(instruction.Left, index);
+                RequirePriorValue(instruction.Right, index);
+                RequirePriorValue(instruction.Third, index);
                 break;
 
             default:
@@ -148,7 +173,7 @@ public sealed class WarpLinearKernel
 
     private static void RequireNoOperands(WarpIrInstruction instruction)
     {
-        if (instruction.Left != -1 || instruction.Right != -1)
+        if (instruction.Left != -1 || instruction.Right != -1 || instruction.Third != -1)
         {
             throw new ArgumentException("A load or constant instruction has unexpected operands.");
         }

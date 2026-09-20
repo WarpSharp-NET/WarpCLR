@@ -23,6 +23,25 @@ internal static class TestKernels
 
     public static uint Branch(uint value) => value == 0 ? 1u : 2u;
 
+    public static uint CompareAndSelect(uint value, uint threshold) =>
+        value < threshold
+            ? value + 1u
+            : value == threshold
+                ? 0xA5A5A5A5u
+                : value - 1u;
+
+    public static uint Loop(uint value)
+    {
+        uint result = 0;
+        while (value != 0)
+        {
+            result += value;
+            value--;
+        }
+
+        return result;
+    }
+
     public static uint Call(uint value) => Rotate(value);
 
     public static uint WrongParameter(int value) => unchecked((uint)value);

@@ -8,6 +8,34 @@ public sealed class AotPackagingFeatureTests
 {
     [TestMethod]
     [FourBackends]
+    public void Package_backend_names_match_target_identity(WarpBackendKind backend)
+    {
+        string expectedName = backend switch
+        {
+            WarpBackendKind.CoreCLR => "coreclr",
+            WarpBackendKind.NVPTX => "nvptx",
+            WarpBackendKind.AMDGPU => "amdgpu",
+            WarpBackendKind.SPIRV => "spirv",
+            _ => throw new ArgumentOutOfRangeException(nameof(backend)),
+        };
+        string expectedFormat = backend switch
+        {
+            WarpBackendKind.CoreCLR => "coreclr-plan",
+            WarpBackendKind.NVPTX => "nvptx",
+            WarpBackendKind.AMDGPU => "amdgpu-llvm-ir",
+            WarpBackendKind.SPIRV => "spirv-llvm-ir",
+            _ => throw new ArgumentOutOfRangeException(nameof(backend)),
+        };
+
+        Assert.AreEqual(expectedName, WarpArtifactSidecarCodec.GetBackendName(backend));
+        Assert.AreEqual(
+            expectedFormat,
+            WarpArtifactSidecarCodec.GetFormatName(
+                WarpArtifactFormatCatalog.ForBackend(backend)));
+    }
+
+    [TestMethod]
+    [FourBackends]
     public void Package_binds_every_artifact_hash(WarpBackendKind backend)
     {
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(

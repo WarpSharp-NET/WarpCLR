@@ -65,9 +65,9 @@ public sealed class ManifestRegressionTests
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         string capabilityAndHash =
-            $"warp.memory.scoped/0.1\"],\"graphHash\":\"{ManifestAssemblyFixture.MapGraphHash}";
+            $"warp.core.control-flow/0.1\"],\"graphHash\":\"{ManifestAssemblyFixture.MapGraphHash}";
         string changedCapabilityAndHash =
-            $"warp.memory.scoped/0.2\"],\"graphHash\":\"{ManifestAssemblyFixture.MapGraphHash}";
+            $"warp.core.control-flow/0.2\"],\"graphHash\":\"{ManifestAssemblyFixture.MapGraphHash}";
         byte[] assembly = ManifestAssemblyFixture.ReplaceUtf8(
             ManifestAssemblyFixture.ReadAssembly(),
             capabilityAndHash,

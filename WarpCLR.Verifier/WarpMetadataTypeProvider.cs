@@ -6,6 +6,7 @@ namespace WarpCLR.Verifier;
 internal enum WarpMetadataType
 {
     Unsupported,
+    Boolean,
     UInt32,
 }
 
@@ -41,10 +42,12 @@ internal sealed class WarpMetadataTypeProvider : ISignatureTypeProvider<WarpMeta
     public WarpMetadataType GetPointerType(WarpMetadataType elementType) =>
         WarpMetadataType.Unsupported;
 
-    public WarpMetadataType GetPrimitiveType(PrimitiveTypeCode typeCode) =>
-        typeCode == PrimitiveTypeCode.UInt32
-            ? WarpMetadataType.UInt32
-            : WarpMetadataType.Unsupported;
+    public WarpMetadataType GetPrimitiveType(PrimitiveTypeCode typeCode) => typeCode switch
+    {
+        PrimitiveTypeCode.Boolean => WarpMetadataType.Boolean,
+        PrimitiveTypeCode.UInt32 => WarpMetadataType.UInt32,
+        _ => WarpMetadataType.Unsupported,
+    };
 
     public WarpMetadataType GetSZArrayType(WarpMetadataType elementType) =>
         WarpMetadataType.Unsupported;

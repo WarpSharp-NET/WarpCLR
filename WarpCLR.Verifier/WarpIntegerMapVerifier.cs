@@ -22,9 +22,12 @@ internal sealed class WarpIntegerMapVerifier
 
         foreach (LocalVariableInfo local in body.LocalVariables)
         {
-            if (local.LocalType != typeof(uint))
+            if (local.LocalType != typeof(uint) &&
+                local.LocalType != typeof(bool))
             {
-                throw SignatureError(method, "All local variables must have type System.UInt32.");
+                throw SignatureError(
+                    method,
+                    "All local variables must have type System.UInt32 or System.Boolean.");
             }
         }
 

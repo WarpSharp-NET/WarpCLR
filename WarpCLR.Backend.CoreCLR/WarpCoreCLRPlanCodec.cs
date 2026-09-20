@@ -2,11 +2,11 @@ using System.Globalization;
 using System.Text;
 using WarpCLR.IR;
 
-namespace WarpCLR.Backend.Cpu;
+namespace WarpCLR.Backend.CoreCLR;
 
-public static class WarpCpuPlanCodec
+public static class WarpCoreCLRPlanCodec
 {
-    private const string Header = "warp.cpu.linear/0.1";
+    private const string Header = "warp.coreclr.linear/0.2";
 
     public static byte[] Serialize(WarpLinearKernel kernel)
     {
@@ -29,6 +29,8 @@ public static class WarpCpuPlanCodec
                 .Append(instruction.Right)
                 .Append(',')
                 .Append(instruction.Immediate.ToString(CultureInfo.InvariantCulture))
+                .Append(',')
+                .Append(instruction.Third.ToString(CultureInfo.InvariantCulture))
                 .Append('\n');
         }
 
@@ -49,7 +51,7 @@ public static class WarpCpuPlanCodec
         string[] lines = text.Split('\n');
         if (lines.Length < 6 || lines[^1].Length != 0)
         {
-            throw new InvalidDataException("The CPU plan does not have canonical line endings.");
+            throw new InvalidDataException("The CoreCLR plan does not have canonical line endings.");
         }
 
         if (!string.Equals(lines[0], Header, StringComparison.Ordinal) ||
@@ -57,7 +59,7 @@ public static class WarpCpuPlanCodec
             !lines[2].StartsWith("entry=", StringComparison.Ordinal) ||
             !lines[3].StartsWith("operation=", StringComparison.Ordinal))
         {
-            throw new InvalidDataException("The CPU plan header is invalid.");
+            throw new InvalidDataException("The CoreCLR plan header is invalid.");
         }
 
         WarpReductionOperation? reduction = ParseOperation(lines[3]["operation=".Length..]);
@@ -66,7 +68,7 @@ public static class WarpCpuPlanCodec
             : WarpDeviceAbi.IntegerMapEntryPoint;
         if (!string.Equals(lines[2], $"entry={entryPoint}", StringComparison.Ordinal))
         {
-            throw new InvalidDataException("The CPU plan entry point does not match its operation.");
+            throw new InvalidDataException("The CoreCLR plan entry point does not match its operation.");
         }
 
         var instructions = new List<WarpIrInstruction>(lines.Length - 5);
@@ -84,7 +86,7 @@ public static class WarpCpuPlanCodec
                 CultureInfo.InvariantCulture,
                 out int result))
         {
-            throw new InvalidDataException("The CPU plan result is invalid.");
+            throw new InvalidDataException("The CoreCLR plan result is invalid.");
         }
 
         var kernel = new WarpLinearKernel(
@@ -96,7 +98,7 @@ public static class WarpCpuPlanCodec
             reduction);
         if (!content.SequenceEqual(Serialize(kernel)))
         {
-            throw new InvalidDataException("The CPU plan is not canonical.");
+            throw new InvalidDataException("The CoreCLR plan is not canonical.");
         }
 
         return kernel;
@@ -108,18 +110,25 @@ public static class WarpCpuPlanCodec
         string[] fields = equals < 1
             ? []
             : line[(equals + 1)..].Split(',');
-        if (fields.Length != 4 ||
+        if (fields.Length != 5 ||
             !int.TryParse(line.AsSpan(0, equals), NumberStyles.None, CultureInfo.InvariantCulture, out int result) ||
             !Enum.TryParse(fields[0], ignoreCase: false, out WarpIrOpCode opCode) ||
             !Enum.IsDefined(opCode) ||
             !int.TryParse(fields[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int left) ||
             !int.TryParse(fields[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int right) ||
-            !uint.TryParse(fields[3], NumberStyles.None, CultureInfo.InvariantCulture, out uint immediate))
+            !uint.TryParse(fields[3], NumberStyles.None, CultureInfo.InvariantCulture, out uint immediate) ||
+            !int.TryParse(fields[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out int third))
         {
-            throw new InvalidDataException("The CPU plan contains an invalid instruction.");
+            throw new InvalidDataException("The CoreCLR plan contains an invalid instruction.");
         }
 
-        return new WarpIrInstruction(result, opCode, left, right, immediate);
+        return new WarpIrInstruction(
+            result,
+            opCode,
+            left,
+            right,
+            immediate,
+            third);
     }
 
     private static string GetOperationName(WarpReductionOperation? reduction) => reduction switch
@@ -137,6 +146,6 @@ public static class WarpCpuPlanCodec
         "reduce-wrapping-sum" => WarpReductionOperation.WrappingSum,
         "reduce-minimum" => WarpReductionOperation.Minimum,
         "reduce-maximum" => WarpReductionOperation.Maximum,
-        _ => throw new InvalidDataException($"CPU plan operation '{value}' is not registered."),
+        _ => throw new InvalidDataException($"CoreCLR plan operation '{value}' is not registered."),
     };
 }

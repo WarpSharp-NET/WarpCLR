@@ -73,6 +73,45 @@ public sealed class IntegerMapFeatureTests
         CollectionAssert.AreEqual(expected, actual);
     }
 
+    [TestMethod]
+    [FourBackends]
+    public void Conditional_control_flow_has_exact_results(WarpBackendKind backend)
+    {
+        MethodInfo method = GetKernel(nameof(TestKernels.Branch));
+        uint[] input = [0u, 1u, uint.MaxValue, 0x80000000u];
+        uint[] expected = input.Select(TestKernels.Branch).ToArray();
+
+        uint[] actual = KernelTestHarness.CompileAndEmulate(
+            method,
+            1,
+            backend,
+            [input]);
+
+        CollectionAssert.AreEqual(expected, actual);
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void Unsigned_comparisons_and_nested_selection_have_exact_results(
+        WarpBackendKind backend)
+    {
+        MethodInfo method = GetKernel(nameof(TestKernels.CompareAndSelect));
+        uint[] input = [0u, 6u, 7u, 8u, uint.MaxValue, 0x80000000u];
+        const uint threshold = 7u;
+        uint[] expected = input
+            .Select(value => TestKernels.CompareAndSelect(value, threshold))
+            .ToArray();
+
+        uint[] actual = KernelTestHarness.CompileAndEmulate(
+            method,
+            1,
+            backend,
+            [input],
+            [threshold]);
+
+        CollectionAssert.AreEqual(expected, actual);
+    }
+
     private static MethodInfo GetKernel(string name) =>
         typeof(TestKernels).GetMethod(name, BindingFlags.Public | BindingFlags.Static)
         ?? throw new InvalidOperationException($"Test kernel '{name}' was not found.");

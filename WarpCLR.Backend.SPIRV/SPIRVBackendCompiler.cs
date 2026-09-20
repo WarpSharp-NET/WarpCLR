@@ -2,11 +2,44 @@ using System.Globalization;
 using System.Text;
 using WarpCLR.IR;
 
-namespace WarpCLR.Backend.Intel;
+namespace WarpCLR.Backend.SPIRV;
 
-public sealed class IntelBackendCompiler : IWarpBackendCompiler
+public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
 {
-    public WarpBackendKind Backend => WarpBackendKind.Intel;
+    private static readonly WarpBackendContract DeclaredContract = CreateContract();
+
+    public WarpBackendKind Backend => WarpBackendKind.SPIRV;
+
+    public WarpBackendContract Contract => DeclaredContract;
+
+    private static WarpBackendContract CreateContract() => new(
+        WarpProfileCatalog.ProfileId,
+        [
+            WarpIrOpCode.LoadInput,
+            WarpIrOpCode.LoadScalar,
+            WarpIrOpCode.Constant,
+            WarpIrOpCode.BitwiseNot,
+            WarpIrOpCode.Add,
+            WarpIrOpCode.Subtract,
+            WarpIrOpCode.Multiply,
+            WarpIrOpCode.BitwiseAnd,
+            WarpIrOpCode.BitwiseOr,
+            WarpIrOpCode.ExclusiveOr,
+            WarpIrOpCode.ShiftLeft,
+            WarpIrOpCode.ShiftRightLogical,
+            WarpIrOpCode.Equal,
+            WarpIrOpCode.NotEqual,
+            WarpIrOpCode.LessThanUnsigned,
+            WarpIrOpCode.LessThanOrEqualUnsigned,
+            WarpIrOpCode.GreaterThanUnsigned,
+            WarpIrOpCode.GreaterThanOrEqualUnsigned,
+            WarpIrOpCode.Select,
+        ],
+        [
+            WarpReductionOperation.WrappingSum,
+            WarpReductionOperation.Minimum,
+            WarpReductionOperation.Maximum,
+        ]);
 
     public WarpBackendArtifact Compile(WarpLinearKernel kernel)
     {
@@ -55,7 +88,7 @@ public sealed class IntelBackendCompiler : IWarpBackendCompiler
 
         return new WarpBackendArtifact(
             Backend,
-            WarpArtifactFormat.IntelSpirvLlvmIr,
+            WarpArtifactFormat.SPIRVLLVMIR,
             WarpDeviceAbi.IntegerMapEntryPoint,
             Encoding.UTF8.GetBytes(llvm.ToString()));
     }
@@ -118,7 +151,7 @@ public sealed class IntelBackendCompiler : IWarpBackendCompiler
 
         return new WarpBackendArtifact(
             Backend,
-            WarpArtifactFormat.IntelSpirvLlvmIr,
+            WarpArtifactFormat.SPIRVLLVMIR,
             WarpDeviceAbi.IntegerReductionEntryPoint,
             Encoding.UTF8.GetBytes(llvm.ToString()));
     }
@@ -157,6 +190,7 @@ public sealed class IntelBackendCompiler : IWarpBackendCompiler
         string result = Value(instruction.Result);
         string left = Value(instruction.Left);
         string right = Value(instruction.Right);
+        string third = Value(instruction.Third);
 
         switch (instruction.OpCode)
         {
@@ -224,6 +258,39 @@ public sealed class IntelBackendCompiler : IWarpBackendCompiler
 
             case WarpIrOpCode.ShiftRightLogical:
                 AppendShift(llvm, instruction.Result, "lshr", left, right);
+                break;
+
+            case WarpIrOpCode.Equal:
+                AppendComparison(llvm, instruction.Result, "eq", left, right);
+                break;
+
+            case WarpIrOpCode.NotEqual:
+                AppendComparison(llvm, instruction.Result, "ne", left, right);
+                break;
+
+            case WarpIrOpCode.LessThanUnsigned:
+                AppendComparison(llvm, instruction.Result, "ult", left, right);
+                break;
+
+            case WarpIrOpCode.LessThanOrEqualUnsigned:
+                AppendComparison(llvm, instruction.Result, "ule", left, right);
+                break;
+
+            case WarpIrOpCode.GreaterThanUnsigned:
+                AppendComparison(llvm, instruction.Result, "ugt", left, right);
+                break;
+
+            case WarpIrOpCode.GreaterThanOrEqualUnsigned:
+                AppendComparison(llvm, instruction.Result, "uge", left, right);
+                break;
+
+            case WarpIrOpCode.Select:
+                AppendConditionalSelection(
+                    llvm,
+                    instruction.Result,
+                    left,
+                    right,
+                    third);
                 break;
 
             default:
@@ -302,6 +369,52 @@ public sealed class IntelBackendCompiler : IWarpBackendCompiler
         string shift = $"%warp_shift_{Invariant(resultIndex)}";
         AppendBinary(llvm, shift, "and", right, "31");
         AppendBinary(llvm, Value(resultIndex), opcode, left, shift);
+    }
+
+    private static void AppendComparison(
+        StringBuilder llvm,
+        int resultIndex,
+        string predicate,
+        string left,
+        string right)
+    {
+        string comparison = $"%warp_compare_{Invariant(resultIndex)}";
+        llvm.Append("  ")
+            .Append(comparison)
+            .Append(" = icmp ")
+            .Append(predicate)
+            .Append(" i32 ")
+            .Append(left)
+            .Append(", ")
+            .AppendLine(right);
+        llvm.Append("  ")
+            .Append(Value(resultIndex))
+            .Append(" = zext i1 ")
+            .Append(comparison)
+            .AppendLine(" to i32");
+    }
+
+    private static void AppendConditionalSelection(
+        StringBuilder llvm,
+        int resultIndex,
+        string condition,
+        string whenNonZero,
+        string whenZero)
+    {
+        string comparison = $"%warp_select_condition_{Invariant(resultIndex)}";
+        llvm.Append("  ")
+            .Append(comparison)
+            .Append(" = icmp ne i32 ")
+            .Append(condition)
+            .AppendLine(", 0");
+        llvm.Append("  ")
+            .Append(Value(resultIndex))
+            .Append(" = select i1 ")
+            .Append(comparison)
+            .Append(", i32 ")
+            .Append(whenNonZero)
+            .Append(", i32 ")
+            .AppendLine(whenZero);
     }
 
     private static string Value(int result) => $"%warp_v{Invariant(result)}";
