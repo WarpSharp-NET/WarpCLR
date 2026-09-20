@@ -6,5 +6,5 @@ public interface IWarpBackendCompiler
 
     WarpBackendContract Contract { get; }
 
-    WarpBackendArtifact Compile(WarpLinearKernel kernel);
+    WarpBackendArtifact Compile(WarpControlFlowKernel kernel);
 }

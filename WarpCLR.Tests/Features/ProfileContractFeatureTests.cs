@@ -18,6 +18,8 @@ public sealed class ProfileContractFeatureTests
             WarpProfileFeature.TypedUnsignedBuffers,
             WarpProfileFeature.OneDimensionalParallelMap,
             WarpProfileFeature.ConditionalControlFlow,
+            WarpProfileFeature.ControlFlowGraph,
+            WarpProfileFeature.BackwardControlFlow,
             WarpProfileFeature.DeterministicAotPackaging,
             WarpProfileFeature.ExplicitHostDispatch,
             WarpProfileFeature.ExactUnsignedReductions,
@@ -40,7 +42,7 @@ public sealed class ProfileContractFeatureTests
             "warp.core.scalar/0.1",
             "warp.core.parallel/0.1",
             "warp.core.buffers/0.1",
-            "warp.core.control-flow/0.1",
+            "warp.core.control-flow/0.2",
         ];
 
         CollectionAssert.AreEqual(expected, WarpProfileCatalog.RequiredCapabilities.ToArray());

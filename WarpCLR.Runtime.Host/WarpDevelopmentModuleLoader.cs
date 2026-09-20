@@ -36,7 +36,7 @@ public sealed class WarpDevelopmentModuleLoader
 
         foreach (WarpVerifiedEntry entry in module.Entries)
         {
-            WarpLinearKernel expectedKernel = lowerer.Lower(entry.Kernel);
+            WarpControlFlowKernel expectedKernel = lowerer.Lower(entry.Kernel);
             string expectedIrHash = WarpIrHash.Compute(expectedKernel);
             var entryArtifacts = new Dictionary<WarpBackendKind, WarpLoadedArtifact>();
 

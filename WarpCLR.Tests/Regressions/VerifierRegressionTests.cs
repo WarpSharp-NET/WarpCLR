@@ -21,17 +21,6 @@ public sealed class VerifierRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Loops_are_rejected_until_the_cfg_profile_is_available(
-        WarpBackendKind backend)
-    {
-        WarpVerificationException exception = CompileRejected(nameof(TestKernels.Loop), 1, backend);
-
-        Assert.AreEqual("WRPCIL1013", exception.Code);
-        StringAssert.Contains(exception.Message, "control-flow graph");
-    }
-
-    [TestMethod]
-    [FourBackends]
     public void Calls_are_rejected_for_every_target(WarpBackendKind backend)
     {
         WarpVerificationException exception = CompileRejected(nameof(TestKernels.Call), 1, backend);

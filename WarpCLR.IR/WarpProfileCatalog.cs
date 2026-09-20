@@ -9,6 +9,8 @@ public enum WarpProfileFeature
     TypedUnsignedBuffers,
     OneDimensionalParallelMap,
     ConditionalControlFlow,
+    ControlFlowGraph,
+    BackwardControlFlow,
     DeterministicAotPackaging,
     ExplicitHostDispatch,
     ExactUnsignedReductions,
@@ -32,12 +34,12 @@ public static class WarpCapabilityCatalog
 
     public const string Buffers = "warp.core.buffers/0.1";
 
-    public const string ControlFlow = "warp.core.control-flow/0.1";
+    public const string ControlFlow = "warp.core.control-flow/0.2";
 }
 
 public static class WarpProfileCatalog
 {
-    public const string ProfileId = "warpclr.profile/0.1";
+    public const string ProfileId = "warpclr.profile/0.2";
 
     private static readonly ReadOnlyCollection<WarpFeatureDescriptor> FeatureDescriptors =
         Array.AsReadOnly<WarpFeatureDescriptor>(
@@ -47,6 +49,8 @@ public static class WarpProfileCatalog
             new(WarpProfileFeature.TypedUnsignedBuffers, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.OneDimensionalParallelMap, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.ConditionalControlFlow, WarpFeatureLayer.WarpCil),
+            new(WarpProfileFeature.ControlFlowGraph, WarpFeatureLayer.WarpClr),
+            new(WarpProfileFeature.BackwardControlFlow, WarpFeatureLayer.WarpCil),
             new(WarpProfileFeature.DeterministicAotPackaging, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExplicitHostDispatch, WarpFeatureLayer.WarpClr),
             new(WarpProfileFeature.ExactUnsignedReductions, WarpFeatureLayer.WarpCil),
@@ -85,9 +89,19 @@ public static class WarpProfileCatalog
             WarpIrOpCode.Select,
         ]);
 
+    private static readonly ReadOnlyCollection<WarpControlFlowOperation> ControlFlowOperations =
+        Array.AsReadOnly(
+        [
+            WarpControlFlowOperation.BlockArguments,
+            WarpControlFlowOperation.Branch,
+            WarpControlFlowOperation.ConditionalBranch,
+            WarpControlFlowOperation.Return,
+        ]);
+
     private static readonly WarpBackendContract PortableContract = new(
         ProfileId,
         IntegerMapInstructionSet,
+        ControlFlowOperations,
         WarpReductionContract.Operations.Select(descriptor => descriptor.Operation));
 
     public static IReadOnlyList<WarpFeatureDescriptor> Features => FeatureDescriptors;
@@ -95,6 +109,8 @@ public static class WarpProfileCatalog
     public static IReadOnlyList<string> RequiredCapabilities => CapabilityIdentifiers;
 
     public static IReadOnlyList<WarpIrOpCode> IntegerMapInstructions => IntegerMapInstructionSet;
+
+    public static IReadOnlyList<WarpControlFlowOperation> ControlFlow => ControlFlowOperations;
 
     public static WarpBackendContract BackendContract => PortableContract;
 }

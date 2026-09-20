@@ -36,12 +36,18 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
             WarpIrOpCode.Select,
         ],
         [
+            WarpControlFlowOperation.BlockArguments,
+            WarpControlFlowOperation.Branch,
+            WarpControlFlowOperation.ConditionalBranch,
+            WarpControlFlowOperation.Return,
+        ],
+        [
             WarpReductionOperation.WrappingSum,
             WarpReductionOperation.Minimum,
             WarpReductionOperation.Maximum,
         ]);
 
-    public WarpBackendArtifact Compile(WarpLinearKernel kernel)
+    public WarpBackendArtifact Compile(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
         if (kernel.Reduction.HasValue)
@@ -67,16 +73,13 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         llvm.AppendLine("  br i1 %warp_in_range, label %body, label %done");
         llvm.AppendLine();
         llvm.AppendLine("body:");
-
-        foreach (WarpIrInstruction instruction in kernel.Instructions)
-        {
-            AppendInstruction(llvm, instruction, "%warp_index");
-        }
-
+        llvm.AppendLine("  br label %warp_block_0");
+        llvm.AppendLine();
+        AppendControlFlow(llvm, kernel, "%warp_index");
+        llvm.AppendLine("warp_kernel_return:");
+        AppendReturnPhi(llvm, kernel);
         llvm.AppendLine("  %warp_output_ptr = getelementptr i32, ptr addrspace(1) %warp_output, i64 %warp_index");
-        llvm.Append("  store i32 %warp_v")
-            .Append(Invariant(kernel.Result))
-            .AppendLine(", ptr addrspace(1) %warp_output_ptr, align 4");
+        llvm.AppendLine("  store i32 %warp_kernel_result, ptr addrspace(1) %warp_output_ptr, align 4");
         llvm.AppendLine("  br label %done");
         llvm.AppendLine();
         llvm.AppendLine("done:");
@@ -93,7 +96,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
             Encoding.UTF8.GetBytes(llvm.ToString()));
     }
 
-    private WarpBackendArtifact CompileReduction(WarpLinearKernel kernel)
+    private WarpBackendArtifact CompileReduction(WarpControlFlowKernel kernel)
     {
         WarpReductionOperation operation = kernel.Reduction
             ?? throw new ArgumentException("A reduction operation is required.", nameof(kernel));
@@ -120,21 +123,20 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         llvm.AppendLine("  br label %reduce_loop");
         llvm.AppendLine();
         llvm.AppendLine("reduce_loop:");
-        llvm.AppendLine("  %warp_reduce_index = phi i64 [ 0, %leader ], [ %warp_next_index, %reduce_body ]");
+        llvm.AppendLine("  %warp_reduce_index = phi i64 [ 0, %leader ], [ %warp_next_index, %warp_kernel_return ]");
         llvm.Append("  %warp_accumulator = phi i32 [ ")
             .Append(Signed(identity))
-            .AppendLine(", %leader ], [ %warp_next_accumulator, %reduce_body ]");
+            .AppendLine(", %leader ], [ %warp_next_accumulator, %warp_kernel_return ]");
         llvm.AppendLine("  %warp_has_item = icmp ult i64 %warp_reduce_index, %warp_count_64");
         llvm.AppendLine("  br i1 %warp_has_item, label %reduce_body, label %reduce_store");
         llvm.AppendLine();
         llvm.AppendLine("reduce_body:");
-
-        foreach (WarpIrInstruction instruction in kernel.Instructions)
-        {
-            AppendInstruction(llvm, instruction, "%warp_reduce_index");
-        }
-
-        AppendReduction(llvm, operation, kernel.Result);
+        llvm.AppendLine("  br label %warp_block_0");
+        llvm.AppendLine();
+        AppendControlFlow(llvm, kernel, "%warp_reduce_index");
+        llvm.AppendLine("warp_kernel_return:");
+        AppendReturnPhi(llvm, kernel);
+        AppendReduction(llvm, operation, "%warp_kernel_result");
         llvm.AppendLine("  %warp_next_index = add i64 %warp_reduce_index, 1");
         llvm.AppendLine("  br label %reduce_loop");
         llvm.AppendLine();
@@ -156,7 +158,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
             Encoding.UTF8.GetBytes(llvm.ToString()));
     }
 
-    private static void AppendParameters(StringBuilder llvm, WarpLinearKernel kernel)
+    private static void AppendParameters(StringBuilder llvm, WarpControlFlowKernel kernel)
     {
         var parameters = new List<string>(
             kernel.InputBufferCount + kernel.ScalarArgumentCount + 2);
@@ -180,6 +182,136 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
                 .Append(parameters[index])
                 .AppendLine(index + 1 == parameters.Count ? string.Empty : ",");
         }
+    }
+
+    private static void AppendControlFlow(
+        StringBuilder llvm,
+        WarpControlFlowKernel kernel,
+        string indexValue)
+    {
+        IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> incoming = GetIncomingEdges(kernel);
+        foreach (WarpBasicBlock block in kernel.Blocks)
+        {
+            llvm.Append("warp_block_").Append(Invariant(block.Id)).AppendLine(":");
+            for (int parameterIndex = 0; parameterIndex < block.Parameters.Count; parameterIndex++)
+            {
+                WarpBlockParameter parameter = block.Parameters[parameterIndex];
+                llvm.Append("  ")
+                    .Append(Value(parameter.Value))
+                    .Append(" = phi i32 ");
+                IReadOnlyList<IncomingEdge> edges = incoming[block.Id];
+                for (int edgeIndex = 0; edgeIndex < edges.Count; edgeIndex++)
+                {
+                    if (edgeIndex != 0)
+                    {
+                        llvm.Append(", ");
+                    }
+
+                    IncomingEdge edge = edges[edgeIndex];
+                    llvm.Append("[ ")
+                        .Append(Value(edge.Target.Arguments[parameterIndex]))
+                        .Append(", %warp_block_")
+                        .Append(Invariant(edge.SourceBlock))
+                        .Append(" ]");
+                }
+
+                llvm.AppendLine();
+            }
+
+            foreach (WarpIrInstruction instruction in block.Instructions)
+            {
+                AppendInstruction(llvm, instruction, indexValue);
+            }
+
+            AppendTerminator(llvm, block);
+            llvm.AppendLine();
+        }
+    }
+
+    private static void AppendTerminator(StringBuilder llvm, WarpBasicBlock block)
+    {
+        switch (block.Terminator)
+        {
+            case WarpBranchTerminator branch:
+                llvm.Append("  br label %warp_block_")
+                    .Append(Invariant(branch.Target.Block))
+                    .AppendLine();
+                break;
+
+            case WarpConditionalBranchTerminator conditional:
+                llvm.Append("  %warp_branch_condition_")
+                    .Append(Invariant(block.Id))
+                    .Append(" = icmp ne i32 ")
+                    .Append(Value(conditional.Condition))
+                    .AppendLine(", 0");
+                llvm.Append("  br i1 %warp_branch_condition_")
+                    .Append(Invariant(block.Id))
+                    .Append(", label %warp_block_")
+                    .Append(Invariant(conditional.WhenNonZero.Block))
+                    .Append(", label %warp_block_")
+                    .Append(Invariant(conditional.WhenZero.Block))
+                    .AppendLine();
+                break;
+
+            case WarpReturnTerminator:
+                llvm.AppendLine("  br label %warp_kernel_return");
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(block));
+        }
+    }
+
+    private static void AppendReturnPhi(StringBuilder llvm, WarpControlFlowKernel kernel)
+    {
+        WarpBasicBlock[] returns = kernel.Blocks
+            .Where(block => block.Terminator is WarpReturnTerminator)
+            .ToArray();
+        llvm.Append("  %warp_kernel_result = phi i32 ");
+        for (int index = 0; index < returns.Length; index++)
+        {
+            if (index != 0)
+            {
+                llvm.Append(", ");
+            }
+
+            var terminator = (WarpReturnTerminator)returns[index].Terminator;
+            llvm.Append("[ ")
+                .Append(Value(terminator.Value))
+                .Append(", %warp_block_")
+                .Append(Invariant(returns[index].Id))
+                .Append(" ]");
+        }
+
+        llvm.AppendLine();
+    }
+
+    private static IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> GetIncomingEdges(
+        WarpControlFlowKernel kernel)
+    {
+        var result = kernel.Blocks.ToDictionary(
+            block => block.Id,
+            _ => new List<IncomingEdge>());
+        foreach (WarpBasicBlock source in kernel.Blocks)
+        {
+            switch (source.Terminator)
+            {
+                case WarpBranchTerminator branch:
+                    result[branch.Target.Block].Add(new IncomingEdge(source.Id, branch.Target));
+                    break;
+
+                case WarpConditionalBranchTerminator conditional:
+                    result[conditional.WhenNonZero.Block].Add(
+                        new IncomingEdge(source.Id, conditional.WhenNonZero));
+                    result[conditional.WhenZero.Block].Add(
+                        new IncomingEdge(source.Id, conditional.WhenZero));
+                    break;
+            }
+        }
+
+        return result.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<IncomingEdge>)pair.Value);
     }
 
     private static void AppendInstruction(
@@ -301,9 +433,8 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
     private static void AppendReduction(
         StringBuilder llvm,
         WarpReductionOperation operation,
-        int resultIndex)
+        string value)
     {
-        string value = Value(resultIndex);
         switch (operation)
         {
             case WarpReductionOperation.WrappingSum:
@@ -425,4 +556,6 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
 
     private static string Signed(uint value) =>
         unchecked((int)value).ToString(CultureInfo.InvariantCulture);
+
+    private sealed record IncomingEdge(int SourceBlock, WarpBranchTarget Target);
 }

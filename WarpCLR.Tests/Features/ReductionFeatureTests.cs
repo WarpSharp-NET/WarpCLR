@@ -114,12 +114,19 @@ public sealed class ReductionFeatureTests
 
     private static WarpCompilation CompileIdentityReduction(WarpReductionOperation operation)
     {
-        var kernel = new WarpIntegerMapKernel(
+        var controlFlow = new WarpControlFlowKernel(
             $"test.{operation}",
             1,
             0,
-            new WarpInputExpression(0),
+            [
+                new WarpBasicBlock(
+                    0,
+                    [],
+                    [new WarpIrInstruction(0, WarpIrOpCode.LoadInput)],
+                    new WarpReturnTerminator(0)),
+            ],
             operation);
+        var kernel = new WarpIntegerMapKernel(controlFlow);
 
         return new WarpCompiler().Compile(
             kernel,

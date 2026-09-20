@@ -10,7 +10,7 @@ public sealed class CoreCLRBackendCompiler : IWarpBackendCompiler
 
     public WarpBackendContract Contract => DeclaredContract;
 
-    public WarpBackendArtifact Compile(WarpLinearKernel kernel)
+    public WarpBackendArtifact Compile(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
 
@@ -43,6 +43,12 @@ public sealed class CoreCLRBackendCompiler : IWarpBackendCompiler
             WarpIrOpCode.GreaterThanUnsigned,
             WarpIrOpCode.GreaterThanOrEqualUnsigned,
             WarpIrOpCode.Select,
+        ],
+        [
+            WarpControlFlowOperation.BlockArguments,
+            WarpControlFlowOperation.Branch,
+            WarpControlFlowOperation.ConditionalBranch,
+            WarpControlFlowOperation.Return,
         ],
         [
             WarpReductionOperation.WrappingSum,

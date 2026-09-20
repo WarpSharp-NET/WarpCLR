@@ -6,7 +6,7 @@ public sealed class WarpIntegerMapSemanticEmulator
 {
     public uint[] Execute(
         WarpBackendArtifact artifact,
-        WarpLinearKernel kernel,
+        WarpControlFlowKernel kernel,
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint>? scalarArguments = null)
     {
@@ -53,7 +53,7 @@ public sealed class WarpIntegerMapSemanticEmulator
 
     public uint ExecuteReduction(
         WarpBackendArtifact artifact,
-        WarpLinearKernel kernel,
+        WarpControlFlowKernel kernel,
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint>? scalarArguments = null)
     {
@@ -93,7 +93,7 @@ public sealed class WarpIntegerMapSemanticEmulator
     }
 
     private static int ValidateArguments(
-        WarpLinearKernel kernel,
+        WarpControlFlowKernel kernel,
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint> scalarArguments)
     {
@@ -123,44 +123,88 @@ public sealed class WarpIntegerMapSemanticEmulator
     }
 
     private static uint Evaluate(
-        WarpLinearKernel kernel,
+        WarpControlFlowKernel kernel,
         IReadOnlyList<uint> inputs,
         IReadOnlyList<uint> scalarArguments)
     {
         var values = new uint[kernel.ValueCount];
 
-        foreach (WarpIrInstruction instruction in kernel.Instructions)
+        int blockId = 0;
+        while (true)
         {
-            uint left = instruction.Left < 0 ? 0 : values[instruction.Left];
-            uint right = instruction.Right < 0 ? 0 : values[instruction.Right];
-            uint third = instruction.Third < 0 ? 0 : values[instruction.Third];
-
-            values[instruction.Result] = instruction.OpCode switch
+            WarpBasicBlock block = kernel.Blocks[blockId];
+            foreach (WarpIrInstruction instruction in block.Instructions)
             {
-                WarpIrOpCode.LoadInput => inputs[checked((int)instruction.Immediate)],
-                WarpIrOpCode.LoadScalar => scalarArguments[checked((int)instruction.Immediate)],
-                WarpIrOpCode.Constant => instruction.Immediate,
-                WarpIrOpCode.BitwiseNot => ~left,
-                WarpIrOpCode.Add => unchecked(left + right),
-                WarpIrOpCode.Subtract => unchecked(left - right),
-                WarpIrOpCode.Multiply => unchecked(left * right),
-                WarpIrOpCode.BitwiseAnd => left & right,
-                WarpIrOpCode.BitwiseOr => left | right,
-                WarpIrOpCode.ExclusiveOr => left ^ right,
-                WarpIrOpCode.ShiftLeft => left << (int)(right & 31),
-                WarpIrOpCode.ShiftRightLogical => left >> (int)(right & 31),
-                WarpIrOpCode.Equal => left == right ? 1u : 0u,
-                WarpIrOpCode.NotEqual => left != right ? 1u : 0u,
-                WarpIrOpCode.LessThanUnsigned => left < right ? 1u : 0u,
-                WarpIrOpCode.LessThanOrEqualUnsigned => left <= right ? 1u : 0u,
-                WarpIrOpCode.GreaterThanUnsigned => left > right ? 1u : 0u,
-                WarpIrOpCode.GreaterThanOrEqualUnsigned => left >= right ? 1u : 0u,
-                WarpIrOpCode.Select => left != 0 ? right : third,
-                _ => throw new InvalidOperationException(
-                    "The semantic emulator received an unregistered opcode."),
-            };
+                uint left = instruction.Left < 0 ? 0 : values[instruction.Left];
+                uint right = instruction.Right < 0 ? 0 : values[instruction.Right];
+                uint third = instruction.Third < 0 ? 0 : values[instruction.Third];
+
+                values[instruction.Result] = instruction.OpCode switch
+                {
+                    WarpIrOpCode.LoadInput => inputs[checked((int)instruction.Immediate)],
+                    WarpIrOpCode.LoadScalar => scalarArguments[checked((int)instruction.Immediate)],
+                    WarpIrOpCode.Constant => instruction.Immediate,
+                    WarpIrOpCode.BitwiseNot => ~left,
+                    WarpIrOpCode.Add => unchecked(left + right),
+                    WarpIrOpCode.Subtract => unchecked(left - right),
+                    WarpIrOpCode.Multiply => unchecked(left * right),
+                    WarpIrOpCode.BitwiseAnd => left & right,
+                    WarpIrOpCode.BitwiseOr => left | right,
+                    WarpIrOpCode.ExclusiveOr => left ^ right,
+                    WarpIrOpCode.ShiftLeft => left << (int)(right & 31),
+                    WarpIrOpCode.ShiftRightLogical => left >> (int)(right & 31),
+                    WarpIrOpCode.Equal => left == right ? 1u : 0u,
+                    WarpIrOpCode.NotEqual => left != right ? 1u : 0u,
+                    WarpIrOpCode.LessThanUnsigned => left < right ? 1u : 0u,
+                    WarpIrOpCode.LessThanOrEqualUnsigned => left <= right ? 1u : 0u,
+                    WarpIrOpCode.GreaterThanUnsigned => left > right ? 1u : 0u,
+                    WarpIrOpCode.GreaterThanOrEqualUnsigned => left >= right ? 1u : 0u,
+                    WarpIrOpCode.Select => left != 0 ? right : third,
+                    _ => throw new InvalidOperationException(
+                        "The semantic emulator received an unregistered opcode."),
+                };
+            }
+
+            switch (block.Terminator)
+            {
+                case WarpBranchTerminator branch:
+                    AssignParameters(kernel, values, branch.Target);
+                    blockId = branch.Target.Block;
+                    break;
+
+                case WarpConditionalBranchTerminator conditional:
+                    WarpBranchTarget target = values[conditional.Condition] != 0
+                        ? conditional.WhenNonZero
+                        : conditional.WhenZero;
+                    AssignParameters(kernel, values, target);
+                    blockId = target.Block;
+                    break;
+
+                case WarpReturnTerminator @return:
+                    return values[@return.Value];
+
+                default:
+                    throw new InvalidOperationException(
+                        "The semantic emulator received an unregistered terminator.");
+            }
+        }
+    }
+
+    private static void AssignParameters(
+        WarpControlFlowKernel kernel,
+        uint[] values,
+        WarpBranchTarget target)
+    {
+        WarpBasicBlock destination = kernel.Blocks[target.Block];
+        var arguments = new uint[target.Arguments.Count];
+        for (int index = 0; index < arguments.Length; index++)
+        {
+            arguments[index] = values[target.Arguments[index]];
         }
 
-        return values[kernel.Result];
+        for (int index = 0; index < arguments.Length; index++)
+        {
+            values[destination.Parameters[index].Value] = arguments[index];
+        }
     }
 }

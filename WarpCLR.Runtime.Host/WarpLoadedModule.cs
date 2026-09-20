@@ -9,7 +9,7 @@ public sealed class WarpLoadedEntry
 
     internal WarpLoadedEntry(
         string identity,
-        WarpLinearKernel kernel,
+        WarpControlFlowKernel kernel,
         IDictionary<WarpBackendKind, WarpLoadedArtifact> artifacts)
     {
         Identity = identity;
@@ -24,7 +24,7 @@ public sealed class WarpLoadedEntry
 
     public int ScalarArgumentCount => Kernel.ScalarArgumentCount;
 
-    internal WarpLinearKernel Kernel { get; }
+    internal WarpControlFlowKernel Kernel { get; }
 
     internal IReadOnlyDictionary<WarpBackendKind, WarpLoadedArtifact> Artifacts => artifacts;
 }

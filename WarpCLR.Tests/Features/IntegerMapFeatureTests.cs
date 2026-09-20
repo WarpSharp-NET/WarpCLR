@@ -1,5 +1,6 @@
 using System.Reflection;
 using WarpCLR.IR;
+using WarpCLR.Verifier;
 
 namespace WarpCLR.Tests.Features;
 
@@ -111,6 +112,35 @@ public sealed class IntegerMapFeatureTests
 
         CollectionAssert.AreEqual(expected, actual);
     }
+
+    [TestMethod]
+    [FourBackends]
+    public void Backward_control_flow_has_exact_results(WarpBackendKind backend)
+    {
+        MethodInfo method = GetKernel(nameof(TestKernels.Loop));
+        WarpIntegerMapKernel verified = new WarpIntegerMapVerifier().Verify(
+            new WarpIntegerMapRequest(method, 1));
+        Assert.IsTrue(verified.ControlFlow.Blocks.Any(HasBackEdge));
+
+        uint[] input = [0u, 1u, 2u, 5u, 100u];
+        uint[] expected = input.Select(TestKernels.Loop).ToArray();
+
+        uint[] actual = KernelTestHarness.CompileAndEmulate(
+            method,
+            1,
+            backend,
+            [input]);
+
+        CollectionAssert.AreEqual(expected, actual);
+    }
+
+    private static bool HasBackEdge(WarpBasicBlock block) => block.Terminator switch
+    {
+        WarpBranchTerminator branch => branch.Target.Block <= block.Id,
+        WarpConditionalBranchTerminator conditional =>
+            conditional.WhenNonZero.Block <= block.Id || conditional.WhenZero.Block <= block.Id,
+        _ => false,
+    };
 
     private static MethodInfo GetKernel(string name) =>
         typeof(TestKernels).GetMethod(name, BindingFlags.Public | BindingFlags.Static)

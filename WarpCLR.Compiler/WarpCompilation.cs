@@ -6,7 +6,7 @@ namespace WarpCLR.Compiler;
 public sealed class WarpCompilation
 {
     internal WarpCompilation(
-        WarpLinearKernel kernel,
+        WarpControlFlowKernel kernel,
         IDictionary<WarpBackendKind, WarpBackendArtifact> artifacts)
     {
         ArgumentNullException.ThrowIfNull(kernel);
@@ -17,7 +17,7 @@ public sealed class WarpCompilation
             new Dictionary<WarpBackendKind, WarpBackendArtifact>(artifacts));
     }
 
-    public WarpLinearKernel Kernel { get; }
+    public WarpControlFlowKernel Kernel { get; }
 
     public IReadOnlyDictionary<WarpBackendKind, WarpBackendArtifact> Artifacts { get; }
 }

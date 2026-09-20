@@ -49,7 +49,7 @@ internal sealed class WarpCompiler
 
         ValidateBackendContracts(compilers);
 
-        WarpLinearKernel kernel = lowerer.Lower(verifiedKernel);
+        WarpControlFlowKernel kernel = lowerer.Lower(verifiedKernel);
         var artifacts = new Dictionary<WarpBackendKind, WarpBackendArtifact>();
 
         foreach (WarpBackendKind backend in WarpBackendCatalog.Required)
@@ -119,6 +119,13 @@ internal sealed class WarpCompiler
             differences.Add(
                 $"instructions [{string.Join(", ", actual.Instructions)}] do not equal " +
                 $"[{string.Join(", ", expected.Instructions)}]");
+        }
+
+        if (!actual.ControlFlow.SequenceEqual(expected.ControlFlow))
+        {
+            differences.Add(
+                $"control flow [{string.Join(", ", actual.ControlFlow)}] does not equal " +
+                $"[{string.Join(", ", expected.ControlFlow)}]");
         }
 
         if (!actual.Reductions.SequenceEqual(expected.Reductions))

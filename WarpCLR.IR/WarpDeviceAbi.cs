@@ -12,7 +12,7 @@ public static class WarpDeviceAbi
 
     public const uint IntegerMapWorkgroupSize = 256;
 
-    public static string GetEntryPoint(WarpLinearKernel kernel)
+    public static string GetEntryPoint(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
         return kernel.Reduction.HasValue ? IntegerReductionEntryPoint : IntegerMapEntryPoint;

@@ -3,35 +3,19 @@ namespace WarpCLR.IR;
 public sealed class WarpIntegerMapKernel
 {
     internal WarpIntegerMapKernel(
-        string name,
-        int inputBufferCount,
-        int scalarArgumentCount,
-        WarpExpression result,
-        WarpReductionOperation? reduction = null)
+        WarpControlFlowKernel controlFlow)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, 1);
-        ArgumentOutOfRangeException.ThrowIfNegative(scalarArgumentCount);
-        ArgumentNullException.ThrowIfNull(result);
-        if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(reduction));
-        }
-
-        Name = name;
-        InputBufferCount = inputBufferCount;
-        ScalarArgumentCount = scalarArgumentCount;
-        Result = result;
-        Reduction = reduction;
+        ArgumentNullException.ThrowIfNull(controlFlow);
+        ControlFlow = controlFlow;
     }
 
-    public string Name { get; }
+    public string Name => ControlFlow.Name;
 
-    public int InputBufferCount { get; }
+    public int InputBufferCount => ControlFlow.InputBufferCount;
 
-    public int ScalarArgumentCount { get; }
+    public int ScalarArgumentCount => ControlFlow.ScalarArgumentCount;
 
-    public WarpExpression Result { get; }
+    public WarpReductionOperation? Reduction => ControlFlow.Reduction;
 
-    public WarpReductionOperation? Reduction { get; }
+    public WarpControlFlowKernel ControlFlow { get; }
 }

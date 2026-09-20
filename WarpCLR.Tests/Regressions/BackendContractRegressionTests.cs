@@ -39,6 +39,7 @@ public sealed class BackendContractRegressionTests
             WarpProfileCatalog.ProfileId,
             WarpProfileCatalog.IntegerMapInstructions.Where(
                 instruction => instruction != WarpIrOpCode.Multiply),
+            WarpProfileCatalog.BackendContract.ControlFlow,
             WarpProfileCatalog.BackendContract.Reductions);
         IWarpBackendCompiler[] compilers = CreateCompilers()
             .Select(
@@ -52,6 +53,32 @@ public sealed class BackendContractRegressionTests
 
         StringAssert.Contains(exception.Message, backend.ToString());
         StringAssert.Contains(exception.Message, nameof(WarpIrOpCode.Multiply));
+    }
+
+    [TestMethod]
+    [FourBackends]
+    public void A_backend_without_ssa_block_arguments_prevents_compilation(
+        WarpBackendKind backend)
+    {
+        WarpIntegerMapKernel verifiedKernel = VerifyCombine();
+        var incompleteContract = new WarpBackendContract(
+            WarpProfileCatalog.ProfileId,
+            WarpProfileCatalog.IntegerMapInstructions,
+            WarpProfileCatalog.ControlFlow.Where(
+                operation => operation != WarpControlFlowOperation.BlockArguments),
+            WarpProfileCatalog.BackendContract.Reductions);
+        IWarpBackendCompiler[] compilers = CreateCompilers()
+            .Select(
+                compiler => compiler.Backend == backend
+                    ? new ContractOverrideCompiler(compiler, incompleteContract)
+                    : compiler)
+            .ToArray();
+
+        InvalidOperationException exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => new WarpCompiler().Compile(verifiedKernel, compilers));
+
+        StringAssert.Contains(exception.Message, backend.ToString());
+        StringAssert.Contains(exception.Message, nameof(WarpControlFlowOperation.BlockArguments));
     }
 
     [TestMethod]
@@ -76,11 +103,23 @@ public sealed class BackendContractRegressionTests
     [FourBackends]
     public void A_shared_expression_is_lowered_once(WarpBackendKind backend)
     {
-        var input = new WarpInputExpression(0);
-        var constant = new WarpConstantExpression(1);
-        var shared = new WarpBinaryExpression(WarpBinaryOperator.Add, input, constant);
-        var result = new WarpBinaryExpression(WarpBinaryOperator.Multiply, shared, shared);
-        var kernel = new WarpIntegerMapKernel("shared", 1, 0, result);
+        var controlFlow = new WarpControlFlowKernel(
+            "shared",
+            1,
+            0,
+            [
+                new WarpBasicBlock(
+                    0,
+                    [],
+                    [
+                        new WarpIrInstruction(0, WarpIrOpCode.LoadInput),
+                        new WarpIrInstruction(1, WarpIrOpCode.Constant, immediate: 1),
+                        new WarpIrInstruction(2, WarpIrOpCode.Add, 0, 1),
+                        new WarpIrInstruction(3, WarpIrOpCode.Multiply, 2, 2),
+                    ],
+                    new WarpReturnTerminator(3)),
+            ]);
+        var kernel = new WarpIntegerMapKernel(controlFlow);
 
         WarpCompilation compilation = new WarpCompiler().Compile(kernel, CreateCompilers());
 
@@ -165,7 +204,7 @@ public sealed class BackendContractRegressionTests
 
         public WarpBackendContract Contract { get; }
 
-        public WarpBackendArtifact Compile(WarpLinearKernel kernel) =>
+        public WarpBackendArtifact Compile(WarpControlFlowKernel kernel) =>
             compiler.Compile(kernel);
     }
 }

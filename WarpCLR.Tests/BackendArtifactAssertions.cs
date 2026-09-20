@@ -7,7 +7,7 @@ internal static class BackendArtifactAssertions
     public static void IsValid(
         WarpBackendArtifact artifact,
         WarpBackendKind backend,
-        WarpLinearKernel kernel)
+        WarpControlFlowKernel kernel)
     {
         Assert.AreEqual(backend, artifact.Backend);
         Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), artifact.Format);
@@ -22,7 +22,7 @@ internal static class BackendArtifactAssertions
         switch (backend)
         {
             case WarpBackendKind.CoreCLR:
-                StringAssert.Contains(text, "warp.coreclr.linear/0.2");
+                StringAssert.Contains(text, "warp.coreclr.cfg/0.3");
                 StringAssert.Contains(text, $"entry={WarpDeviceAbi.GetEntryPoint(kernel)}");
                 break;
 
@@ -53,6 +53,33 @@ internal static class BackendArtifactAssertions
         foreach (WarpIrInstruction instruction in kernel.Instructions)
         {
             StringAssert.Contains(text, GetInstructionMarker(backend, instruction));
+        }
+
+        foreach (WarpBasicBlock block in kernel.Blocks)
+        {
+            string marker = backend switch
+            {
+                WarpBackendKind.CoreCLR => $"block={block.Id}",
+                WarpBackendKind.NVPTX => $"warp_block_{block.Id}:",
+                WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV => $"warp_block_{block.Id}:",
+                _ => throw new ArgumentOutOfRangeException(nameof(backend)),
+            };
+            StringAssert.Contains(text, marker);
+
+            foreach (WarpBlockParameter parameter in block.Parameters)
+            {
+                string parameterMarker = backend switch
+                {
+                    WarpBackendKind.CoreCLR =>
+                        $"parameter={parameter.Value},{parameter.Type}",
+                    WarpBackendKind.NVPTX =>
+                        $"mov.u32 %r{parameter.Value + 5}, %r",
+                    WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV =>
+                        $"%warp_v{parameter.Value} = phi i32",
+                    _ => throw new ArgumentOutOfRangeException(nameof(backend)),
+                };
+                StringAssert.Contains(text, parameterMarker);
+            }
         }
 
         if (kernel.Reduction.HasValue)
@@ -95,7 +122,8 @@ internal static class BackendArtifactAssertions
         WarpBackendKind backend,
         WarpIrInstruction instruction) => backend switch
         {
-            WarpBackendKind.CoreCLR => $"{instruction.Result}={instruction.OpCode},",
+            WarpBackendKind.CoreCLR =>
+                $"instruction={instruction.Result},{instruction.ResultType},{instruction.OpCode},",
             WarpBackendKind.NVPTX => GetNVPTXMarker(instruction),
             WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV => GetLlvmMarker(instruction),
             _ => throw new ArgumentOutOfRangeException(nameof(backend), backend, "The backend is not registered."),

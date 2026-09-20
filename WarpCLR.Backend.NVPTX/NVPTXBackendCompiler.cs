@@ -37,12 +37,18 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
             WarpIrOpCode.Select,
         ],
         [
+            WarpControlFlowOperation.BlockArguments,
+            WarpControlFlowOperation.Branch,
+            WarpControlFlowOperation.ConditionalBranch,
+            WarpControlFlowOperation.Return,
+        ],
+        [
             WarpReductionOperation.WrappingSum,
             WarpReductionOperation.Minimum,
             WarpReductionOperation.Maximum,
         ]);
 
-    public WarpBackendArtifact Compile(WarpLinearKernel kernel)
+    public WarpBackendArtifact Compile(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
         if (kernel.Reduction.HasValue)
@@ -51,7 +57,9 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         }
 
         int shiftRegister = FirstValueRegister + kernel.ValueCount;
-        int registerCount = shiftRegister + 1;
+        int kernelResultRegister = shiftRegister + 1;
+        int copyTemporaryRegister = kernelResultRegister + 1;
+        int registerCount = copyTemporaryRegister + GetMaximumParameterCount(kernel);
         int firstInputBaseRegister = 2;
         int addressRegister = firstInputBaseRegister + kernel.InputBufferCount;
         int addressRegisterCount = addressRegister + 1;
@@ -97,16 +105,17 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         }
 
         ptx.AppendLine();
-        foreach (WarpIrInstruction instruction in kernel.Instructions)
-        {
-            AppendInstruction(
-                ptx,
-                instruction,
-                firstInputBaseRegister,
-                addressRegister,
-                shiftRegister);
-        }
-
+        ptx.AppendLine("    bra warp_block_0;");
+        ptx.AppendLine();
+        AppendControlFlow(
+            ptx,
+            kernel,
+            firstInputBaseRegister,
+            addressRegister,
+            shiftRegister,
+            kernelResultRegister,
+            copyTemporaryRegister);
+        ptx.AppendLine("warp_kernel_return:");
         ptx.AppendLine();
         ptx.Append("    add.u64 %rd")
             .Append(Invariant(addressRegister))
@@ -114,7 +123,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         ptx.Append("    st.global.u32 [%rd")
             .Append(Invariant(addressRegister))
             .Append("], %r")
-            .Append(Invariant(ValueRegister(kernel.Result)))
+            .Append(Invariant(kernelResultRegister))
             .AppendLine(";");
         ptx.AppendLine("warp_done:");
         ptx.AppendLine("    ret;");
@@ -127,13 +136,15 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
             Encoding.UTF8.GetBytes(ptx.ToString()));
     }
 
-    private WarpBackendArtifact CompileReduction(WarpLinearKernel kernel)
+    private WarpBackendArtifact CompileReduction(WarpControlFlowKernel kernel)
     {
         WarpReductionOperation operation = kernel.Reduction
             ?? throw new ArgumentException("A reduction operation is required.", nameof(kernel));
         int shiftRegister = FirstValueRegister + kernel.ValueCount;
         int accumulatorRegister = shiftRegister + 1;
-        int registerCount = accumulatorRegister + 1;
+        int kernelResultRegister = accumulatorRegister + 1;
+        int copyTemporaryRegister = kernelResultRegister + 1;
+        int registerCount = copyTemporaryRegister + GetMaximumParameterCount(kernel);
         int firstInputBaseRegister = 2;
         int addressRegister = firstInputBaseRegister + kernel.InputBufferCount;
         int addressRegisterCount = addressRegister + 1;
@@ -187,22 +198,22 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         ptx.AppendLine("    setp.ge.u32 %p0, %r3, %r4;");
         ptx.AppendLine("    @%p0 bra warp_reduce_store;");
         ptx.AppendLine("    mul.wide.u32 %rd0, %r3, 4;");
-
-        foreach (WarpIrInstruction instruction in kernel.Instructions)
-        {
-            AppendInstruction(
-                ptx,
-                instruction,
-                firstInputBaseRegister,
-                addressRegister,
-                shiftRegister);
-        }
-
+        ptx.AppendLine("    bra warp_block_0;");
+        ptx.AppendLine();
+        AppendControlFlow(
+            ptx,
+            kernel,
+            firstInputBaseRegister,
+            addressRegister,
+            shiftRegister,
+            kernelResultRegister,
+            copyTemporaryRegister);
+        ptx.AppendLine("warp_kernel_return:");
         AppendReduction(
             ptx,
             operation,
             accumulatorRegister,
-            ValueRegister(kernel.Result));
+            kernelResultRegister);
         ptx.AppendLine("    add.u32 %r3, %r3, 1;");
         ptx.AppendLine("    bra warp_reduce_loop;");
         ptx.AppendLine();
@@ -281,7 +292,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
             .AppendLine(", %p1;");
     }
 
-    private static void AppendParameters(StringBuilder ptx, WarpLinearKernel kernel)
+    private static void AppendParameters(StringBuilder ptx, WarpControlFlowKernel kernel)
     {
         var parameters = new List<string>(
             kernel.InputBufferCount + kernel.ScalarArgumentCount + 2);
@@ -306,6 +317,111 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
                 .AppendLine(index + 1 == parameters.Count ? string.Empty : ",");
         }
     }
+
+    private static void AppendControlFlow(
+        StringBuilder ptx,
+        WarpControlFlowKernel kernel,
+        int firstInputBaseRegister,
+        int addressRegister,
+        int shiftRegister,
+        int kernelResultRegister,
+        int copyTemporaryRegister)
+    {
+        foreach (WarpBasicBlock block in kernel.Blocks)
+        {
+            ptx.Append("warp_block_").Append(Invariant(block.Id)).AppendLine(":");
+            foreach (WarpIrInstruction instruction in block.Instructions)
+            {
+                AppendInstruction(
+                    ptx,
+                    instruction,
+                    firstInputBaseRegister,
+                    addressRegister,
+                    shiftRegister);
+            }
+
+            switch (block.Terminator)
+            {
+                case WarpBranchTerminator branch:
+                    AppendEdgeCopies(ptx, kernel, branch.Target, copyTemporaryRegister);
+                    ptx.Append("    bra warp_block_")
+                        .Append(Invariant(branch.Target.Block))
+                        .AppendLine(";");
+                    break;
+
+                case WarpConditionalBranchTerminator conditional:
+                    ptx.Append("    setp.ne.u32 %p1, %r")
+                        .Append(Invariant(ValueRegister(conditional.Condition)))
+                        .AppendLine(", 0;");
+                    ptx.Append("    @!%p1 bra warp_edge_zero_")
+                        .Append(Invariant(block.Id))
+                        .AppendLine(";");
+                    AppendEdgeCopies(
+                        ptx,
+                        kernel,
+                        conditional.WhenNonZero,
+                        copyTemporaryRegister);
+                    ptx.Append("    bra warp_block_")
+                        .Append(Invariant(conditional.WhenNonZero.Block))
+                        .AppendLine(";");
+                    ptx.Append("warp_edge_zero_")
+                        .Append(Invariant(block.Id))
+                        .AppendLine(":");
+                    AppendEdgeCopies(
+                        ptx,
+                        kernel,
+                        conditional.WhenZero,
+                        copyTemporaryRegister);
+                    ptx.Append("    bra warp_block_")
+                        .Append(Invariant(conditional.WhenZero.Block))
+                        .AppendLine(";");
+                    break;
+
+                case WarpReturnTerminator @return:
+                    ptx.Append("    mov.u32 %r")
+                        .Append(Invariant(kernelResultRegister))
+                        .Append(", %r")
+                        .Append(Invariant(ValueRegister(@return.Value)))
+                        .AppendLine(";");
+                    ptx.AppendLine("    bra warp_kernel_return;");
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(block));
+            }
+
+            ptx.AppendLine();
+        }
+    }
+
+    private static void AppendEdgeCopies(
+        StringBuilder ptx,
+        WarpControlFlowKernel kernel,
+        WarpBranchTarget target,
+        int copyTemporaryRegister)
+    {
+        WarpBasicBlock destination = kernel.Blocks[target.Block];
+        for (int index = 0; index < target.Arguments.Count; index++)
+        {
+            ptx.Append("    mov.u32 %r")
+                .Append(Invariant(copyTemporaryRegister + index))
+                .Append(", %r")
+                .Append(Invariant(ValueRegister(target.Arguments[index])))
+                .AppendLine(";");
+        }
+
+        for (int index = 0; index < target.Arguments.Count; index++)
+        {
+            ptx.Append("    mov.u32 %r")
+                .Append(Invariant(ValueRegister(destination.Parameters[index].Value)))
+                .Append(", %r")
+                .Append(Invariant(copyTemporaryRegister + index))
+                .AppendLine(";");
+        }
+    }
+
+    private static int GetMaximumParameterCount(WarpControlFlowKernel kernel) =>
+        kernel.Blocks.Max(block => block.Parameters.Count);
 
     private static void AppendInstruction(
         StringBuilder ptx,

@@ -42,7 +42,8 @@ internal sealed class WarpIntegerMapVerifier
                 request.InputBufferCount,
                 body.MaxStackSize,
                 body.LocalVariables.Count,
-                il));
+                il,
+                localsInitialized: body.InitLocals));
     }
 
     private static void ValidateMethod(MethodInfo method, int inputBufferCount)
