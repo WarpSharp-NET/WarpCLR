@@ -1,0 +1,27 @@
+root = true
+
+[*.cs]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+dotnet_style_readonly_field = true:warning
+dotnet_diagnostic.RS0030.severity = error
+dotnet_diagnostic.RS0016.severity = error
+dotnet_diagnostic.RS0017.severity = error
+dotnet_diagnostic.RS0022.severity = error
+dotnet_diagnostic.RS0024.severity = error
+dotnet_diagnostic.AD0001.severity = error
+dotnet_diagnostic.HLQ001.severity = warning
+dotnet_diagnostic.HLQ002.severity = error
+dotnet_diagnostic.HLQ003.severity = warning
+dotnet_diagnostic.HLQ004.severity = warning
+dotnet_diagnostic.HLQ005.severity = warning
+dotnet_diagnostic.HLQ006.severity = warning
+dotnet_diagnostic.HLQ007.severity = warning
+dotnet_diagnostic.HLQ008.severity = warning
+dotnet_diagnostic.HLQ009.severity = warning
+dotnet_diagnostic.HLQ011.severity = error
+dotnet_diagnostic.HLQ012.severity = warning
+dotnet_diagnostic.HLQ013.severity = warning

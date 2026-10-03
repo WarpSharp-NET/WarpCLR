@@ -1,0 +1,6 @@
+#nullable enable
+WarpCLR.Backend.AMDGPU.AMDGPUBackendCompiler
+WarpCLR.Backend.AMDGPU.AMDGPUBackendCompiler.AMDGPUBackendCompiler() -> void
+WarpCLR.Backend.AMDGPU.AMDGPUBackendCompiler.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.Backend.AMDGPU.AMDGPUBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
+WarpCLR.Backend.AMDGPU.AMDGPUBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!

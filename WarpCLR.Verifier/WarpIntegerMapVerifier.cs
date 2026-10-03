@@ -5,6 +5,7 @@ namespace WarpCLR.Verifier;
 
 internal sealed class WarpIntegerMapVerifier
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the verifier service instance dependency used by the pipeline constructor and friend test assemblies.")]
     public WarpIntegerMapKernel Verify(WarpIntegerMapRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -155,6 +156,31 @@ internal sealed class WarpIntegerMapVerifier
                 ? result
                 : new Dictionary<int, WarpCilCallTarget>();
 
+        private MethodInfo ResolveCallTarget(MethodInfo method, int token)
+        {
+            MethodBase? resolved;
+            try
+            {
+                resolved = method.Module.ResolveMethod(token);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new WarpVerificationException(
+                    "WRPCIL1013",
+                    $"Method '{GetIdentity(method)}' contains an unresolved call token " +
+                    $"0x{token:X8}. {exception.Message}");
+            }
+
+            if (resolved is not MethodInfo target || target.Module != entry.Module)
+            {
+                throw new WarpVerificationException(
+                    "WRPCIL1013",
+                    $"Method '{GetIdentity(method)}' calls outside its closed module.");
+            }
+
+            return target;
+        }
+
         private void Visit(MethodInfo method)
         {
             if (visited.Contains(method))
@@ -178,26 +204,7 @@ internal sealed class WarpIntegerMapVerifier
 
             foreach (int token in WarpIntegerMapCilVerifier.ReadCallTokens(il).Distinct())
             {
-                MethodBase? resolved;
-                try
-                {
-                    resolved = method.Module.ResolveMethod(token);
-                }
-                catch (ArgumentException exception)
-                {
-                    throw new WarpVerificationException(
-                        "WRPCIL1013",
-                        $"Method '{GetIdentity(method)}' contains an unresolved call token " +
-                        $"0x{token:X8}. {exception.Message}");
-                }
-
-                if (resolved is not MethodInfo target || target.Module != entry.Module)
-                {
-                    throw new WarpVerificationException(
-                        "WRPCIL1013",
-                        $"Method '{GetIdentity(method)}' calls outside its closed module.");
-                }
-
+                MethodInfo target = ResolveCallTarget(method, token);
                 ValidateMethod(target, inputBufferCount: 0, isEntry: false);
                 if (visiting.Contains(target))
                 {

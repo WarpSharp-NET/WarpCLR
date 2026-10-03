@@ -4,11 +4,6 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Sdk;
 
-public sealed record WarpPackagedArtifact(
-    string ModulePath,
-    string SidecarPath,
-    WarpArtifactSidecar Sidecar);
-
 public sealed class WarpAotPackage
 {
     internal WarpAotPackage(

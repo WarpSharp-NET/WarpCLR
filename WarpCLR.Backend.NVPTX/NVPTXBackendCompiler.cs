@@ -66,28 +66,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         int addressRegister = firstInputBaseRegister + kernel.InputBufferCount;
         int addressRegisterCount = addressRegister + 1;
 
-        var ptx = new StringBuilder();
-        ptx.AppendLine(".version 6.0");
-        ptx.AppendLine(".target sm_50");
-        ptx.AppendLine(".address_size 64");
-        ptx.Append("// ").AppendLine(WarpDeviceAbi.DevelopmentConformanceMarker);
-        ptx.AppendLine();
-        AppendFunctions(ptx, kernel);
-        ptx.Append(".visible .entry ")
-            .Append(WarpDeviceAbi.IntegerMapEntryPoint)
-            .AppendLine("(");
-        AppendParameters(ptx, kernel);
-        ptx.AppendLine(")");
-        ptx.AppendLine("{");
-        ptx.AppendLine("    .reg .pred %p<2>;");
-        ptx.Append("    .reg .b32 %r<")
-            .Append(Invariant(registerCount))
-            .AppendLine(">;");
-        ptx.Append("    .reg .b64 %rd<")
-            .Append(Invariant(addressRegisterCount))
-            .AppendLine(">;");
-        AppendCallParameterStorage(ptx, kernel.Instructions);
-        ptx.AppendLine();
+        StringBuilder ptx = CreateEntryHeader(kernel, WarpDeviceAbi.IntegerMapEntryPoint, registerCount, addressRegisterCount);
         ptx.AppendLine("    mov.u32 %r0, %tid.x;");
         ptx.AppendLine("    mov.u32 %r1, %ctaid.x;");
         ptx.AppendLine("    mov.u32 %r2, %ntid.x;");
@@ -99,14 +78,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         ptx.AppendLine("    mul.wide.u32 %rd0, %r3, 4;");
         ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
 
-        for (int inputIndex = 0; inputIndex < kernel.InputBufferCount; inputIndex++)
-        {
-            ptx.Append("    ld.param.u64 %rd")
-                .Append(Invariant(firstInputBaseRegister + inputIndex))
-                .Append(", [warp_input_")
-                .Append(Invariant(inputIndex))
-                .AppendLine("];");
-        }
+        AppendInputBases(ptx, kernel.InputBufferCount, firstInputBaseRegister);
 
         ptx.AppendLine();
         ptx.AppendLine("    bra warp_block_0;");
@@ -155,45 +127,10 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         int addressRegister = firstInputBaseRegister + kernel.InputBufferCount;
         int addressRegisterCount = addressRegister + 1;
 
-        var ptx = new StringBuilder();
-        ptx.AppendLine(".version 6.0");
-        ptx.AppendLine(".target sm_50");
-        ptx.AppendLine(".address_size 64");
-        ptx.Append("// ").AppendLine(WarpDeviceAbi.DevelopmentConformanceMarker);
-        ptx.AppendLine();
-        AppendFunctions(ptx, kernel);
-        ptx.Append(".visible .entry ")
-            .Append(WarpDeviceAbi.IntegerReductionEntryPoint)
-            .AppendLine("(");
-        AppendParameters(ptx, kernel);
-        ptx.AppendLine(")");
-        ptx.AppendLine("{");
-        ptx.AppendLine("    .reg .pred %p<2>;");
-        ptx.Append("    .reg .b32 %r<")
-            .Append(Invariant(registerCount))
-            .AppendLine(">;");
-        ptx.Append("    .reg .b64 %rd<")
-            .Append(Invariant(addressRegisterCount))
-            .AppendLine(">;");
-        AppendCallParameterStorage(ptx, kernel.Instructions);
-        ptx.AppendLine();
-        ptx.AppendLine("    mov.u32 %r0, %tid.x;");
-        ptx.AppendLine("    mov.u32 %r1, %ctaid.x;");
-        ptx.AppendLine("    setp.ne.u32 %p0, %r0, 0;");
-        ptx.AppendLine("    @%p0 bra warp_reduce_done;");
-        ptx.AppendLine("    setp.ne.u32 %p0, %r1, 0;");
-        ptx.AppendLine("    @%p0 bra warp_reduce_done;");
-        ptx.AppendLine("    ld.param.u32 %r4, [warp_count];");
-        ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
+        StringBuilder ptx = CreateEntryHeader(kernel, WarpDeviceAbi.IntegerReductionEntryPoint, registerCount, addressRegisterCount);
+        AppendReductionEntry(ptx);
 
-        for (int inputIndex = 0; inputIndex < kernel.InputBufferCount; inputIndex++)
-        {
-            ptx.Append("    ld.param.u64 %rd")
-                .Append(Invariant(firstInputBaseRegister + inputIndex))
-                .Append(", [warp_input_")
-                .Append(Invariant(inputIndex))
-                .AppendLine("];");
-        }
+        AppendInputBases(ptx, kernel.InputBufferCount, firstInputBaseRegister);
 
         ptx.Append("    mov.u32 %r")
             .Append(Invariant(accumulatorRegister))
@@ -240,6 +177,62 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
             WarpArtifactFormat.NVPTX,
             WarpDeviceAbi.IntegerReductionEntryPoint,
             Encoding.UTF8.GetBytes(ptx.ToString()));
+    }
+
+    private static StringBuilder CreateEntryHeader(
+        WarpControlFlowKernel kernel,
+        string entryPoint,
+        int registerCount,
+        int addressRegisterCount)
+    {
+        var ptx = new StringBuilder();
+        ptx.AppendLine(".version 6.0");
+        ptx.AppendLine(".target sm_50");
+        ptx.AppendLine(".address_size 64");
+        ptx.Append("// ").AppendLine(WarpDeviceAbi.DevelopmentConformanceMarker);
+        ptx.AppendLine();
+        AppendFunctions(ptx, kernel);
+        ptx.Append(".visible .entry ")
+            .Append(entryPoint)
+            .AppendLine("(");
+        AppendParameters(ptx, kernel);
+        ptx.AppendLine(")");
+        ptx.AppendLine("{");
+        ptx.AppendLine("    .reg .pred %p<2>;");
+        ptx.Append("    .reg .b32 %r<")
+            .Append(Invariant(registerCount))
+            .AppendLine(">;");
+        ptx.Append("    .reg .b64 %rd<")
+            .Append(Invariant(addressRegisterCount))
+            .AppendLine(">;");
+        AppendCallParameterStorage(ptx, kernel.Instructions);
+        ptx.AppendLine();
+        return ptx;
+    }
+
+    private static void AppendInputBases(StringBuilder ptx, int inputBufferCount, int firstInputBaseRegister)
+    {
+        for (int inputIndex = 0; inputIndex < inputBufferCount; inputIndex++)
+        {
+            ptx.Append("    ld.param.u64 %rd")
+                .Append(Invariant(firstInputBaseRegister + inputIndex))
+                .Append(", [warp_input_")
+                .Append(Invariant(inputIndex))
+                .AppendLine("];");
+        }
+
+    }
+
+    private static void AppendReductionEntry(StringBuilder ptx)
+    {
+        ptx.AppendLine("    mov.u32 %r0, %tid.x;");
+        ptx.AppendLine("    mov.u32 %r1, %ctaid.x;");
+        ptx.AppendLine("    setp.ne.u32 %p0, %r0, 0;");
+        ptx.AppendLine("    @%p0 bra warp_reduce_done;");
+        ptx.AppendLine("    setp.ne.u32 %p0, %r1, 0;");
+        ptx.AppendLine("    @%p0 bra warp_reduce_done;");
+        ptx.AppendLine("    ld.param.u32 %r4, [warp_count];");
+        ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
     }
 
     private static void AppendReduction(
@@ -468,38 +461,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
                     break;
 
                 case WarpConditionalBranchTerminator conditional:
-                    ptx.Append("    setp.ne.u32 %p1, %r")
-                        .Append(Invariant(ValueRegister(conditional.Condition)))
-                        .AppendLine(", 0;");
-                    ptx.Append("    @!%p1 bra ")
-                        .Append(labelPrefix)
-                        .Append("_edge_zero_")
-                        .Append(Invariant(block.Id))
-                        .AppendLine(";");
-                    AppendEdgeCopies(
-                        ptx,
-                        blocks,
-                        conditional.WhenNonZero,
-                        copyTemporaryRegister);
-                    ptx.Append("    bra ")
-                        .Append(labelPrefix)
-                        .Append("_block_")
-                        .Append(Invariant(conditional.WhenNonZero.Block))
-                        .AppendLine(";");
-                    ptx.Append(labelPrefix)
-                        .Append("_edge_zero_")
-                        .Append(Invariant(block.Id))
-                        .AppendLine(":");
-                    AppendEdgeCopies(
-                        ptx,
-                        blocks,
-                        conditional.WhenZero,
-                        copyTemporaryRegister);
-                    ptx.Append("    bra ")
-                        .Append(labelPrefix)
-                        .Append("_block_")
-                        .Append(Invariant(conditional.WhenZero.Block))
-                        .AppendLine(";");
+                    AppendConditionalTerminator(ptx, blocks, conditional, block.Id, copyTemporaryRegister, labelPrefix);
                     break;
 
                 case WarpReturnTerminator @return:
@@ -512,11 +474,53 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
                     break;
 
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(block));
+                    throw new ArgumentOutOfRangeException(nameof(blocks));
             }
 
             ptx.AppendLine();
         }
+    }
+
+    private static void AppendConditionalTerminator(
+        StringBuilder ptx,
+        IReadOnlyList<WarpBasicBlock> blocks,
+        WarpConditionalBranchTerminator conditional,
+        int blockId,
+        int copyTemporaryRegister,
+        string labelPrefix)
+    {
+        ptx.Append("    setp.ne.u32 %p1, %r")
+            .Append(Invariant(ValueRegister(conditional.Condition)))
+            .AppendLine(", 0;");
+        ptx.Append("    @!%p1 bra ")
+            .Append(labelPrefix)
+            .Append("_edge_zero_")
+            .Append(Invariant(blockId))
+            .AppendLine(";");
+        AppendEdgeCopies(
+            ptx,
+            blocks,
+            conditional.WhenNonZero,
+            copyTemporaryRegister);
+        ptx.Append("    bra ")
+            .Append(labelPrefix)
+            .Append("_block_")
+            .Append(Invariant(conditional.WhenNonZero.Block))
+            .AppendLine(";");
+        ptx.Append(labelPrefix)
+            .Append("_edge_zero_")
+            .Append(Invariant(blockId))
+            .AppendLine(":");
+        AppendEdgeCopies(
+            ptx,
+            blocks,
+            conditional.WhenZero,
+            copyTemporaryRegister);
+        ptx.Append("    bra ")
+            .Append(labelPrefix)
+            .Append("_block_")
+            .Append(Invariant(conditional.WhenZero.Block))
+            .AppendLine(";");
     }
 
     private static void AppendEdgeCopies(
@@ -559,10 +563,6 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         int shiftRegister)
     {
         int result = ValueRegister(instruction.Result);
-        int left = ValueRegister(instruction.Left);
-        int right = ValueRegister(instruction.Right);
-        int third = ValueRegister(instruction.Third);
-
         switch (instruction.OpCode)
         {
             case WarpIrOpCode.LoadInput:
@@ -602,6 +602,19 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
                     .AppendLine(";");
                 break;
 
+            default:
+                AppendArithmeticInstruction(ptx, instruction, shiftRegister);
+                break;
+        }
+    }
+
+    private static void AppendArithmeticInstruction(StringBuilder ptx, WarpIrInstruction instruction, int shiftRegister)
+    {
+        int result = ValueRegister(instruction.Result);
+        int left = ValueRegister(instruction.Left);
+        int right = ValueRegister(instruction.Right);
+        switch (instruction.OpCode)
+        {
             case WarpIrOpCode.BitwiseNot:
                 AppendUnary(ptx, "not.b32", result, left);
                 break;
@@ -638,6 +651,20 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
                 AppendShift(ptx, "shr.u32", result, left, right, shiftRegister);
                 break;
 
+            default:
+                AppendComparisonInstruction(ptx, instruction);
+                break;
+        }
+    }
+
+    private static void AppendComparisonInstruction(StringBuilder ptx, WarpIrInstruction instruction)
+    {
+        int result = ValueRegister(instruction.Result);
+        int left = ValueRegister(instruction.Left);
+        int right = ValueRegister(instruction.Right);
+        int third = ValueRegister(instruction.Third);
+        switch (instruction.OpCode)
+        {
             case WarpIrOpCode.Equal:
                 AppendComparison(ptx, "setp.eq.u32", result, left, right);
                 break;
@@ -667,37 +694,43 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
                 break;
 
             case WarpIrOpCode.Call:
-                for (int argument = 0; argument < instruction.Arguments.Count; argument++)
-                {
-                    ptx.Append("    st.param.b32 [warp_call_arg_")
-                        .Append(Invariant(argument))
-                        .Append("], %r")
-                        .Append(Invariant(ValueRegister(instruction.Arguments[argument])))
-                        .AppendLine(";");
-                }
-
-                ptx.Append("    call (warp_call_result), warp_function_")
-                    .Append(Invariant(instruction.Callee))
-                    .Append(", (");
-                for (int argument = 0; argument < instruction.Arguments.Count; argument++)
-                {
-                    if (argument != 0)
-                    {
-                        ptx.Append(", ");
-                    }
-
-                    ptx.Append("warp_call_arg_").Append(Invariant(argument));
-                }
-
-                ptx.AppendLine(");");
-                ptx.Append("    ld.param.u32 %r")
-                    .Append(Invariant(result))
-                    .AppendLine(", [warp_call_result];");
+                AppendCallInstruction(ptx, instruction);
                 break;
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(instruction));
         }
+    }
+
+    private static void AppendCallInstruction(StringBuilder ptx, WarpIrInstruction instruction)
+    {
+        int result = ValueRegister(instruction.Result);
+        for (int argument = 0; argument < instruction.Arguments.Count; argument++)
+        {
+            ptx.Append("    st.param.b32 [warp_call_arg_")
+                .Append(Invariant(argument))
+                .Append("], %r")
+                .Append(Invariant(ValueRegister(instruction.Arguments[argument])))
+                .AppendLine(";");
+        }
+
+        ptx.Append("    call (warp_call_result), warp_function_")
+            .Append(Invariant(instruction.Callee))
+            .Append(", (");
+        for (int argument = 0; argument < instruction.Arguments.Count; argument++)
+        {
+            if (argument != 0)
+            {
+                ptx.Append(", ");
+            }
+
+            ptx.Append("warp_call_arg_").Append(Invariant(argument));
+        }
+
+        ptx.AppendLine(");");
+        ptx.Append("    ld.param.u32 %r")
+            .Append(Invariant(result))
+            .AppendLine(", [warp_call_result];");
     }
 
     private static void AppendUnary(StringBuilder ptx, string opcode, int result, int operand)

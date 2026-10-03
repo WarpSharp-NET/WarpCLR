@@ -1,0 +1,6 @@
+#nullable enable
+WarpCLR.Backend.NVPTX.NVPTXBackendCompiler
+WarpCLR.Backend.NVPTX.NVPTXBackendCompiler.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.Backend.NVPTX.NVPTXBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
+WarpCLR.Backend.NVPTX.NVPTXBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!
+WarpCLR.Backend.NVPTX.NVPTXBackendCompiler.NVPTXBackendCompiler() -> void

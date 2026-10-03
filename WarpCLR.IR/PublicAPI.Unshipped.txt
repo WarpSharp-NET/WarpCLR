@@ -1,0 +1,304 @@
+#nullable enable
+const WarpCLR.IR.WarpCapabilityCatalog.Buffers = "warp.core.buffers/0.1" -> string!
+const WarpCLR.IR.WarpCapabilityCatalog.Calls = "warp.core.calls/0.1" -> string!
+const WarpCLR.IR.WarpCapabilityCatalog.ControlFlow = "warp.core.control-flow/0.2" -> string!
+const WarpCLR.IR.WarpCapabilityCatalog.Parallel = "warp.core.parallel/0.1" -> string!
+const WarpCLR.IR.WarpCapabilityCatalog.Scalar = "warp.core.scalar/0.1" -> string!
+const WarpCLR.IR.WarpDeviceAbi.DevelopmentConformanceMarker = "warp.conformance=development-nonconforming" -> string!
+const WarpCLR.IR.WarpDeviceAbi.IntegerMapEntryPoint = "warp_integer_map" -> string!
+const WarpCLR.IR.WarpDeviceAbi.IntegerMapWorkgroupSize = 256 -> uint
+const WarpCLR.IR.WarpDeviceAbi.IntegerReductionEntryPoint = "warp_u32_reduce" -> string!
+const WarpCLR.IR.WarpDeviceAbi.Version = "warp.device-abi/0.1" -> string!
+const WarpCLR.IR.WarpLogicalMachineLayout.CallDepthFault = 2 -> uint
+const WarpCLR.IR.WarpLogicalMachineLayout.Completed = 1 -> uint
+const WarpCLR.IR.WarpLogicalMachineLayout.DepthOffset = 6 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.FaultBlockOffset = 3 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.Faulted = 2 -> uint
+const WarpCLR.IR.WarpLogicalMachineLayout.FaultFunctionOffset = 2 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.FaultKindOffset = 1 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.FrameFunctionOffset = 0 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.FrameHeaderWords = 4 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.FrameProgramCounterOffset = 1 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.FrameReturnValueOffset = 2 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.HeaderWords = 16 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.RemainingStepsHighOffset = 5 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.RemainingStepsLowOffset = 4 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.ResultOffset = 7 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.Runnable = 0 -> uint
+const WarpCLR.IR.WarpLogicalMachineLayout.StatusOffset = 0 -> int
+const WarpCLR.IR.WarpLogicalMachineLayout.StepLimitFault = 1 -> uint
+const WarpCLR.IR.WarpLogicalMachineLayout.Version = "warp.logical-machine/0.1" -> string!
+const WarpCLR.IR.WarpProfileCatalog.ProfileId = "warpclr.profile/0.3" -> string!
+const WarpCLR.IR.WarpRuntimeAbi.DefaultMaximumCallDepth = 128 -> int
+const WarpCLR.IR.WarpRuntimeAbi.DefaultMaximumStepsPerWorker = 100000000 -> long
+const WarpCLR.IR.WarpRuntimeAbi.SafepointPolicy = "warp.block-charge/0.1" -> string!
+const WarpCLR.IR.WarpRuntimeAbi.Version = "warp.runtime-abi/0.1" -> string!
+override WarpCLR.IR.WarpArtifactSidecar.Equals(object? obj) -> bool
+override WarpCLR.IR.WarpArtifactSidecar.GetHashCode() -> int
+override WarpCLR.IR.WarpArtifactSidecar.ToString() -> string!
+override WarpCLR.IR.WarpBlockParameter.GetHashCode() -> int
+override WarpCLR.IR.WarpFeatureDescriptor.GetHashCode() -> int
+override WarpCLR.IR.WarpIrInstruction.GetHashCode() -> int
+override WarpCLR.IR.WarpReductionDescriptor.GetHashCode() -> int
+static WarpCLR.IR.WarpArtifactFormatCatalog.ForBackend(WarpCLR.IR.WarpBackendKind backend) -> WarpCLR.IR.WarpArtifactFormat
+static WarpCLR.IR.WarpArtifactSidecar.operator !=(WarpCLR.IR.WarpArtifactSidecar? left, WarpCLR.IR.WarpArtifactSidecar? right) -> bool
+static WarpCLR.IR.WarpArtifactSidecar.operator ==(WarpCLR.IR.WarpArtifactSidecar? left, WarpCLR.IR.WarpArtifactSidecar? right) -> bool
+static WarpCLR.IR.WarpArtifactSidecarCodec.Deserialize(System.ReadOnlySpan<byte> json) -> WarpCLR.IR.WarpArtifactSidecar!
+static WarpCLR.IR.WarpArtifactSidecarCodec.GetBackendName(WarpCLR.IR.WarpBackendKind backend) -> string!
+static WarpCLR.IR.WarpArtifactSidecarCodec.GetFormatName(WarpCLR.IR.WarpArtifactFormat format) -> string!
+static WarpCLR.IR.WarpArtifactSidecarCodec.Serialize(WarpCLR.IR.WarpArtifactSidecar! sidecar) -> byte[]!
+static WarpCLR.IR.WarpArtifactSidecarCodec.Validate(WarpCLR.IR.WarpArtifactSidecar! sidecar) -> void
+static WarpCLR.IR.WarpBackendCatalog.Required.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpBackendKind>!
+static WarpCLR.IR.WarpBlockParameter.operator !=(WarpCLR.IR.WarpBlockParameter left, WarpCLR.IR.WarpBlockParameter right) -> bool
+static WarpCLR.IR.WarpBlockParameter.operator ==(WarpCLR.IR.WarpBlockParameter left, WarpCLR.IR.WarpBlockParameter right) -> bool
+static WarpCLR.IR.WarpDeviceAbi.GetEntryPoint(WarpCLR.IR.WarpControlFlowKernel! kernel) -> string!
+static WarpCLR.IR.WarpFeatureDescriptor.operator !=(WarpCLR.IR.WarpFeatureDescriptor left, WarpCLR.IR.WarpFeatureDescriptor right) -> bool
+static WarpCLR.IR.WarpFeatureDescriptor.operator ==(WarpCLR.IR.WarpFeatureDescriptor left, WarpCLR.IR.WarpFeatureDescriptor right) -> bool
+static WarpCLR.IR.WarpIrHash.Compute(WarpCLR.IR.WarpControlFlowKernel! kernel) -> string!
+static WarpCLR.IR.WarpIrInstruction.operator !=(WarpCLR.IR.WarpIrInstruction left, WarpCLR.IR.WarpIrInstruction right) -> bool
+static WarpCLR.IR.WarpIrInstruction.operator ==(WarpCLR.IR.WarpIrInstruction left, WarpCLR.IR.WarpIrInstruction right) -> bool
+static WarpCLR.IR.WarpProfileCatalog.BackendContract.get -> WarpCLR.IR.WarpBackendContract!
+static WarpCLR.IR.WarpProfileCatalog.ControlFlow.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpControlFlowOperation>!
+static WarpCLR.IR.WarpProfileCatalog.Features.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpFeatureDescriptor>!
+static WarpCLR.IR.WarpProfileCatalog.IntegerMapInstructions.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpIrOpCode>!
+static WarpCLR.IR.WarpProfileCatalog.RequiredCapabilities.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static WarpCLR.IR.WarpReductionContract.Apply(WarpCLR.IR.WarpReductionOperation operation, uint left, uint right) -> uint
+static WarpCLR.IR.WarpReductionContract.GetDescriptor(WarpCLR.IR.WarpReductionOperation operation) -> WarpCLR.IR.WarpReductionDescriptor
+static WarpCLR.IR.WarpReductionContract.Operations.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpReductionDescriptor>!
+static WarpCLR.IR.WarpReductionContract.Reduce(WarpCLR.IR.WarpReductionOperation operation, System.ReadOnlySpan<uint> values) -> uint
+static WarpCLR.IR.WarpReductionDescriptor.operator !=(WarpCLR.IR.WarpReductionDescriptor left, WarpCLR.IR.WarpReductionDescriptor right) -> bool
+static WarpCLR.IR.WarpReductionDescriptor.operator ==(WarpCLR.IR.WarpReductionDescriptor left, WarpCLR.IR.WarpReductionDescriptor right) -> bool
+WarpCLR.IR.IWarpBackendCompiler
+WarpCLR.IR.IWarpBackendCompiler.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.IWarpBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
+WarpCLR.IR.IWarpBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!
+WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpArtifactFormat.AMDGPULLVMIR = 2 -> WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpArtifactFormat.CoreCLRPlan = 0 -> WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpArtifactFormat.NVPTX = 1 -> WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpArtifactFormat.SPIRVLLVMIR = 3 -> WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpArtifactFormatCatalog
+WarpCLR.IR.WarpArtifactSidecar
+WarpCLR.IR.WarpArtifactSidecar.<Clone>$() -> WarpCLR.IR.WarpArtifactSidecar!
+WarpCLR.IR.WarpArtifactSidecar.AssemblyHash.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.AssemblyHash.init -> void
+WarpCLR.IR.WarpArtifactSidecar.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpArtifactSidecar.Backend.init -> void
+WarpCLR.IR.WarpArtifactSidecar.Conformance.get -> WarpCLR.IR.WarpConformanceStatus
+WarpCLR.IR.WarpArtifactSidecar.Conformance.init -> void
+WarpCLR.IR.WarpArtifactSidecar.Deconstruct(out string! Profile, out string! DeviceAbi, out string! Entry, out WarpCLR.IR.WarpBackendKind Backend, out WarpCLR.IR.WarpArtifactFormat Format, out WarpCLR.IR.WarpConformanceStatus Conformance, out string! ManifestHash, out string! AssemblyHash, out string! GraphHash, out string! IrHash, out string! ModuleHash, out string! ModulePath) -> void
+WarpCLR.IR.WarpArtifactSidecar.DeviceAbi.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.DeviceAbi.init -> void
+WarpCLR.IR.WarpArtifactSidecar.Entry.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.Entry.init -> void
+WarpCLR.IR.WarpArtifactSidecar.Equals(WarpCLR.IR.WarpArtifactSidecar? other) -> bool
+WarpCLR.IR.WarpArtifactSidecar.Format.get -> WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpArtifactSidecar.Format.init -> void
+WarpCLR.IR.WarpArtifactSidecar.GraphHash.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.GraphHash.init -> void
+WarpCLR.IR.WarpArtifactSidecar.IrHash.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.IrHash.init -> void
+WarpCLR.IR.WarpArtifactSidecar.ManifestHash.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.ManifestHash.init -> void
+WarpCLR.IR.WarpArtifactSidecar.ModuleHash.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.ModuleHash.init -> void
+WarpCLR.IR.WarpArtifactSidecar.ModulePath.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.ModulePath.init -> void
+WarpCLR.IR.WarpArtifactSidecar.Profile.get -> string!
+WarpCLR.IR.WarpArtifactSidecar.Profile.init -> void
+WarpCLR.IR.WarpArtifactSidecar.WarpArtifactSidecar(string! Profile, string! DeviceAbi, string! Entry, WarpCLR.IR.WarpBackendKind Backend, WarpCLR.IR.WarpArtifactFormat Format, WarpCLR.IR.WarpConformanceStatus Conformance, string! ManifestHash, string! AssemblyHash, string! GraphHash, string! IrHash, string! ModuleHash, string! ModulePath) -> void
+WarpCLR.IR.WarpArtifactSidecarCodec
+WarpCLR.IR.WarpBackendArtifact
+WarpCLR.IR.WarpBackendArtifact.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpBackendArtifact.ConformanceStatus.get -> WarpCLR.IR.WarpConformanceStatus
+WarpCLR.IR.WarpBackendArtifact.Content.get -> System.ReadOnlyMemory<byte>
+WarpCLR.IR.WarpBackendArtifact.ContentHash.get -> string!
+WarpCLR.IR.WarpBackendArtifact.EntryPoint.get -> string!
+WarpCLR.IR.WarpBackendArtifact.Format.get -> WarpCLR.IR.WarpArtifactFormat
+WarpCLR.IR.WarpBackendArtifact.GetText() -> string!
+WarpCLR.IR.WarpBackendArtifact.WarpBackendArtifact(WarpCLR.IR.WarpBackendKind backend, WarpCLR.IR.WarpArtifactFormat format, string! entryPoint, System.ReadOnlySpan<byte> content) -> void
+WarpCLR.IR.WarpBackendCatalog
+WarpCLR.IR.WarpBackendContract
+WarpCLR.IR.WarpBackendContract.ControlFlow.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpControlFlowOperation>!
+WarpCLR.IR.WarpBackendContract.ExactlyMatches(WarpCLR.IR.WarpBackendContract! other) -> bool
+WarpCLR.IR.WarpBackendContract.Instructions.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpIrOpCode>!
+WarpCLR.IR.WarpBackendContract.ProfileId.get -> string!
+WarpCLR.IR.WarpBackendContract.Reductions.get -> System.Collections.Generic.IReadOnlyList<WarpCLR.IR.WarpReductionOperation>!
+WarpCLR.IR.WarpBackendContract.WarpBackendContract(string! profileId, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpIrOpCode>! instructions, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpControlFlowOperation>! controlFlow, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpReductionOperation>! reductions) -> void
+WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpBackendKind.AMDGPU = 2 -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpBackendKind.CoreCLR = 0 -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpBackendKind.NVPTX = 1 -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpBackendKind.SPIRV = 3 -> WarpCLR.IR.WarpBackendKind
+WarpCLR.IR.WarpBasicBlock
+WarpCLR.IR.WarpBasicBlock.Id.get -> int
+WarpCLR.IR.WarpBasicBlock.Instructions.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpIrInstruction>!
+WarpCLR.IR.WarpBasicBlock.Parameters.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpBlockParameter>!
+WarpCLR.IR.WarpBasicBlock.Terminator.get -> WarpCLR.IR.WarpBlockTerminator!
+WarpCLR.IR.WarpBasicBlock.WarpBasicBlock(int id, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpBlockParameter>! parameters, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpIrInstruction>! instructions, WarpCLR.IR.WarpBlockTerminator! terminator) -> void
+WarpCLR.IR.WarpBlockParameter
+WarpCLR.IR.WarpBlockParameter.Deconstruct(out int Value, out WarpCLR.IR.WarpIrValueType Type) -> void
+WarpCLR.IR.WarpBlockParameter.Equals(WarpCLR.IR.WarpBlockParameter other) -> bool
+WarpCLR.IR.WarpBlockParameter.Type.get -> WarpCLR.IR.WarpIrValueType
+WarpCLR.IR.WarpBlockParameter.Type.init -> void
+WarpCLR.IR.WarpBlockParameter.Value.get -> int
+WarpCLR.IR.WarpBlockParameter.Value.init -> void
+WarpCLR.IR.WarpBlockParameter.WarpBlockParameter() -> void
+WarpCLR.IR.WarpBlockParameter.WarpBlockParameter(int Value, WarpCLR.IR.WarpIrValueType Type = WarpCLR.IR.WarpIrValueType.UInt32) -> void
+WarpCLR.IR.WarpBlockTerminator
+WarpCLR.IR.WarpBranchTarget
+WarpCLR.IR.WarpBranchTarget.Arguments.get -> System.Collections.Generic.IReadOnlyList<int>!
+WarpCLR.IR.WarpBranchTarget.Block.get -> int
+WarpCLR.IR.WarpBranchTarget.WarpBranchTarget(int block, System.Collections.Generic.IEnumerable<int>! arguments) -> void
+WarpCLR.IR.WarpBranchTerminator
+WarpCLR.IR.WarpBranchTerminator.Target.get -> WarpCLR.IR.WarpBranchTarget!
+WarpCLR.IR.WarpBranchTerminator.WarpBranchTerminator(WarpCLR.IR.WarpBranchTarget! target) -> void
+WarpCLR.IR.WarpCapabilityCatalog
+WarpCLR.IR.WarpConditionalBranchTerminator
+WarpCLR.IR.WarpConditionalBranchTerminator.Condition.get -> int
+WarpCLR.IR.WarpConditionalBranchTerminator.WarpConditionalBranchTerminator(int condition, WarpCLR.IR.WarpBranchTarget! whenNonZero, WarpCLR.IR.WarpBranchTarget! whenZero) -> void
+WarpCLR.IR.WarpConditionalBranchTerminator.WhenNonZero.get -> WarpCLR.IR.WarpBranchTarget!
+WarpCLR.IR.WarpConditionalBranchTerminator.WhenZero.get -> WarpCLR.IR.WarpBranchTarget!
+WarpCLR.IR.WarpConformanceStatus
+WarpCLR.IR.WarpConformanceStatus.DevelopmentNonconforming = 0 -> WarpCLR.IR.WarpConformanceStatus
+WarpCLR.IR.WarpControlFlowFunction
+WarpCLR.IR.WarpControlFlowFunction.Blocks.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpBasicBlock!>!
+WarpCLR.IR.WarpControlFlowFunction.Id.get -> int
+WarpCLR.IR.WarpControlFlowFunction.Instructions.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpIrInstruction>!
+WarpCLR.IR.WarpControlFlowFunction.Name.get -> string!
+WarpCLR.IR.WarpControlFlowFunction.ParameterCount.get -> int
+WarpCLR.IR.WarpControlFlowFunction.ValueCount.get -> int
+WarpCLR.IR.WarpControlFlowFunction.WarpControlFlowFunction(int id, string! name, int parameterCount, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpBasicBlock!>! blocks) -> void
+WarpCLR.IR.WarpControlFlowKernel
+WarpCLR.IR.WarpControlFlowKernel.Blocks.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpBasicBlock!>!
+WarpCLR.IR.WarpControlFlowKernel.Functions.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpControlFlowFunction!>!
+WarpCLR.IR.WarpControlFlowKernel.InputBufferCount.get -> int
+WarpCLR.IR.WarpControlFlowKernel.Instructions.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpIrInstruction>!
+WarpCLR.IR.WarpControlFlowKernel.Name.get -> string!
+WarpCLR.IR.WarpControlFlowKernel.Reduction.get -> WarpCLR.IR.WarpReductionOperation?
+WarpCLR.IR.WarpControlFlowKernel.ScalarArgumentCount.get -> int
+WarpCLR.IR.WarpControlFlowKernel.ValueCount.get -> int
+WarpCLR.IR.WarpControlFlowKernel.WarpControlFlowKernel(string! name, int inputBufferCount, int scalarArgumentCount, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpBasicBlock!>! blocks, WarpCLR.IR.WarpReductionOperation? reduction = null, System.Collections.Generic.IEnumerable<WarpCLR.IR.WarpControlFlowFunction!>? functions = null) -> void
+WarpCLR.IR.WarpControlFlowOperation
+WarpCLR.IR.WarpControlFlowOperation.BlockArguments = 0 -> WarpCLR.IR.WarpControlFlowOperation
+WarpCLR.IR.WarpControlFlowOperation.Branch = 1 -> WarpCLR.IR.WarpControlFlowOperation
+WarpCLR.IR.WarpControlFlowOperation.ConditionalBranch = 2 -> WarpCLR.IR.WarpControlFlowOperation
+WarpCLR.IR.WarpControlFlowOperation.Return = 3 -> WarpCLR.IR.WarpControlFlowOperation
+WarpCLR.IR.WarpDeviceAbi
+WarpCLR.IR.WarpFeatureDescriptor
+WarpCLR.IR.WarpFeatureDescriptor.Deconstruct(out WarpCLR.IR.WarpProfileFeature Feature, out WarpCLR.IR.WarpFeatureLayer Layer) -> void
+WarpCLR.IR.WarpFeatureDescriptor.Equals(WarpCLR.IR.WarpFeatureDescriptor other) -> bool
+WarpCLR.IR.WarpFeatureDescriptor.Feature.get -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpFeatureDescriptor.Feature.init -> void
+WarpCLR.IR.WarpFeatureDescriptor.Layer.get -> WarpCLR.IR.WarpFeatureLayer
+WarpCLR.IR.WarpFeatureDescriptor.Layer.init -> void
+WarpCLR.IR.WarpFeatureDescriptor.WarpFeatureDescriptor() -> void
+WarpCLR.IR.WarpFeatureDescriptor.WarpFeatureDescriptor(WarpCLR.IR.WarpProfileFeature Feature, WarpCLR.IR.WarpFeatureLayer Layer) -> void
+WarpCLR.IR.WarpFeatureLayer
+WarpCLR.IR.WarpFeatureLayer.WarpCil = 0 -> WarpCLR.IR.WarpFeatureLayer
+WarpCLR.IR.WarpFeatureLayer.WarpClr = 1 -> WarpCLR.IR.WarpFeatureLayer
+WarpCLR.IR.WarpIntegerMapKernel
+WarpCLR.IR.WarpIntegerMapKernel.ControlFlow.get -> WarpCLR.IR.WarpControlFlowKernel!
+WarpCLR.IR.WarpIntegerMapKernel.InputBufferCount.get -> int
+WarpCLR.IR.WarpIntegerMapKernel.Name.get -> string!
+WarpCLR.IR.WarpIntegerMapKernel.Reduction.get -> WarpCLR.IR.WarpReductionOperation?
+WarpCLR.IR.WarpIntegerMapKernel.ScalarArgumentCount.get -> int
+WarpCLR.IR.WarpIrHash
+WarpCLR.IR.WarpIrInstruction
+WarpCLR.IR.WarpIrInstruction.Arguments.get -> System.Collections.Generic.IReadOnlyList<int>!
+WarpCLR.IR.WarpIrInstruction.Callee.get -> int
+WarpCLR.IR.WarpIrInstruction.Equals(WarpCLR.IR.WarpIrInstruction other) -> bool
+WarpCLR.IR.WarpIrInstruction.Immediate.get -> uint
+WarpCLR.IR.WarpIrInstruction.Left.get -> int
+WarpCLR.IR.WarpIrInstruction.OpCode.get -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrInstruction.Result.get -> int
+WarpCLR.IR.WarpIrInstruction.ResultType.get -> WarpCLR.IR.WarpIrValueType
+WarpCLR.IR.WarpIrInstruction.Right.get -> int
+WarpCLR.IR.WarpIrInstruction.Third.get -> int
+WarpCLR.IR.WarpIrInstruction.WarpIrInstruction() -> void
+WarpCLR.IR.WarpIrInstruction.WarpIrInstruction(int result, WarpCLR.IR.WarpIrOpCode opCode, int left = -1, int right = -1, uint immediate = 0, int third = -1, WarpCLR.IR.WarpIrValueType resultType = WarpCLR.IR.WarpIrValueType.UInt32, int callee = -1, System.Collections.Generic.IEnumerable<int>? arguments = null) -> void
+WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Add = 5 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.BitwiseAnd = 8 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.BitwiseNot = 4 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.BitwiseOr = 9 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Call = 20 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Constant = 3 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Equal = 13 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.ExclusiveOr = 10 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.GreaterThanOrEqualUnsigned = 18 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.GreaterThanUnsigned = 17 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.LessThanOrEqualUnsigned = 16 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.LessThanUnsigned = 15 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.LoadArgument = 2 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.LoadInput = 0 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.LoadScalar = 1 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Multiply = 7 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.NotEqual = 14 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Select = 19 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.ShiftLeft = 11 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.ShiftRightLogical = 12 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrOpCode.Subtract = 6 -> WarpCLR.IR.WarpIrOpCode
+WarpCLR.IR.WarpIrValueType
+WarpCLR.IR.WarpIrValueType.UInt32 = 0 -> WarpCLR.IR.WarpIrValueType
+WarpCLR.IR.WarpLogicalMachineLayout
+WarpCLR.IR.WarpLogicalMachineLayout.ArgumentOffset.get -> int
+WarpCLR.IR.WarpLogicalMachineLayout.CreateInitialState(int maximumCallDepth, long maximumSteps) -> uint[]!
+WarpCLR.IR.WarpLogicalMachineLayout.FrameWords.get -> int
+WarpCLR.IR.WarpLogicalMachineLayout.GetBlockEntry(int function, int block) -> int
+WarpCLR.IR.WarpLogicalMachineLayout.GetStateWords(int maximumCallDepth) -> int
+WarpCLR.IR.WarpLogicalMachineLayout.Kernel.get -> WarpCLR.IR.WarpControlFlowKernel!
+WarpCLR.IR.WarpLogicalMachineLayout.MaximumArgumentCount.get -> int
+WarpCLR.IR.WarpLogicalMachineLayout.MaximumBlockCost.get -> int
+WarpCLR.IR.WarpLogicalMachineLayout.MaximumValueCount.get -> int
+WarpCLR.IR.WarpLogicalMachineLayout.Nodes.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpLogicalMachineNode!>!
+WarpCLR.IR.WarpLogicalMachineLayout.WarpLogicalMachineLayout(WarpCLR.IR.WarpControlFlowKernel! kernel) -> void
+WarpCLR.IR.WarpLogicalMachineNode
+WarpCLR.IR.WarpLogicalMachineNode.Block.get -> int
+WarpCLR.IR.WarpLogicalMachineNode.BlockCost.get -> int
+WarpCLR.IR.WarpLogicalMachineNode.Call.get -> WarpCLR.IR.WarpIrInstruction?
+WarpCLR.IR.WarpLogicalMachineNode.Continuation.get -> int
+WarpCLR.IR.WarpLogicalMachineNode.Function.get -> int
+WarpCLR.IR.WarpLogicalMachineNode.Instructions.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.IR.WarpIrInstruction>!
+WarpCLR.IR.WarpLogicalMachineNode.ProgramCounter.get -> int
+WarpCLR.IR.WarpLogicalMachineNode.StartsBlock.get -> bool
+WarpCLR.IR.WarpLogicalMachineNode.Terminator.get -> WarpCLR.IR.WarpBlockTerminator!
+WarpCLR.IR.WarpProfileCatalog
+WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.BackwardControlFlow = 6 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.ClosedWorldStaticCalls = 7 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.ConditionalControlFlow = 4 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.ControlFlowGraph = 5 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.DeterministicAotPackaging = 8 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.ExactUnsignedReductions = 10 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.ExplicitHostDispatch = 9 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.OneDimensionalParallelMap = 3 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.TypedUnsignedBuffers = 2 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.UnsignedScalar = 1 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpProfileFeature.VerifiedModuleIntake = 0 -> WarpCLR.IR.WarpProfileFeature
+WarpCLR.IR.WarpReductionContract
+WarpCLR.IR.WarpReductionDescriptor
+WarpCLR.IR.WarpReductionDescriptor.Deconstruct(out WarpCLR.IR.WarpReductionOperation Operation, out uint Identity) -> void
+WarpCLR.IR.WarpReductionDescriptor.Equals(WarpCLR.IR.WarpReductionDescriptor other) -> bool
+WarpCLR.IR.WarpReductionDescriptor.Identity.get -> uint
+WarpCLR.IR.WarpReductionDescriptor.Identity.init -> void
+WarpCLR.IR.WarpReductionDescriptor.Operation.get -> WarpCLR.IR.WarpReductionOperation
+WarpCLR.IR.WarpReductionDescriptor.Operation.init -> void
+WarpCLR.IR.WarpReductionDescriptor.WarpReductionDescriptor() -> void
+WarpCLR.IR.WarpReductionDescriptor.WarpReductionDescriptor(WarpCLR.IR.WarpReductionOperation Operation, uint Identity) -> void
+WarpCLR.IR.WarpReductionOperation
+WarpCLR.IR.WarpReductionOperation.Maximum = 2 -> WarpCLR.IR.WarpReductionOperation
+WarpCLR.IR.WarpReductionOperation.Minimum = 1 -> WarpCLR.IR.WarpReductionOperation
+WarpCLR.IR.WarpReductionOperation.WrappingSum = 0 -> WarpCLR.IR.WarpReductionOperation
+WarpCLR.IR.WarpReturnTerminator
+WarpCLR.IR.WarpReturnTerminator.Value.get -> int
+WarpCLR.IR.WarpReturnTerminator.WarpReturnTerminator(int value) -> void
+WarpCLR.IR.WarpRuntimeAbi
+~override WarpCLR.IR.WarpBlockParameter.Equals(object obj) -> bool
+~override WarpCLR.IR.WarpBlockParameter.ToString() -> string
+~override WarpCLR.IR.WarpFeatureDescriptor.Equals(object obj) -> bool
+~override WarpCLR.IR.WarpFeatureDescriptor.ToString() -> string
+~override WarpCLR.IR.WarpIrInstruction.Equals(object obj) -> bool
+~override WarpCLR.IR.WarpIrInstruction.ToString() -> string
+~override WarpCLR.IR.WarpReductionDescriptor.Equals(object obj) -> bool
+~override WarpCLR.IR.WarpReductionDescriptor.ToString() -> string

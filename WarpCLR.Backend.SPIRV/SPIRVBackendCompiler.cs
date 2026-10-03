@@ -117,15 +117,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
             .AppendLine("(");
         AppendParameters(llvm, kernel);
         llvm.AppendLine(") #0 {");
-        llvm.AppendLine("entry:");
-        llvm.AppendLine("  %warp_global_index = call spir_func i64 @_Z13get_global_idj(i32 0)");
-        llvm.AppendLine("  %warp_is_leader = icmp eq i64 %warp_global_index, 0");
-        llvm.AppendLine("  br i1 %warp_is_leader, label %leader, label %done");
-        llvm.AppendLine();
-        llvm.AppendLine("leader:");
-        llvm.AppendLine("  %warp_count_64 = zext i32 %warp_count to i64");
-        llvm.AppendLine("  br label %reduce_loop");
-        llvm.AppendLine();
+        AppendReductionEntry(llvm);
         llvm.AppendLine("reduce_loop:");
         llvm.AppendLine("  %warp_reduce_index = phi i64 [ 0, %leader ], [ %warp_next_index, %warp_kernel_return ]");
         llvm.Append("  %warp_accumulator = phi i32 [ ")
@@ -160,6 +152,19 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
             WarpArtifactFormat.SPIRVLLVMIR,
             WarpDeviceAbi.IntegerReductionEntryPoint,
             Encoding.UTF8.GetBytes(llvm.ToString()));
+    }
+
+    private static void AppendReductionEntry(StringBuilder llvm)
+    {
+        llvm.AppendLine("entry:");
+        llvm.AppendLine("  %warp_global_index = call spir_func i64 @_Z13get_global_idj(i32 0)");
+        llvm.AppendLine("  %warp_is_leader = icmp eq i64 %warp_global_index, 0");
+        llvm.AppendLine("  br i1 %warp_is_leader, label %leader, label %done");
+        llvm.AppendLine();
+        llvm.AppendLine("leader:");
+        llvm.AppendLine("  %warp_count_64 = zext i32 %warp_count to i64");
+        llvm.AppendLine("  br label %reduce_loop");
+        llvm.AppendLine();
     }
 
     private static void AppendParameters(StringBuilder llvm, WarpControlFlowKernel kernel)
@@ -331,7 +336,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         llvm.AppendLine();
     }
 
-    private static IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> GetIncomingEdges(
+    private static Dictionary<int, IReadOnlyList<IncomingEdge>> GetIncomingEdges(
         IReadOnlyList<WarpBasicBlock> blocks)
     {
         var result = blocks.ToDictionary(
@@ -365,10 +370,6 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         string indexValue)
     {
         string result = Value(instruction.Result);
-        string left = Value(instruction.Left);
-        string right = Value(instruction.Right);
-        string third = Value(instruction.Third);
-
         switch (instruction.OpCode)
         {
             case WarpIrOpCode.LoadInput:
@@ -409,6 +410,19 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
                     .AppendLine();
                 break;
 
+            default:
+                AppendArithmeticInstruction(llvm, instruction);
+                break;
+        }
+    }
+
+    private static void AppendArithmeticInstruction(StringBuilder llvm, WarpIrInstruction instruction)
+    {
+        string result = Value(instruction.Result);
+        string left = Value(instruction.Left);
+        string right = Value(instruction.Right);
+        switch (instruction.OpCode)
+        {
             case WarpIrOpCode.BitwiseNot:
                 AppendBinary(llvm, result, "xor", left, "-1");
                 break;
@@ -445,6 +459,20 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
                 AppendShift(llvm, instruction.Result, "lshr", left, right);
                 break;
 
+            default:
+                AppendComparisonInstruction(llvm, instruction);
+                break;
+        }
+    }
+
+    private static void AppendComparisonInstruction(StringBuilder llvm, WarpIrInstruction instruction)
+    {
+        string result = Value(instruction.Result);
+        string left = Value(instruction.Left);
+        string right = Value(instruction.Right);
+        string third = Value(instruction.Third);
+        switch (instruction.OpCode)
+        {
             case WarpIrOpCode.Equal:
                 AppendComparison(llvm, instruction.Result, "eq", left, right);
                 break;

@@ -127,17 +127,7 @@ public sealed class AMDGPUBackendCompiler : IWarpBackendCompiler
             .AppendLine("(");
         AppendParameters(llvm, kernel);
         llvm.AppendLine(") #0 {");
-        llvm.AppendLine("entry:");
-        llvm.AppendLine("  %warp_local_id = call i32 @llvm.amdgcn.workitem.id.x()");
-        llvm.AppendLine("  %warp_group_id = call i32 @llvm.amdgcn.workgroup.id.x()");
-        llvm.AppendLine("  %warp_is_first_item = icmp eq i32 %warp_local_id, 0");
-        llvm.AppendLine("  %warp_is_first_group = icmp eq i32 %warp_group_id, 0");
-        llvm.AppendLine("  %warp_is_leader = and i1 %warp_is_first_item, %warp_is_first_group");
-        llvm.AppendLine("  br i1 %warp_is_leader, label %leader, label %done");
-        llvm.AppendLine();
-        llvm.AppendLine("leader:");
-        llvm.AppendLine("  br label %reduce_loop");
-        llvm.AppendLine();
+        AppendReductionEntry(llvm);
         llvm.AppendLine("reduce_loop:");
         llvm.AppendLine("  %warp_reduce_index = phi i32 [ 0, %leader ], [ %warp_next_index, %warp_kernel_return ]");
         llvm.Append("  %warp_accumulator = phi i32 [ ")
@@ -175,6 +165,21 @@ public sealed class AMDGPUBackendCompiler : IWarpBackendCompiler
             WarpArtifactFormat.AMDGPULLVMIR,
             WarpDeviceAbi.IntegerReductionEntryPoint,
             Encoding.UTF8.GetBytes(llvm.ToString()));
+    }
+
+    private static void AppendReductionEntry(StringBuilder llvm)
+    {
+        llvm.AppendLine("entry:");
+        llvm.AppendLine("  %warp_local_id = call i32 @llvm.amdgcn.workitem.id.x()");
+        llvm.AppendLine("  %warp_group_id = call i32 @llvm.amdgcn.workgroup.id.x()");
+        llvm.AppendLine("  %warp_is_first_item = icmp eq i32 %warp_local_id, 0");
+        llvm.AppendLine("  %warp_is_first_group = icmp eq i32 %warp_group_id, 0");
+        llvm.AppendLine("  %warp_is_leader = and i1 %warp_is_first_item, %warp_is_first_group");
+        llvm.AppendLine("  br i1 %warp_is_leader, label %leader, label %done");
+        llvm.AppendLine();
+        llvm.AppendLine("leader:");
+        llvm.AppendLine("  br label %reduce_loop");
+        llvm.AppendLine();
     }
 
     private static void AppendParameters(StringBuilder llvm, WarpControlFlowKernel kernel)
@@ -346,7 +351,7 @@ public sealed class AMDGPUBackendCompiler : IWarpBackendCompiler
         llvm.AppendLine();
     }
 
-    private static IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> GetIncomingEdges(
+    private static Dictionary<int, IReadOnlyList<IncomingEdge>> GetIncomingEdges(
         IReadOnlyList<WarpBasicBlock> blocks)
     {
         var result = blocks.ToDictionary(
@@ -380,10 +385,6 @@ public sealed class AMDGPUBackendCompiler : IWarpBackendCompiler
         string indexValue)
     {
         string result = Value(instruction.Result);
-        string left = Value(instruction.Left);
-        string right = Value(instruction.Right);
-        string third = Value(instruction.Third);
-
         switch (instruction.OpCode)
         {
             case WarpIrOpCode.LoadInput:
@@ -424,6 +425,19 @@ public sealed class AMDGPUBackendCompiler : IWarpBackendCompiler
                     .AppendLine();
                 break;
 
+            default:
+                AppendArithmeticInstruction(llvm, instruction);
+                break;
+        }
+    }
+
+    private static void AppendArithmeticInstruction(StringBuilder llvm, WarpIrInstruction instruction)
+    {
+        string result = Value(instruction.Result);
+        string left = Value(instruction.Left);
+        string right = Value(instruction.Right);
+        switch (instruction.OpCode)
+        {
             case WarpIrOpCode.BitwiseNot:
                 AppendBinary(llvm, result, "xor", left, "-1");
                 break;
@@ -460,6 +474,20 @@ public sealed class AMDGPUBackendCompiler : IWarpBackendCompiler
                 AppendShift(llvm, instruction.Result, "lshr", left, right);
                 break;
 
+            default:
+                AppendComparisonInstruction(llvm, instruction);
+                break;
+        }
+    }
+
+    private static void AppendComparisonInstruction(StringBuilder llvm, WarpIrInstruction instruction)
+    {
+        string result = Value(instruction.Result);
+        string left = Value(instruction.Left);
+        string right = Value(instruction.Right);
+        string third = Value(instruction.Third);
+        switch (instruction.OpCode)
+        {
             case WarpIrOpCode.Equal:
                 AppendComparison(llvm, instruction.Result, "eq", left, right);
                 break;

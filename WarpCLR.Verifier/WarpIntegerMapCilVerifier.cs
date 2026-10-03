@@ -4,65 +4,6 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
 
-internal sealed record WarpCilCallTarget(
-    int FunctionId,
-    int ParameterCount,
-    string Identity);
-
-internal sealed class WarpIntegerMapMethodBody
-{
-    public WarpIntegerMapMethodBody(
-        string identity,
-        int parameterCount,
-        int inputBufferCount,
-        int maxStack,
-        int localCount,
-        ReadOnlySpan<byte> il,
-        WarpReductionOperation? reduction = null,
-        bool localsInitialized = false,
-        IReadOnlyDictionary<int, WarpCilCallTarget>? callTargets = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(identity);
-        ArgumentOutOfRangeException.ThrowIfNegative(parameterCount);
-        ArgumentOutOfRangeException.ThrowIfNegative(inputBufferCount);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(inputBufferCount, parameterCount);
-        ArgumentOutOfRangeException.ThrowIfNegative(maxStack);
-        ArgumentOutOfRangeException.ThrowIfNegative(localCount);
-        if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(reduction));
-        }
-
-        Identity = identity;
-        ParameterCount = parameterCount;
-        InputBufferCount = inputBufferCount;
-        MaxStack = maxStack;
-        LocalCount = localCount;
-        Il = il.ToArray();
-        Reduction = reduction;
-        LocalsInitialized = localsInitialized;
-        CallTargets = callTargets ?? new Dictionary<int, WarpCilCallTarget>();
-    }
-
-    public string Identity { get; }
-
-    public int ParameterCount { get; }
-
-    public int InputBufferCount { get; }
-
-    public int MaxStack { get; }
-
-    public int LocalCount { get; }
-
-    public byte[] Il { get; }
-
-    public WarpReductionOperation? Reduction { get; }
-
-    public bool LocalsInitialized { get; }
-
-    public IReadOnlyDictionary<int, WarpCilCallTarget> CallTargets { get; }
-}
-
 internal static class WarpIntegerMapCilVerifier
 {
     private static readonly IReadOnlyDictionary<short, OpCode> OpCodesByValue = CreateOpCodeMap();
@@ -105,6 +46,7 @@ internal static class WarpIntegerMapCilVerifier
         .Select(instruction => instruction.Operand)
         .ToArray();
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "The verifier's exhaustive CIL profile checks remain in one audited sequence so rejection order and diagnostics stay stable.")]
     private static LoweredBody VerifyAndLower(
         WarpIntegerMapMethodBody method,
         bool isEntry)
@@ -121,6 +63,7 @@ internal static class WarpIntegerMapCilVerifier
         return Lower(method, blocks, entryShapes, isEntry);
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "The bounds-checked ECMA-335 operand decoder deliberately keeps all operand encodings in one exhaustive switch.")]
     private static DecodedInstruction[] Decode(ReadOnlySpan<byte> il)
     {
         var result = new List<DecodedInstruction>();
@@ -189,9 +132,9 @@ internal static class WarpIntegerMapCilVerifier
                     }
 
                     var deltas = new int[count];
-                    for (int index = 0; index < count; index++)
+                    foreach (ref int switchDelta in deltas.AsSpan())
                     {
-                        deltas[index] = reader.ReadInt32();
+                        switchDelta = reader.ReadInt32();
                     }
 
                     int switchBase = reader.Offset;
@@ -255,6 +198,7 @@ internal static class WarpIntegerMapCilVerifier
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "This exhaustive CIL terminator state machine preserves ordered block boundaries and validation diagnostics.")]
     private static CilBlock[] BuildBlocks(
         WarpIntegerMapMethodBody method,
         IReadOnlyList<DecodedInstruction> instructions)
@@ -401,6 +345,7 @@ internal static class WarpIntegerMapCilVerifier
         return entries.Select(entry => entry!).ToArray();
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "This exhaustive opcode stack-effect state machine keeps the verifier's merge and definite-assignment semantics auditable.")]
     private static FlowShape SimulateShape(
         WarpIntegerMapMethodBody method,
         CilBlock block,
@@ -553,6 +498,7 @@ internal static class WarpIntegerMapCilVerifier
         return changed;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "This ordered CIL-to-SSA state machine preserves global value numbering, phi construction, and branch lowering as one audited operation.")]
     private static LoweredBody Lower(
         WarpIntegerMapMethodBody method,
         IReadOnlyList<CilBlock> blocks,
@@ -597,10 +543,10 @@ internal static class WarpIntegerMapCilVerifier
             var arguments = new int[method.ParameterCount];
             var locals = new int?[method.LocalCount];
 
-            for (int argumentIndex = 0; argumentIndex < arguments.Length; argumentIndex++)
+            foreach (ref int argument in arguments.AsSpan())
             {
                 int value = nextValue++;
-                arguments[argumentIndex] = value;
+                argument = value;
                 parameters.Add(new WarpBlockParameter(value));
             }
 
@@ -617,10 +563,10 @@ internal static class WarpIntegerMapCilVerifier
             }
 
             var stack = new int[shape.StackDepth];
-            for (int stackIndex = 0; stackIndex < stack.Length; stackIndex++)
+            foreach (ref int stackValue in stack.AsSpan())
             {
                 int value = nextValue++;
-                stack[stackIndex] = value;
+                stackValue = value;
                 parameters.Add(new WarpBlockParameter(value));
             }
 
@@ -916,7 +862,7 @@ internal static class WarpIntegerMapCilVerifier
         return value;
     }
 
-    private static int Peek(IReadOnlyList<int> stack, int offset)
+    private static int Peek(List<int> stack, int offset)
     {
         if (stack.Count == 0)
         {
@@ -1296,7 +1242,7 @@ internal static class WarpIntegerMapCilVerifier
             : throw CilError("WRPCIL1010", "The CIL contains an unknown opcode.", offset);
     }
 
-    private static IReadOnlyDictionary<short, OpCode> CreateOpCodeMap()
+    private static Dictionary<short, OpCode> CreateOpCodeMap()
     {
         return typeof(OpCodes)
             .GetFields(BindingFlags.Public | BindingFlags.Static)

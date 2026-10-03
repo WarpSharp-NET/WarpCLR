@@ -5,20 +5,6 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
 
-internal sealed record WarpManifestEntryData(
-    string Type,
-    string Method,
-    WarpReductionOperation? Reduction,
-    IReadOnlyList<WarpParameterRole> ParameterRoles,
-    IReadOnlyList<string> Capabilities,
-    string GraphHash);
-
-internal sealed record WarpManifestData(
-    string Contract,
-    string Producer,
-    string ProducerVersion,
-    IReadOnlyList<WarpManifestEntryData> Entries);
-
 internal static class WarpManifestParser
 {
     private const string SupportedContract = "warpcil/0.1";
@@ -54,25 +40,7 @@ internal static class WarpManifestParser
             RequireEmptyArray(root, "hostImports");
             RequireEmptyArray(root, "extensions");
 
-            JsonElement entryArray = root.GetProperty("entries");
-            if (entryArray.ValueKind != JsonValueKind.Array || entryArray.GetArrayLength() == 0)
-            {
-                throw Error("WRPCIL2001", "The manifest must contain at least one entry.");
-            }
-
-            var entries = new List<WarpManifestEntryData>(entryArray.GetArrayLength());
-            var identities = new HashSet<string>(StringComparer.Ordinal);
-            foreach (JsonElement entryElement in entryArray.EnumerateArray())
-            {
-                WarpManifestEntryData entry = ParseEntry(entryElement);
-                string identity = $"{entry.Type}.{entry.Method}";
-                if (!identities.Add(identity))
-                {
-                    throw Error("WRPCIL2001", $"Manifest entry '{identity}' is duplicated.");
-                }
-
-                entries.Add(entry);
-            }
+            List<WarpManifestEntryData> entries = ParseEntries(root);
 
             var manifest = new WarpManifestData(contract, producer, producerVersion, entries);
             byte[] canonical = WriteCanonical(manifest);
@@ -118,6 +86,51 @@ internal static class WarpManifestParser
             throw Error("WRPCIL2001", "A manifest graph hash must be an uppercase SHA-256 value.");
         }
 
+        List<WarpParameterRole> roles = ParseParameterRoles(element);
+
+        JsonElement capabilityArray = element.GetProperty("capabilities");
+        if (capabilityArray.ValueKind != JsonValueKind.Array)
+        {
+            throw Error("WRPCIL2001", "Entry capabilities must be an array.");
+        }
+
+        string[] capabilities = capabilityArray
+            .EnumerateArray()
+            .Select(value => value.ValueKind == JsonValueKind.String
+                ? value.GetString()!
+                : throw Error("WRPCIL2001", "A capability identifier must be a string."))
+            .ToArray();
+
+        return new WarpManifestEntryData(type, method, reduction, roles, capabilities, graphHash);
+    }
+
+    private static List<WarpManifestEntryData> ParseEntries(JsonElement root)
+    {
+        JsonElement entryArray = root.GetProperty("entries");
+        if (entryArray.ValueKind != JsonValueKind.Array || entryArray.GetArrayLength() == 0)
+        {
+            throw Error("WRPCIL2001", "The manifest must contain at least one entry.");
+        }
+
+        var entries = new List<WarpManifestEntryData>(entryArray.GetArrayLength());
+        var identities = new HashSet<string>(StringComparer.Ordinal);
+        foreach (JsonElement entryElement in entryArray.EnumerateArray())
+        {
+            WarpManifestEntryData entry = ParseEntry(entryElement);
+            string identity = $"{entry.Type}.{entry.Method}";
+            if (!identities.Add(identity))
+            {
+                throw Error("WRPCIL2001", $"Manifest entry '{identity}' is duplicated.");
+            }
+
+            entries.Add(entry);
+        }
+
+        return entries;
+    }
+
+    private static List<WarpParameterRole> ParseParameterRoles(JsonElement element)
+    {
         JsonElement roleArray = element.GetProperty("parameterRoles");
         if (roleArray.ValueKind != JsonValueKind.Array || roleArray.GetArrayLength() == 0)
         {
@@ -157,20 +170,7 @@ internal static class WarpManifestParser
             throw Error("WRPCIL2001", "A manifest entry must declare an input buffer.");
         }
 
-        JsonElement capabilityArray = element.GetProperty("capabilities");
-        if (capabilityArray.ValueKind != JsonValueKind.Array)
-        {
-            throw Error("WRPCIL2001", "Entry capabilities must be an array.");
-        }
-
-        string[] capabilities = capabilityArray
-            .EnumerateArray()
-            .Select(value => value.ValueKind == JsonValueKind.String
-                ? value.GetString()!
-                : throw Error("WRPCIL2001", "A capability identifier must be a string."))
-            .ToArray();
-
-        return new WarpManifestEntryData(type, method, reduction, roles, capabilities, graphHash);
+        return roles;
     }
 
     private static byte[] WriteCanonical(WarpManifestData manifest)

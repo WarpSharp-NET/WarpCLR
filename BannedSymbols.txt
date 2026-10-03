@@ -1,0 +1,10 @@
+# Runtime code must surface failures to its caller, not terminate the process.
+M:System.Environment.Exit(System.Int32); Report failures through the runtime fault contract instead of terminating the host process.
+M:System.Environment.FailFast(System.String); Report failures through the runtime fault contract instead of terminating the host process.
+M:System.Environment.FailFast(System.String,System.Exception); Report failures through the runtime fault contract instead of terminating the host process.
+# Untrusted runtime artifacts must never use an unsafe object deserializer.
+T:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter; Use verified canonical artifact formats rather than unsafe object deserialization.
+# Runtime/library asynchronous operations must not block a caller's thread.
+M:System.Threading.Tasks.Task.Wait; Await tasks or expose an explicitly synchronous runtime operation.
+P:System.Threading.Tasks.Task`1.Result; Await tasks or expose an explicitly synchronous runtime operation.
+M:System.Threading.Thread.Abort; Use cooperative cancellation at portable runtime safepoints.

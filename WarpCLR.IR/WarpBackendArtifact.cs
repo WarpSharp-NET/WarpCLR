@@ -3,34 +3,6 @@ using System.Text;
 
 namespace WarpCLR.IR;
 
-public enum WarpArtifactFormat
-{
-    CoreCLRPlan,
-    NVPTX,
-    AMDGPULLVMIR,
-    SPIRVLLVMIR,
-}
-
-public enum WarpConformanceStatus
-{
-    DevelopmentNonconforming,
-}
-
-public static class WarpArtifactFormatCatalog
-{
-    public static WarpArtifactFormat ForBackend(WarpBackendKind backend) => backend switch
-    {
-        WarpBackendKind.CoreCLR => WarpArtifactFormat.CoreCLRPlan,
-        WarpBackendKind.NVPTX => WarpArtifactFormat.NVPTX,
-        WarpBackendKind.AMDGPU => WarpArtifactFormat.AMDGPULLVMIR,
-        WarpBackendKind.SPIRV => WarpArtifactFormat.SPIRVLLVMIR,
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(backend),
-            backend,
-            "The backend is not registered."),
-    };
-}
-
 public sealed class WarpBackendArtifact
 {
     public WarpBackendArtifact(

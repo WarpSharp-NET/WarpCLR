@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.ObjectModel;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -31,7 +32,7 @@ public static class WarpIrHash
 
     private static void AppendBody(
         IncrementalHash hash,
-        IReadOnlyList<WarpBasicBlock> blocks)
+        ReadOnlyCollection<WarpBasicBlock> blocks)
     {
         AppendInt32(hash, blocks.Count);
 

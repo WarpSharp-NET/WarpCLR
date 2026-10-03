@@ -3,13 +3,6 @@ using System.Reflection.Metadata;
 
 namespace WarpCLR.Verifier;
 
-internal enum WarpMetadataType
-{
-    Unsupported,
-    Boolean,
-    UInt32,
-}
-
 internal sealed class WarpMetadataTypeProvider : ISignatureTypeProvider<WarpMetadataType, object?>
 {
     public WarpMetadataType GetArrayType(WarpMetadataType elementType, ArrayShape shape) =>

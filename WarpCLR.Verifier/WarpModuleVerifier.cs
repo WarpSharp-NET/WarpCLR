@@ -20,6 +20,7 @@ public sealed class WarpModuleVerifier
         return Verify(File.ReadAllBytes(assemblyPath));
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the verifier service's existing instance invocation contract used by friend compiler assemblies.")]
     internal IReadOnlyDictionary<string, string> ComputeGraphHashes(
         ReadOnlyMemory<byte> assemblyBytes)
     {
@@ -61,6 +62,7 @@ public sealed class WarpModuleVerifier
         return hashes;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the maintained public verifier instance API; changing this member to static would break compiled callers.")]
     public WarpVerifiedModule Verify(ReadOnlyMemory<byte> assemblyBytes)
     {
         if (assemblyBytes.IsEmpty)
@@ -178,12 +180,12 @@ public sealed class WarpModuleVerifier
         MethodSignature<WarpMetadataType> signature,
         WarpManifestEntryData entry)
     {
-        if ((method.Attributes & MethodAttributes.Static) == 0 || signature.Header.IsInstance)
+        if (!method.Attributes.HasFlag(MethodAttributes.Static) || signature.Header.IsInstance)
         {
             throw EntryError(entry, "The entry point must be static.");
         }
 
-        if ((method.Attributes & MethodAttributes.Abstract) != 0 || signature.GenericParameterCount != 0)
+        if (method.Attributes.HasFlag(MethodAttributes.Abstract) || signature.GenericParameterCount != 0)
         {
             throw EntryError(entry, "The entry point must be concrete and nongeneric.");
         }
@@ -245,65 +247,12 @@ public sealed class WarpModuleVerifier
                     "Recursion requires the portable logical stack.");
             }
 
-            MethodDefinition definition = metadata.GetMethodDefinition(handle);
-            MethodSignature<WarpMetadataType> signature = definition.DecodeSignature(
-                new WarpMetadataTypeProvider(),
-                genericContext: null);
-            ValidateDeclaringType(metadata, definition, identity);
-            if (!isEntry)
-            {
-                ValidateClosedFunction(definition, signature, identity);
-            }
-
-            if (definition.RelativeVirtualAddress == 0)
-            {
-                throw MethodError(identity, "The method does not have a CIL body.");
-            }
-
-            MethodBodyBlock body = peReader.GetMethodBody(definition.RelativeVirtualAddress);
-            if (body.ExceptionRegions.Length != 0)
-            {
-                throw MethodError(identity, "Exception regions are outside the integer map profile.");
-            }
-
-            int localCount = ValidateLocals(metadata, body, identity);
-            byte[] il = body.GetILBytes()
-                ?? throw MethodError(identity, "The method does not contain CIL bytes.");
-            var draft = new MetadataMethodDraft(
-                identity,
-                signature.ParameterTypes.Length,
-                body.MaxStack,
-                localCount,
-                il,
-                body.LocalVariablesInitialized,
-                metadata.GetBlobBytes(definition.Signature),
-                GetLocalSignatureBytes(metadata, body.LocalSignature));
+            MetadataMethodDraft draft = CreateMethodDraft(peReader, metadata, handle, identity, isEntry);
             drafts.Add(handle, draft);
 
-            foreach (int token in WarpIntegerMapCilVerifier.ReadCallTokens(il).Distinct())
+            foreach (int token in WarpIntegerMapCilVerifier.ReadCallTokens(draft.Il).Distinct())
             {
-                EntityHandle calledHandle;
-                try
-                {
-                    calledHandle = MetadataTokens.EntityHandle(token);
-                }
-                catch (ArgumentException exception)
-                {
-                    throw Error(
-                        "WRPCIL1013",
-                        $"Method '{identity}' contains an invalid call token 0x{token:X8}. " +
-                        exception.Message);
-                }
-
-                if (calledHandle.Kind != HandleKind.MethodDefinition)
-                {
-                    throw Error(
-                        "WRPCIL1013",
-                        $"Method '{identity}' calls outside its closed module. " +
-                        "Only direct MethodDef calls are portable.");
-                }
-
-                MethodDefinitionHandle targetHandle = (MethodDefinitionHandle)calledHandle;
+                MethodDefinitionHandle targetHandle = ResolveCallHandle(token, identity);
                 MethodDefinition targetDefinition = metadata.GetMethodDefinition(targetHandle);
                 MethodSignature<WarpMetadataType> targetSignature = targetDefinition.DecodeSignature(
                     new WarpMetadataTypeProvider(),
@@ -340,17 +289,85 @@ public sealed class WarpModuleVerifier
         }
     }
 
+    private static MetadataMethodDraft CreateMethodDraft(
+        PEReader peReader,
+        MetadataReader metadata,
+        MethodDefinitionHandle handle,
+        string identity,
+        bool isEntry)
+    {
+        MethodDefinition definition = metadata.GetMethodDefinition(handle);
+        MethodSignature<WarpMetadataType> signature = definition.DecodeSignature(
+            new WarpMetadataTypeProvider(),
+            genericContext: null);
+        ValidateDeclaringType(metadata, definition, identity);
+        if (!isEntry)
+        {
+            ValidateClosedFunction(definition, signature, identity);
+        }
+
+        if (definition.RelativeVirtualAddress == 0)
+        {
+            throw MethodError(identity, "The method does not have a CIL body.");
+        }
+
+        MethodBodyBlock body = peReader.GetMethodBody(definition.RelativeVirtualAddress);
+        if (body.ExceptionRegions.Length != 0)
+        {
+            throw MethodError(identity, "Exception regions are outside the integer map profile.");
+        }
+
+        int localCount = ValidateLocals(metadata, body, identity);
+        byte[] il = body.GetILBytes()
+            ?? throw MethodError(identity, "The method does not contain CIL bytes.");
+        return new MetadataMethodDraft(
+            identity,
+            signature.ParameterTypes.Length,
+            body.MaxStack,
+            localCount,
+            il,
+            body.LocalVariablesInitialized,
+            metadata.GetBlobBytes(definition.Signature),
+            GetLocalSignatureBytes(metadata, body.LocalSignature));
+    }
+
+    private static MethodDefinitionHandle ResolveCallHandle(int token, string identity)
+    {
+        EntityHandle calledHandle;
+        try
+        {
+            calledHandle = MetadataTokens.EntityHandle(token);
+        }
+        catch (ArgumentException exception)
+        {
+            throw Error(
+                "WRPCIL1013",
+                $"Method '{identity}' contains an invalid call token 0x{token:X8}. " +
+                exception.Message);
+        }
+
+        if (calledHandle.Kind != HandleKind.MethodDefinition)
+        {
+            throw Error(
+                "WRPCIL1013",
+                $"Method '{identity}' calls outside its closed module. " +
+                "Only direct MethodDef calls are portable.");
+        }
+
+        return (MethodDefinitionHandle)calledHandle;
+    }
+
     private static void ValidateClosedFunction(
         MethodDefinition method,
         MethodSignature<WarpMetadataType> signature,
         string identity)
     {
-        if ((method.Attributes & MethodAttributes.Static) == 0 || signature.Header.IsInstance)
+        if (!method.Attributes.HasFlag(MethodAttributes.Static) || signature.Header.IsInstance)
         {
             throw MethodError(identity, "The method must be static.");
         }
 
-        if ((method.Attributes & MethodAttributes.Abstract) != 0 || signature.GenericParameterCount != 0)
+        if (method.Attributes.HasFlag(MethodAttributes.Abstract) || signature.GenericParameterCount != 0)
         {
             throw MethodError(identity, "The method must be concrete and nongeneric.");
         }

@@ -1,0 +1,40 @@
+#nullable enable
+static WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.Backend.CoreCLR.CoreCLRJitKernel!
+static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Deserialize(System.ReadOnlySpan<byte> content, string! name, int inputBufferCount, int scalarArgumentCount) -> WarpCLR.IR.WarpControlFlowKernel!
+static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Serialize(WarpCLR.IR.WarpControlFlowKernel! kernel) -> byte[]!
+WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler
+WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
+WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!
+WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.CoreCLRBackendCompiler() -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CancellationToken.get -> System.Threading.CancellationToken
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.Charge(int steps) -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CoreCLRExecutionBudget(long maximumSteps, int maximumCallDepth, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CurrentCallDepth.get -> int
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.EnterCall() -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.ExitCall() -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.MaximumCallDepth.get -> int
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.MaximumSteps.get -> long
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.Reset() -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.StepsConsumed.get -> long
+WarpCLR.Backend.CoreCLR.CoreCLRJitKernel
+WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.CompiledEntryPoint.get -> System.Reflection.MethodInfo!
+WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.CompiledFunctions.get -> System.Collections.ObjectModel.ReadOnlyCollection<System.Reflection.MethodInfo!>!
+WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.Invoke(uint[]![]! inputs, uint[]! scalarArguments, int workerIndex, WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget! budget) -> uint
+WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.IsCollectible.get -> bool
+WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.Kernel.get -> WarpCLR.IR.WarpControlFlowKernel!
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.CoreCLRResourceLimitException(WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind kind, long limit, long stepsConsumed = 0, int depth = 0) -> void
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.Depth.get -> int
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.Kind.get -> WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.Limit.get -> long
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.StepsConsumed.get -> long
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind.CallDepth = 1 -> WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind.StepLimit = 0 -> WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
+WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec
+WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator
+WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.Execute(WarpCLR.IR.WarpBackendArtifact! artifact, WarpCLR.IR.WarpControlFlowKernel! kernel, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint[]!
+WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.ExecuteReduction(WarpCLR.IR.WarpBackendArtifact! artifact, WarpCLR.IR.WarpControlFlowKernel! kernel, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint
+WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.WarpIntegerMapSemanticEmulator() -> void

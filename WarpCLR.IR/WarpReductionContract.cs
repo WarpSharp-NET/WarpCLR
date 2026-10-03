@@ -1,17 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
 
 namespace WarpCLR.IR;
-
-public enum WarpReductionOperation
-{
-    WrappingSum,
-    Minimum,
-    Maximum,
-}
-
-public readonly record struct WarpReductionDescriptor(
-    WarpReductionOperation Operation,
-    uint Identity);
 
 public static class WarpReductionContract
 {
@@ -30,7 +20,7 @@ public static class WarpReductionContract
         ReadOnlySpan<uint> values)
     {
         uint result = GetDescriptor(operation).Identity;
-        foreach (uint value in values)
+        foreach (ref readonly uint value in values)
         {
             result = Apply(operation, result, value);
         }

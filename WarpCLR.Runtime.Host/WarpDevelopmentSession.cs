@@ -3,11 +3,6 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Runtime.Host;
 
-public enum WarpDevelopmentExecutionMode
-{
-    SemanticEmulation,
-}
-
 public sealed class WarpDevelopmentSession
 {
     private readonly WarpLoadedModule module;
