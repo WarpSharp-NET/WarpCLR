@@ -681,7 +681,19 @@ internal static class WarpIntegerMapCilVerifier
 
                 if (TryGetLocalWriteIndex(instruction, out localIndex))
                 {
-                    state.Locals[localIndex] = Pop(state.Stack, offset);
+                    int value = Pop(state.Stack, offset);
+                    if (method.LocalTypes[localIndex] == WarpMetadataType.Boolean)
+                    {
+                        // CLI Boolean storage is an unsigned byte, not a nonzero-to-one conversion.
+                        // Keeping the zero-extended byte in SSA preserves every later load, merge and yield.
+                        int mask = TakeValue(ref nextValue, admission);
+                        int truncated = TakeValue(ref nextValue, admission);
+                        loweredInstructions.Add(new WarpIrInstruction(mask, WarpIrOpCode.Constant, immediate: byte.MaxValue));
+                        loweredInstructions.Add(new WarpIrInstruction(truncated, WarpIrOpCode.BitwiseAnd, value, mask));
+                        value = truncated;
+                    }
+
+                    state.Locals[localIndex] = value;
                     continue;
                 }
 

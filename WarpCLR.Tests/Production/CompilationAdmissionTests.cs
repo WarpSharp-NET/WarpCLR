@@ -100,7 +100,7 @@ internal sealed class CompilationAdmissionTests
     {
         byte[] il = new byte[WarpCompilationAdmission.MaximumCilBytesPerBody + 1];
         WarpCompilationResourceException error = Assert.ThrowsExactly<WarpCompilationResourceException>(
-            () => new WarpIntegerMapMethodBody("CIL-bytes", 0, 0, 1, 0, il));
+            () => new WarpIntegerMapMethodBody("CIL-bytes", 0, 0, 1, [], il));
         Assert.AreEqual(WarpCompilationResourceKind.CilBytes, error.Resource);
     }
 
@@ -108,7 +108,8 @@ internal sealed class CompilationAdmissionTests
     public void FlowWorkspaceProductIsCheckedBeforeFlowAndPhiArrays()
     {
         var method = new WarpIntegerMapMethodBody("workspace", 0, 0,
-            WarpCompilationAdmission.MaximumEvaluationStackPerBody, WarpCompilationAdmission.MaximumLocalsPerBody, []);
+            WarpCompilationAdmission.MaximumEvaluationStackPerBody,
+            Enumerable.Repeat(WarpMetadataType.UInt32, WarpCompilationAdmission.MaximumLocalsPerBody).ToImmutableArray(), []);
         new WarpCilCompilationAdmission(method.Identity).AdmitBlocks(method, 128);
         WarpCompilationResourceException error = Assert.ThrowsExactly<WarpCompilationResourceException>(
             () => new WarpCilCompilationAdmission(method.Identity).AdmitBlocks(method, 129));

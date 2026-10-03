@@ -165,7 +165,7 @@ public sealed class WarpModuleVerifier
                 signature.ParameterTypes.Length,
                 inputBufferCount,
                 entryMethod.MaxStack,
-                entryMethod.LocalCount,
+                entryMethod.LocalTypes,
                 entryMethod.Il,
                 entry.Reduction,
                 entryMethod.LocalsInitialized,
@@ -178,7 +178,7 @@ public sealed class WarpModuleVerifier
                         node.ParameterCount,
                         inputBufferCount: 0,
                         node.MaxStack,
-                        node.LocalCount,
+                        node.LocalTypes,
                         node.Il,
                         localsInitialized: node.LocalsInitialized,
                         callTargets: node.CallTargets))
@@ -360,15 +360,15 @@ public sealed class WarpModuleVerifier
             throw MethodError(identity, "Exception regions are outside the integer map profile.");
         }
 
-        int localCount = ValidateLocals(metadata, body, identity);
-        admission.AdmitMethod(identity, signature.ParameterTypes.Length, body.MaxStack, localCount, body.GetILReader().Length, isEntry);
+        ImmutableArray<WarpMetadataType> localTypes = ValidateLocals(metadata, body, identity);
+        admission.AdmitMethod(identity, signature.ParameterTypes.Length, body.MaxStack, localTypes.Length, body.GetILReader().Length, isEntry);
         byte[] il = body.GetILBytes()
             ?? throw MethodError(identity, "The method does not contain CIL bytes.");
         return new MetadataMethodDraft(
             identity,
             signature.ParameterTypes.Length,
             body.MaxStack,
-            localCount,
+            localTypes,
             il,
             body.LocalVariablesInitialized,
             metadata.GetBlobBytes(definition.Signature),
@@ -463,14 +463,14 @@ public sealed class WarpModuleVerifier
         return $"{declaringType}.{methodName}/{parameterCount}";
     }
 
-    private static int ValidateLocals(
+    private static ImmutableArray<WarpMetadataType> ValidateLocals(
         MetadataReader metadata,
         MethodBodyBlock body,
         string identity)
     {
         if (body.LocalSignature.IsNil)
         {
-            return 0;
+            return [];
         }
 
         StandaloneSignature localSignature = metadata.GetStandaloneSignature(body.LocalSignature);
@@ -484,7 +484,7 @@ public sealed class WarpModuleVerifier
                 "All local variables must have type System.UInt32 or System.Boolean.");
         }
 
-        return locals.Length;
+        return locals;
     }
 
     private static byte[] GetLocalSignatureBytes(
@@ -676,7 +676,7 @@ public sealed class WarpModuleVerifier
             string identity,
             int parameterCount,
             int maxStack,
-            int localCount,
+            ImmutableArray<WarpMetadataType> localTypes,
             byte[] il,
             bool localsInitialized,
             byte[] signature,
@@ -685,7 +685,7 @@ public sealed class WarpModuleVerifier
             Identity = identity;
             ParameterCount = parameterCount;
             MaxStack = maxStack;
-            LocalCount = localCount;
+            LocalTypes = localTypes;
             Il = il;
             LocalsInitialized = localsInitialized;
             Signature = signature;
@@ -698,7 +698,7 @@ public sealed class WarpModuleVerifier
 
         public int MaxStack { get; }
 
-        public int LocalCount { get; }
+        public ImmutableArray<WarpMetadataType> LocalTypes { get; }
 
         public byte[] Il { get; }
 
@@ -714,7 +714,7 @@ public sealed class WarpModuleVerifier
             Identity,
             ParameterCount,
             MaxStack,
-            LocalCount,
+            LocalTypes,
             Il,
             LocalsInitialized,
             Signature,
@@ -726,12 +726,15 @@ public sealed class WarpModuleVerifier
         string Identity,
         int ParameterCount,
         int MaxStack,
-        int LocalCount,
+        ImmutableArray<WarpMetadataType> LocalTypes,
         byte[] Il,
         bool LocalsInitialized,
         byte[] Signature,
         byte[] LocalSignature,
-        IReadOnlyDictionary<int, WarpCilCallTarget> CallTargets);
+        IReadOnlyDictionary<int, WarpCilCallTarget> CallTargets)
+    {
+        public int LocalCount => LocalTypes.Length;
+    }
 
     private sealed record MetadataMethodGraph(IReadOnlyList<MetadataMethodNode> Methods);
 }

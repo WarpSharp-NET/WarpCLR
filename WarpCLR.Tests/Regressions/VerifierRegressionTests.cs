@@ -90,7 +90,7 @@ internal sealed class VerifierRegressionTests
                     parameterCount: 1,
                     inputBufferCount: 1,
                     maxStack: 2,
-                    localCount: 0,
+                    localTypes: [],
                     il: il)));
 
         Assert.AreEqual("WRPCIL1002", exception.Code, StringComparer.Ordinal);

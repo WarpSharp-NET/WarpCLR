@@ -1,5 +1,4 @@
-using System.Reflection;
-using System.Reflection.Emit;
+using System.Collections.Immutable;
 using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
@@ -11,7 +10,7 @@ internal sealed class WarpIntegerMapMethodBody
         int parameterCount,
         int inputBufferCount,
         int maxStack,
-        int localCount,
+        ImmutableArray<WarpMetadataType> localTypes,
         ReadOnlySpan<byte> il,
         WarpReductionOperation? reduction = null,
         bool localsInitialized = false,
@@ -23,11 +22,21 @@ internal sealed class WarpIntegerMapMethodBody
         ArgumentOutOfRangeException.ThrowIfNegative(inputBufferCount);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(inputBufferCount, parameterCount);
         ArgumentOutOfRangeException.ThrowIfNegative(maxStack);
-        ArgumentOutOfRangeException.ThrowIfNegative(localCount);
+        if (localTypes.IsDefault)
+        {
+            throw new ArgumentException("Local storage types must be specified.", nameof(localTypes));
+        }
+
         WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Parameters, parameterCount, WarpCompilationAdmission.MaximumParametersPerBody);
-        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Locals, localCount, WarpCompilationAdmission.MaximumLocalsPerBody);
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Locals, localTypes.Length, WarpCompilationAdmission.MaximumLocalsPerBody);
         WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.EvaluationStack, maxStack, WarpCompilationAdmission.MaximumEvaluationStackPerBody);
         WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.CilBytes, il.Length, WarpCompilationAdmission.MaximumCilBytesPerBody);
+        if (localTypes.Any(type => type is not WarpMetadataType.UInt32 and not WarpMetadataType.Boolean))
+        {
+            throw new WarpVerificationException("WRPCIL1000",
+                $"Method '{identity}' is invalid. All local variables must have type System.UInt32 or System.Boolean.");
+        }
+
         if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(reduction));
@@ -37,7 +46,7 @@ internal sealed class WarpIntegerMapMethodBody
         ParameterCount = parameterCount;
         InputBufferCount = inputBufferCount;
         MaxStack = maxStack;
-        LocalCount = localCount;
+        LocalTypes = localTypes;
         Il = il.ToArray();
         Reduction = reduction;
         LocalsInitialized = localsInitialized;
@@ -52,7 +61,9 @@ internal sealed class WarpIntegerMapMethodBody
 
     public int MaxStack { get; }
 
-    public int LocalCount { get; }
+    public int LocalCount => LocalTypes.Length;
+
+    public ImmutableArray<WarpMetadataType> LocalTypes { get; }
 
     public byte[] Il { get; }
 

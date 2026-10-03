@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection;
 using WarpCLR.IR;
 
@@ -48,6 +49,9 @@ internal sealed class WarpIntegerMapVerifier
             throw SignatureError(method, "Exception regions are outside the integer map profile.");
         }
 
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Locals,
+            body.LocalVariables.Count, WarpCompilationAdmission.MaximumLocalsPerBody);
+        var localTypes = ImmutableArray.CreateBuilder<WarpMetadataType>(body.LocalVariables.Count);
         foreach (LocalVariableInfo local in body.LocalVariables)
         {
             if (local.LocalType != typeof(uint) &&
@@ -57,6 +61,8 @@ internal sealed class WarpIntegerMapVerifier
                     method,
                     "All local variables must have type System.UInt32 or System.Boolean.");
             }
+
+            localTypes.Add(local.LocalType == typeof(bool) ? WarpMetadataType.Boolean : WarpMetadataType.UInt32);
         }
 
         byte[] il = body.GetILAsByteArray()
@@ -67,7 +73,7 @@ internal sealed class WarpIntegerMapVerifier
             method.GetParameters().Length,
             inputBufferCount,
             body.MaxStackSize,
-            body.LocalVariables.Count,
+            localTypes.MoveToImmutable(),
             il,
             localsInitialized: body.InitLocals,
             callTargets: callTargets);
