@@ -1,4 +1,49 @@
 #nullable enable
+const WarpCLR.IR.WarpCompilationAdmission.MaximumIdentityCharacters = 4096 -> int
+WarpCLR.IR.WarpCompilationResourceKind.IdentityCharacters = 15 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationAdmission
+WarpCLR.IR.WarpCompilationResourceException
+WarpCLR.IR.WarpCompilationResourceException.EntryIdentity.get -> string!
+WarpCLR.IR.WarpCompilationResourceException.Limit.get -> long
+WarpCLR.IR.WarpCompilationResourceException.Requested.get -> long
+WarpCLR.IR.WarpCompilationResourceException.Resource.get -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceException.WarpCompilationResourceException() -> void
+WarpCLR.IR.WarpCompilationResourceException.WarpCompilationResourceException(string! entryIdentity, WarpCLR.IR.WarpCompilationResourceKind resource, long requested, long limit) -> void
+WarpCLR.IR.WarpCompilationResourceException.WarpCompilationResourceException(string! message) -> void
+WarpCLR.IR.WarpCompilationResourceException.WarpCompilationResourceException(string! message, System.Exception! innerException) -> void
+WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.AssemblyBytes = 1 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.Blocks = 5 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.CilBytes = 12 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.EvaluationStack = 11 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.Functions = 4 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.Instructions = 6 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.Locals = 10 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.ManifestBytes = 2 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.ManifestEntries = 3 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.OperandReferences = 8 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.Parameters = 9 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.SourceBytes = 14 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.Unknown = 0 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.ValueSlots = 7 -> WarpCLR.IR.WarpCompilationResourceKind
+WarpCLR.IR.WarpCompilationResourceKind.VerifierWorkspaceSlots = 13 -> WarpCLR.IR.WarpCompilationResourceKind
+const WarpCLR.IR.WarpCompilationAdmission.MaximumAssemblyBytes = 67108864 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumBlocksPerEntry = 8192 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumCilBytesPerBody = 1048576 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumCilBytesPerEntry = 4194304 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumEvaluationStackPerBody = 4096 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumFunctionsPerEntry = 256 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumInstructionsPerEntry = 65536 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumLocalsPerBody = 4096 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumManifestBytes = 4194304 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumManifestEntries = 256 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumModuleExpansionFactor = 16 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumOperandReferencesPerEntry = 1048576 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumParametersPerBody = 1024 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumSourceBytes = 67108864 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumValueSlotsPerEntry = 131072 -> int
+const WarpCLR.IR.WarpCompilationAdmission.MaximumVerifierWorkspaceSlotsPerEntry = 1048576 -> int
+static WarpCLR.IR.WarpCompilationAdmission.Validate(WarpCLR.IR.WarpControlFlowKernel! kernel) -> void
 const WarpCLR.IR.WarpCapabilityCatalog.Buffers = "warp.core.buffers/0.1" -> string!
 const WarpCLR.IR.WarpCapabilityCatalog.Calls = "warp.core.calls/0.1" -> string!
 const WarpCLR.IR.WarpCapabilityCatalog.ControlFlow = "warp.core.control-flow/0.2" -> string!
@@ -247,6 +292,7 @@ WarpCLR.IR.WarpLogicalMachineLayout.CreateInitialState(int maximumCallDepth, lon
 WarpCLR.IR.WarpLogicalMachineLayout.FrameWords.get -> int
 WarpCLR.IR.WarpLogicalMachineLayout.GetBlockEntry(int function, int block) -> int
 WarpCLR.IR.WarpLogicalMachineLayout.GetStateWords(int maximumCallDepth) -> int
+WarpCLR.IR.WarpLogicalMachineLayout.ResetState(System.Span<uint> state, long maximumSteps) -> void
 WarpCLR.IR.WarpLogicalMachineLayout.Kernel.get -> WarpCLR.IR.WarpControlFlowKernel!
 WarpCLR.IR.WarpLogicalMachineLayout.MaximumArgumentCount.get -> int
 WarpCLR.IR.WarpLogicalMachineLayout.MaximumBlockCost.get -> int

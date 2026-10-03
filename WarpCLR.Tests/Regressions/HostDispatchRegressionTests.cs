@@ -5,13 +5,16 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Regressions;
 
 [TestClass]
-public sealed class HostDispatchRegressionTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class HostDispatchRegressionTests
 {
+    private static readonly uint[] SingleInput = [1u];
     private const string EntryIdentity = ManifestAssemblyFixture.MapEntryIdentity;
 
     [TestMethod]
     [FourBackends]
-    public void Missing_backend_prevents_package_loading(WarpBackendKind backend)
+    public void MissingBackendPreventsPackageLoading(WarpBackendKind backend)
     {
         byte[] assembly = ManifestAssemblyFixture.ReadAssembly();
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(assembly);
@@ -20,16 +23,16 @@ public sealed class HostDispatchRegressionTests
         try
         {
             package.WriteToDirectory(directory);
-            WarpPackagedArtifact artifact = package.Artifacts.Single(
+            WarpPackagedArtifact artifact = package.Artifacts.SingleItem(
                 candidate => candidate.Sidecar.Backend == backend &&
-                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
+                    string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
             File.Delete(Path.Combine(directory, artifact.SidecarPath));
 
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
                 () => new WarpDevelopmentModuleLoader().Load(assembly, directory));
 
-            Assert.AreEqual("WRPHOST1000", exception.Code);
-            StringAssert.Contains(exception.Message, backend.ToString());
+            Assert.AreEqual("WRPHOST1000", exception.Code, StringComparer.Ordinal);
+            StringAssert.Contains(exception.Message, backend.ToString(), StringComparison.Ordinal);
         }
         finally
         {
@@ -42,7 +45,7 @@ public sealed class HostDispatchRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Implicit_or_unknown_execution_mode_is_rejected(WarpBackendKind backend)
+    public void ImplicitOrUnknownExecutionModeIsRejected(WarpBackendKind backend)
     {
         WarpLoadedModule module = LoadModule(backend, out string directory);
 
@@ -54,8 +57,8 @@ public sealed class HostDispatchRegressionTests
                     backend,
                     (WarpDevelopmentExecutionMode)int.MaxValue));
 
-            Assert.AreEqual("WRPHOST1003", exception.Code);
-            StringAssert.Contains(exception.Message, "not registered");
+            Assert.AreEqual("WRPHOST1003", exception.Code, StringComparer.Ordinal);
+            StringAssert.Contains(exception.Message, "not registered", StringComparison.Ordinal);
         }
         finally
         {
@@ -65,7 +68,7 @@ public sealed class HostDispatchRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Unknown_entry_is_rejected_without_fallback(WarpBackendKind backend)
+    public void UnknownEntryIsRejectedWithoutFallback(WarpBackendKind backend)
     {
         WarpLoadedModule module = LoadModule(backend, out string directory);
 
@@ -77,9 +80,9 @@ public sealed class HostDispatchRegressionTests
                 WarpDevelopmentExecutionMode.SemanticEmulation);
 
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
-                () => session.DispatchIntegerMap("missing.entry", [new uint[] { 1u }], [2u]));
+                () => session.DispatchIntegerMap("missing.entry", [SingleInput], [2u]));
 
-            Assert.AreEqual("WRPHOST1001", exception.Code);
+            Assert.AreEqual("WRPHOST1001", exception.Code, StringComparer.Ordinal);
         }
         finally
         {
@@ -89,7 +92,7 @@ public sealed class HostDispatchRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Invalid_buffer_shape_is_rejected_before_dispatch(WarpBackendKind backend)
+    public void InvalidBufferShapeIsRejectedBeforeDispatch(WarpBackendKind backend)
     {
         WarpLoadedModule module = LoadModule(backend, out string directory);
 
@@ -103,8 +106,8 @@ public sealed class HostDispatchRegressionTests
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
                 () => session.DispatchIntegerMap(EntryIdentity, [], [2u]));
 
-            Assert.AreEqual("WRPHOST1004", exception.Code);
-            StringAssert.Contains(exception.Message, "input buffer count");
+            Assert.AreEqual("WRPHOST1004", exception.Code, StringComparer.Ordinal);
+            StringAssert.Contains(exception.Message, "input buffer count", StringComparison.Ordinal);
         }
         finally
         {
@@ -114,7 +117,7 @@ public sealed class HostDispatchRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Map_dispatch_rejects_a_reduction_entry(WarpBackendKind backend)
+    public void MapDispatchRejectsAReductionEntry(WarpBackendKind backend)
     {
         WarpLoadedModule module = LoadModule(backend, out string directory);
 
@@ -128,11 +131,11 @@ public sealed class HostDispatchRegressionTests
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
                 () => session.DispatchIntegerMap(
                     ManifestAssemblyFixture.ReductionEntryIdentity,
-                    [new uint[] { 1u }],
+                    [SingleInput],
                     [2u]));
 
-            Assert.AreEqual("WRPHOST1005", exception.Code);
-            StringAssert.Contains(exception.Message, "not a map");
+            Assert.AreEqual("WRPHOST1005", exception.Code, StringComparer.Ordinal);
+            StringAssert.Contains(exception.Message, "not a map", StringComparison.Ordinal);
         }
         finally
         {
@@ -142,7 +145,7 @@ public sealed class HostDispatchRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Reduction_dispatch_rejects_a_map_entry(WarpBackendKind backend)
+    public void ReductionDispatchRejectsAMapEntry(WarpBackendKind backend)
     {
         WarpLoadedModule module = LoadModule(backend, out string directory);
 
@@ -156,11 +159,11 @@ public sealed class HostDispatchRegressionTests
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
                 () => session.DispatchUInt32Reduction(
                     EntryIdentity,
-                    [new uint[] { 1u }],
+                    [SingleInput],
                     [2u]));
 
-            Assert.AreEqual("WRPHOST1005", exception.Code);
-            StringAssert.Contains(exception.Message, "not a reduction");
+            Assert.AreEqual("WRPHOST1005", exception.Code, StringComparer.Ordinal);
+            StringAssert.Contains(exception.Message, "not a reduction", StringComparison.Ordinal);
         }
         finally
         {
@@ -170,7 +173,7 @@ public sealed class HostDispatchRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Invalid_reduction_arguments_are_rejected_before_dispatch(WarpBackendKind backend)
+    public void InvalidReductionArgumentsAreRejectedBeforeDispatch(WarpBackendKind backend)
     {
         WarpLoadedModule module = LoadModule(backend, out string directory);
 
@@ -184,11 +187,11 @@ public sealed class HostDispatchRegressionTests
             WarpHostException exception = Assert.ThrowsExactly<WarpHostException>(
                 () => session.DispatchUInt32Reduction(
                     ManifestAssemblyFixture.ReductionEntryIdentity,
-                    [new uint[] { 1u }],
+                    [SingleInput],
                     []));
 
-            Assert.AreEqual("WRPHOST1004", exception.Code);
-            StringAssert.Contains(exception.Message, "scalar argument count");
+            Assert.AreEqual("WRPHOST1004", exception.Code, StringComparer.Ordinal);
+            StringAssert.Contains(exception.Message, "scalar argument count", StringComparison.Ordinal);
         }
         finally
         {

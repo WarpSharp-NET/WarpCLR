@@ -51,6 +51,7 @@ internal static class WarpNativeMachineDispatch
             operations.Launch(arguments.Pointer, launch.GridX, launch.WorkgroupSize);
             operations.Synchronize();
             operations.Readback(statePin.Pointer, statePointer, stateBytes);
+            WarpNativeMachineLaunch.ValidateReturnedStates(image.MachineLayout!, result, itemCount, maximumCallDepth);
             // Every launch is bounded by the logical quantum. Cancellation discards the completed quantum,
             // never publishes partial state, and is handled by the shared scheduler between launches.
             cancellationToken.ThrowIfCancellationRequested();

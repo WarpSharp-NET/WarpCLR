@@ -23,12 +23,17 @@ public sealed class WarpRuntimeFaultException : Exception
         Kind = WarpRuntimeFaultKind.RuntimeFailure;
     }
 
-    internal WarpRuntimeFaultException(string entryIdentity, int workerIndex, WarpRuntimeFaultKind kind, Exception innerException)
+    internal WarpRuntimeFaultException(string entryIdentity, int workerIndex, WarpRuntimeFaultKind kind, Exception innerException,
+        int? functionIndex = null, string? functionIdentity = null, int? blockIndex = null, ulong? remainingSteps = null)
         : base(string.Create(CultureInfo.InvariantCulture, $"Entry '{entryIdentity}' failed at logical worker {workerIndex}: {kind}."), innerException)
     {
         EntryIdentity = entryIdentity;
         WorkerIndex = workerIndex;
         Kind = kind;
+        FunctionIndex = functionIndex;
+        FunctionIdentity = functionIdentity;
+        BlockIndex = blockIndex;
+        RemainingSteps = remainingSteps;
     }
 
     public string EntryIdentity { get; }
@@ -36,4 +41,12 @@ public sealed class WarpRuntimeFaultException : Exception
     public int WorkerIndex { get; }
 
     public WarpRuntimeFaultKind Kind { get; }
+
+    public int? FunctionIndex { get; }
+
+    public string? FunctionIdentity { get; }
+
+    public int? BlockIndex { get; }
+
+    public ulong? RemainingSteps { get; }
 }

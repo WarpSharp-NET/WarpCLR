@@ -44,6 +44,7 @@ public sealed class CoreCLRJitKernel
     public static CoreCLRJitKernel Compile(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        WarpCompilationAdmission.Validate(kernel);
         if (!RuntimeFeature.IsDynamicCodeSupported || !RuntimeFeature.IsDynamicCodeCompiled)
         {
             throw new PlatformNotSupportedException("The CoreCLR backend requires an available native .NET JIT.");

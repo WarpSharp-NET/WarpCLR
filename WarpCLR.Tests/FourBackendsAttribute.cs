@@ -4,7 +4,7 @@ using WarpCLR.IR;
 namespace WarpCLR.Tests;
 
 [AttributeUsage(AttributeTargets.Method)]
-public sealed class FourBackendsAttribute : Attribute, ITestDataSource
+internal sealed class FourBackendsAttribute : Attribute, ITestDataSource
 {
     public IEnumerable<object?[]> GetData(MethodInfo methodInfo)
     {

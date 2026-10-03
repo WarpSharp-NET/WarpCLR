@@ -13,7 +13,7 @@ public sealed class WarpModuleTrust
         var hashes = new HashSet<string>(StringComparer.Ordinal);
         foreach (string hash in trustedAssemblySha256)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(hash);
+            ArgumentException.ThrowIfNullOrWhiteSpace(hash, nameof(trustedAssemblySha256));
             if (hash.Length != 64 || !hash.All(char.IsAsciiHexDigit))
             {
                 throw new ArgumentException("A trusted assembly identity must be a SHA-256 hexadecimal digest.", nameof(trustedAssemblySha256));

@@ -11,94 +11,16 @@ internal static class BackendArtifactAssertions
     {
         Assert.AreEqual(backend, artifact.Backend);
         Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), artifact.Format);
-        Assert.AreEqual(WarpDeviceAbi.GetEntryPoint(kernel), artifact.EntryPoint);
+        Assert.AreEqual(WarpDeviceAbi.GetEntryPoint(kernel), artifact.EntryPoint, StringComparer.Ordinal);
         Assert.AreEqual(
             WarpConformanceStatus.DevelopmentNonconforming,
             artifact.ConformanceStatus);
         Assert.IsFalse(artifact.Content.IsEmpty);
 
         string text = artifact.GetText();
-        StringAssert.Contains(text, WarpDeviceAbi.DevelopmentConformanceMarker);
-        switch (backend)
-        {
-            case WarpBackendKind.CoreCLR:
-                StringAssert.Contains(text, "warp.coreclr.cfg/0.4");
-                StringAssert.Contains(text, $"entry={WarpDeviceAbi.GetEntryPoint(kernel)}");
-                break;
-
-            case WarpBackendKind.NVPTX:
-                StringAssert.Contains(text, ".target sm_50");
-                StringAssert.Contains(text, $".visible .entry {WarpDeviceAbi.GetEntryPoint(kernel)}");
-                break;
-
-            case WarpBackendKind.AMDGPU:
-                StringAssert.Contains(text, "target triple = \"amdgcn-amd-amdhsa\"");
-                StringAssert.Contains(text, $"define amdgpu_kernel void @{WarpDeviceAbi.GetEntryPoint(kernel)}");
-                Assert.IsFalse(text.Contains(" nsw ", StringComparison.Ordinal));
-                Assert.IsFalse(text.Contains(" nuw ", StringComparison.Ordinal));
-                break;
-
-            case WarpBackendKind.SPIRV:
-                StringAssert.Contains(text, "target triple = \"spirv64-unknown-unknown\"");
-                StringAssert.Contains(text, $"define spir_kernel void @{WarpDeviceAbi.GetEntryPoint(kernel)}");
-                Assert.IsFalse(text.Contains("SPV_INTEL_", StringComparison.Ordinal));
-                Assert.IsFalse(text.Contains(" nsw ", StringComparison.Ordinal));
-                Assert.IsFalse(text.Contains(" nuw ", StringComparison.Ordinal));
-                break;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(backend), backend, "The backend is not registered.");
-        }
-
-        foreach (WarpIrInstruction instruction in kernel.Instructions)
-        {
-            StringAssert.Contains(text, GetInstructionMarker(backend, instruction));
-        }
-
-        foreach (WarpControlFlowFunction function in kernel.Functions)
-        {
-            string functionMarker = backend switch
-            {
-                WarpBackendKind.CoreCLR => $"function={function.Id},{function.ParameterCount},",
-                WarpBackendKind.NVPTX => $".func (.param .b32 warp_function_{function.Id}_result) warp_function_{function.Id}",
-                WarpBackendKind.AMDGPU => $"define internal i32 @warp_function_{function.Id}",
-                WarpBackendKind.SPIRV => $"define internal spir_func i32 @warp_function_{function.Id}",
-                _ => throw new ArgumentOutOfRangeException(nameof(backend)),
-            };
-            StringAssert.Contains(text, functionMarker);
-
-            foreach (WarpIrInstruction instruction in function.Instructions)
-            {
-                StringAssert.Contains(text, GetInstructionMarker(backend, instruction));
-            }
-        }
-
-        foreach (WarpBasicBlock block in kernel.Blocks)
-        {
-            string marker = backend switch
-            {
-                WarpBackendKind.CoreCLR => $"block={block.Id}",
-                WarpBackendKind.NVPTX => $"warp_block_{block.Id}:",
-                WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV => $"warp_block_{block.Id}:",
-                _ => throw new ArgumentOutOfRangeException(nameof(backend)),
-            };
-            StringAssert.Contains(text, marker);
-
-            foreach (WarpBlockParameter parameter in block.Parameters)
-            {
-                string parameterMarker = backend switch
-                {
-                    WarpBackendKind.CoreCLR =>
-                        $"parameter={parameter.Value},{parameter.Type}",
-                    WarpBackendKind.NVPTX =>
-                        $"mov.u32 %r{parameter.Value + 5}, %r",
-                    WarpBackendKind.AMDGPU or WarpBackendKind.SPIRV =>
-                        $"%warp_v{parameter.Value} = phi i32",
-                    _ => throw new ArgumentOutOfRangeException(nameof(backend)),
-                };
-                StringAssert.Contains(text, parameterMarker);
-            }
-        }
+        StringAssert.Contains(text, WarpDeviceAbi.DevelopmentConformanceMarker, StringComparison.Ordinal);
+        WarpBackendArtifactStructureAssertions.IsValidHeader(text, backend, kernel);
+        WarpBackendArtifactStructureAssertions.IsValidBody(text, backend, kernel);
 
         if (kernel.Reduction.HasValue)
         {
@@ -131,12 +53,12 @@ internal static class BackendArtifactAssertions
             _ => throw new ArgumentOutOfRangeException(nameof(operation)),
         };
 
-        StringAssert.Contains(text, operationMarker);
+        StringAssert.Contains(text, operationMarker, StringComparison.Ordinal);
         Assert.IsFalse(text.Contains("atomic", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(text.Contains("subgroup", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string GetInstructionMarker(
+    internal static string GetInstructionMarker(
         WarpBackendKind backend,
         WarpIrInstruction instruction)
     {

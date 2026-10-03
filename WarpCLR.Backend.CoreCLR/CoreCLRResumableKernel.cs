@@ -27,6 +27,7 @@ public sealed class CoreCLRResumableKernel
     public static CoreCLRResumableKernel Compile(WarpLogicalMachineLayout layout)
     {
         ArgumentNullException.ThrowIfNull(layout);
+        WarpCompilationAdmission.Validate(layout.Kernel);
         if (!RuntimeFeature.IsDynamicCodeSupported || !RuntimeFeature.IsDynamicCodeCompiled)
         {
             throw new PlatformNotSupportedException("The CoreCLR backend requires an available native .NET JIT.");

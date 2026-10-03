@@ -2,4 +2,5 @@ using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.MethodLevel)]
+[assembly: DiscoverInternals]
 [assembly: AssemblyMetadata("WarpCIL.Manifest", """{"contract":"warpcil/0.1","producer":"WarpCLR.Tests","producerVersion":"0.1.0","entries":[{"type":"WarpCLR.Tests.TestKernels","method":"ManifestMap","execution":"map","parameterRoles":["input","scalar"],"capabilities":["warp.core.scalar/0.1","warp.core.parallel/0.1","warp.core.buffers/0.1","warp.core.control-flow/0.2","warp.core.calls/0.1"],"graphHash":"9EE270B20F8DDB67E0134A1821813152B45B22261C303F5E8EA94D03D7385658"},{"type":"WarpCLR.Tests.TestKernels","method":"ManifestReduction","execution":"reduce-wrapping-sum","parameterRoles":["input","scalar"],"capabilities":["warp.core.scalar/0.1","warp.core.parallel/0.1","warp.core.buffers/0.1","warp.core.control-flow/0.2","warp.core.calls/0.1"],"graphHash":"350CCE4D1001CECC70247AE0367F4E5711499C21BB83B84D39FE2097A8947CC4"}],"hostImports":[],"extensions":[]}""")]

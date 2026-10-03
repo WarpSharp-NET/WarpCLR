@@ -26,7 +26,8 @@ public readonly record struct WarpIrInstruction
         Immediate = immediate;
         Third = third;
         Callee = callee;
-        this.arguments = Array.AsReadOnly(arguments?.ToArray() ?? []);
+        this.arguments = Array.AsReadOnly(arguments is null ? [] : WarpCompilationAdmission.Materialize(arguments,
+            "<IR-instruction>", WarpCompilationResourceKind.Parameters, WarpCompilationAdmission.MaximumParametersPerBody));
     }
 
     public int Result { get; }

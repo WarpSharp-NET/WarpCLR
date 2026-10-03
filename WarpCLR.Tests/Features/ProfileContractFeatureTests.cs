@@ -3,11 +3,13 @@ using WarpCLR.IR;
 namespace WarpCLR.Tests.Features;
 
 [TestClass]
-public sealed class ProfileContractFeatureTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class ProfileContractFeatureTests
 {
     [TestMethod]
     [FourBackends]
-    public void Profile_declares_all_approved_features(WarpBackendKind backend)
+    public void ProfileDeclaresAllApprovedFeatures(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
 
@@ -34,7 +36,7 @@ public sealed class ProfileContractFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Profile_uses_the_exact_approved_capabilities(WarpBackendKind backend)
+    public void ProfileUsesTheExactApprovedCapabilities(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
 
@@ -52,7 +54,7 @@ public sealed class ProfileContractFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Every_backend_declares_the_exact_portable_contract(WarpBackendKind backend)
+    public void EveryBackendDeclaresTheExactPortableContract(WarpBackendKind backend)
     {
         IWarpBackendCompiler compiler = BackendCompilerFactory.Create(backend);
 
@@ -61,7 +63,7 @@ public sealed class ProfileContractFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Unsigned_reduction_identities_are_exact(WarpBackendKind backend)
+    public void UnsignedReductionIdentitiesAreExact(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
 
@@ -72,7 +74,7 @@ public sealed class ProfileContractFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Unsigned_reductions_have_exact_results(WarpBackendKind backend)
+    public void UnsignedReductionsHaveExactResults(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
 

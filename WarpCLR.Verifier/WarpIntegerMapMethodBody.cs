@@ -18,11 +18,16 @@ internal sealed class WarpIntegerMapMethodBody
         IReadOnlyDictionary<int, WarpCilCallTarget>? callTargets = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
+        WarpCompilationAdmission.Require("<CIL-method>", WarpCompilationResourceKind.IdentityCharacters, identity.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
         ArgumentOutOfRangeException.ThrowIfNegative(parameterCount);
         ArgumentOutOfRangeException.ThrowIfNegative(inputBufferCount);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(inputBufferCount, parameterCount);
         ArgumentOutOfRangeException.ThrowIfNegative(maxStack);
         ArgumentOutOfRangeException.ThrowIfNegative(localCount);
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Parameters, parameterCount, WarpCompilationAdmission.MaximumParametersPerBody);
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Locals, localCount, WarpCompilationAdmission.MaximumLocalsPerBody);
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.EvaluationStack, maxStack, WarpCompilationAdmission.MaximumEvaluationStackPerBody);
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.CilBytes, il.Length, WarpCompilationAdmission.MaximumCilBytesPerBody);
         if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(reduction));

@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
 using WarpCLR.Backend.CoreCLR;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
@@ -6,7 +7,9 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Production;
 
 [TestClass]
-public sealed class CoreCLRResumableTests
+[SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest discovers and instantiates this fixture through reflection.")]
+internal sealed class CoreCLRResumableTests
 {
     [TestMethod]
     [DataRow(nameof(TestKernels.Grayscale), 1)]

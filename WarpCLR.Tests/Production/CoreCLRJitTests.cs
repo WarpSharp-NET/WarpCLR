@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using WarpCLR.Backend.CoreCLR;
 using WarpCLR.IR;
@@ -7,7 +8,9 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Production;
 
 [TestClass]
-public sealed class CoreCLRJitTests
+[SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest discovers and instantiates this fixture through reflection.")]
+internal sealed class CoreCLRJitTests
 {
     [TestMethod]
     [DataRow(nameof(TestKernels.Grayscale), 1)]
@@ -30,10 +33,10 @@ public sealed class CoreCLRJitTests
         Assert.IsTrue(executable.CompiledEntryPoint.Module.Assembly.IsDynamic);
         Assert.AreNotEqual(typeof(WarpIntegerMapSemanticEmulator).Assembly,
             executable.CompiledEntryPoint.Module.Assembly);
-        Assert.IsTrue(executable.CompiledEntryPoint.GetMethodBody()!.GetILAsByteArray()!.Length > 0);
+        Assert.IsNotEmpty(executable.CompiledEntryPoint.GetMethodBody()!.GetILAsByteArray()!);
         Assert.AreNotEqual(IntPtr.Zero, executable.CompiledEntryPoint.MethodHandle.GetFunctionPointer());
 
-        uint[] values = methodName == nameof(TestKernels.Loop)
+        uint[] values = string.Equals(methodName, nameof(TestKernels.Loop), StringComparison.Ordinal)
             ? [0, 1, 2, 5, 100]
             : [0, 1, 7, 8, 0x80000000, uint.MaxValue, 0xDEADBEEF, 0x12345678];
         uint[][] inputs = inputCount == 1
@@ -59,7 +62,7 @@ public sealed class CoreCLRJitTests
             Assert.AreEqual(oracle[index], actual);
         }
 
-        Assert.AreEqual(kernel.Functions.Count, executable.CompiledFunctions.Count);
+        Assert.HasCount(kernel.Functions.Count, executable.CompiledFunctions);
         foreach (MethodInfo function in executable.CompiledFunctions)
         {
             Assert.AreNotEqual(IntPtr.Zero, function.MethodHandle.GetFunctionPointer());
@@ -226,10 +229,10 @@ public sealed class CoreCLRJitTests
         }
         finally
         {
-            cancellation.Cancel();
+            await cancellation.CancelAsync().ConfigureAwait(false);
         }
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
-            await execution.WaitAsync(TimeSpan.FromSeconds(5)));
+            await execution.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false)).ConfigureAwait(false);
         Assert.AreEqual(0, budget.CurrentCallDepth);
     }
 
@@ -262,11 +265,11 @@ public sealed class CoreCLRJitTests
         }
         finally
         {
-            cancellation.Cancel();
+            await cancellation.CancelAsync().ConfigureAwait(false);
         }
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () =>
-            await execution.WaitAsync(TimeSpan.FromSeconds(5)));
+            await execution.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false)).ConfigureAwait(false);
         Assert.AreEqual(0, budget.CurrentCallDepth);
     }
 
@@ -305,7 +308,7 @@ public sealed class CoreCLRJitTests
             [new WarpBasicBlock(0, [], instructions, new WarpReturnTerminator(1999))]);
         CoreCLRCompilationResourceException fault = Assert.ThrowsExactly<CoreCLRCompilationResourceException>(
             () => CoreCLRJitKernel.Compile(kernel));
-        Assert.AreEqual("OversizedEntry", fault.BodyName);
+        Assert.AreEqual("OversizedEntry", fault.BodyName, StringComparer.Ordinal);
         Assert.AreEqual(CoreCLRJitKernel.MaximumAdmittedFrameBytes, fault.FrameLimitBytes);
         Assert.IsGreaterThan(fault.FrameLimitBytes, fault.EstimatedFrameBytes);
     }
@@ -329,10 +332,12 @@ public sealed class CoreCLRJitTests
         ], functions: [helper]);
         CoreCLRCompilationResourceException fault = Assert.ThrowsExactly<CoreCLRCompilationResourceException>(
             () => CoreCLRJitKernel.Compile(kernel));
-        Assert.AreEqual("OversizedHelper", fault.BodyName);
+        Assert.AreEqual("OversizedHelper", fault.BodyName, StringComparer.Ordinal);
     }
 
     [TestMethod]
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "The isolated worker relays every failure to an assertion on the test thread; none is swallowed.")]
     public void Native_stack_probe_fault_is_recoverable_without_host_stack_overflow()
     {
         CoreCLRJitKernel executable = CoreCLRJitKernel.Compile(NonterminatingKernel());

@@ -26,18 +26,18 @@ internal static class ManifestAssemblyFixture
         byte[] newBytes = Encoding.UTF8.GetBytes(newValue);
         if (oldBytes.Length != newBytes.Length)
         {
-            throw new ArgumentException("Replacement values must have the same UTF-8 length.");
+            throw new ArgumentException("Replacement values must have the same UTF-8 length.", nameof(newValue));
         }
 
         int offset = source.AsSpan().IndexOf(oldBytes);
         if (offset < 0)
         {
-            throw new ArgumentException("The source does not contain the requested UTF-8 value.");
+            throw new ArgumentException("The source does not contain the requested UTF-8 value.", nameof(oldValue));
         }
 
         if (source.AsSpan(offset + oldBytes.Length).IndexOf(oldBytes) >= 0)
         {
-            throw new ArgumentException("The source contains the requested UTF-8 value more than once.");
+            throw new ArgumentException("The source contains the requested UTF-8 value more than once.", nameof(oldValue));
         }
 
         byte[] result = source.ToArray();

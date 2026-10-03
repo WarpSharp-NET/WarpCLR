@@ -10,11 +10,13 @@ internal readonly record struct WarpNativeLaunch(uint GridX, uint WorkgroupSize,
         WarpNativeTarget target,
         IReadOnlyList<uint[]> inputs,
         int itemCount,
-        bool reduction)
+        bool reduction,
+        int scalarArgumentCount = 0)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(inputs);
         ArgumentOutOfRangeException.ThrowIfNegative(itemCount);
+        WarpNativeArgumentLayout.Validate(target, inputs.Count, scalarArgumentCount, machine: false);
         foreach (uint[]? input in inputs)
         {
             if (input is null || input.Length != itemCount)

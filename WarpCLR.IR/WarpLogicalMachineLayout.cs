@@ -30,6 +30,7 @@ public sealed class WarpLogicalMachineLayout
     public WarpLogicalMachineLayout(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        WarpCompilationAdmission.Validate(kernel);
         Kernel = kernel;
         MaximumValueCount = Math.Max(kernel.ValueCount, kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ValueCount));
         MaximumArgumentCount = kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ParameterCount);

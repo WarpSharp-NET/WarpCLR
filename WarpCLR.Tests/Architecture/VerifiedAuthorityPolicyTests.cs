@@ -7,10 +7,12 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Architecture;
 
 [TestClass]
-public sealed class VerifiedAuthorityPolicyTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class VerifiedAuthorityPolicyTests
 {
     [TestMethod]
-    public void Public_api_requires_verified_module_intake()
+    public void PublicApiRequiresVerifiedModuleIntake()
     {
         MethodInfo[] publicCompileMethods = typeof(WarpBuildPipeline)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)

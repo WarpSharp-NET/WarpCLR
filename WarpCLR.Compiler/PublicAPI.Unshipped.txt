@@ -1,1 +1,14 @@
 #nullable enable
+static WarpCLR.Compiler.WarpPortableMachineEmitter.Emit(WarpCLR.IR.WarpLogicalMachineLayout! layout, WarpCLR.IR.WarpBackendKind backend, int maximumSourceBytes, System.Threading.CancellationToken cancellationToken) -> string!
+static WarpCLR.Compiler.WarpPortableMachineEmitter.Emit(WarpCLR.IR.WarpLogicalMachineLayout! layout, WarpCLR.IR.WarpBackendKind backend, int maximumSourceBytes) -> string!
+const WarpCLR.Compiler.WarpPortableMachineEmitter.EntryPoint = "warp_resume" -> string!
+const WarpCLR.Compiler.WarpPortableMachineEmitter.ReductionEntryPoint = "warp_reduce_pass" -> string!
+WarpCLR.Compiler.WarpCompilation
+WarpCLR.Compiler.WarpCompilation.Artifacts.get -> System.Collections.Generic.IReadOnlyDictionary<WarpCLR.IR.WarpBackendKind, WarpCLR.IR.WarpBackendArtifact!>!
+WarpCLR.Compiler.WarpCompilation.Kernel.get -> WarpCLR.IR.WarpControlFlowKernel!
+WarpCLR.Compiler.WarpIntegerMapLowerer
+WarpCLR.Compiler.WarpIntegerMapLowerer.Lower(WarpCLR.IR.WarpIntegerMapKernel! kernel) -> WarpCLR.IR.WarpControlFlowKernel!
+WarpCLR.Compiler.WarpIntegerMapLowerer.WarpIntegerMapLowerer() -> void
+WarpCLR.Compiler.WarpPortableMachineEmitter
+static WarpCLR.Compiler.WarpPortableMachineEmitter.Emit(WarpCLR.IR.WarpLogicalMachineLayout! layout, WarpCLR.IR.WarpBackendKind backend) -> string!
+WarpCLR.Compiler.WarpPortableMachineEmitter.WarpPortableMachineEmitter() -> void

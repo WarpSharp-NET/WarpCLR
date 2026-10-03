@@ -1,5 +1,4 @@
 using System.Collections.Frozen;
-using WarpCLR.Compiler;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
 
@@ -13,6 +12,7 @@ public sealed class WarpRuntimeModule
     {
         ManifestHash = module.ManifestHash;
         AssemblyHash = module.AssemblyHash;
+        ProfileId = WarpProfileCatalog.ProfileId;
         Entries = module.Entries.ToFrozenDictionary(entry => entry.Identity, entry => new WarpRuntimeEntry(entry), StringComparer.Ordinal);
     }
 
@@ -20,7 +20,7 @@ public sealed class WarpRuntimeModule
 
     public string AssemblyHash { get; }
 
-    public string ProfileId => WarpProfileCatalog.ProfileId;
+    public string ProfileId { get; }
 
     public IReadOnlyDictionary<string, WarpRuntimeEntry> Entries { get; }
 

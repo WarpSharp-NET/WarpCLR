@@ -14,6 +14,7 @@ public sealed class WarpControlFlowKernel
         IEnumerable<WarpControlFlowFunction>? functions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        WarpCompilationAdmission.Require("<IR-entry>", WarpCompilationResourceKind.IdentityCharacters, name.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
         ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(scalarArgumentCount);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -22,11 +23,15 @@ public sealed class WarpControlFlowKernel
             throw new ArgumentOutOfRangeException(nameof(reduction));
         }
 
-        WarpBasicBlock[] blockArray = blocks.ToArray();
+        WarpBasicBlock[] blockArray = WarpCompilationAdmission.Materialize(blocks, name, WarpCompilationResourceKind.Blocks, WarpCompilationAdmission.MaximumBlocksPerEntry);
         ValidateBodyShape(blockArray, nameof(blocks));
 
-        WarpControlFlowFunction[] functionArray = functions?.ToArray() ?? [];
+        WarpControlFlowFunction[] functionArray = functions is null ? [] : WarpCompilationAdmission.Materialize(functions, name,
+            WarpCompilationResourceKind.Functions, WarpCompilationAdmission.MaximumFunctionsPerEntry);
         ValidateFunctionTable(functionArray);
+        WarpCompilationAdmission.Require(name, WarpCompilationResourceKind.Parameters,
+            inputBufferCount + (long)scalarArgumentCount, WarpCompilationAdmission.MaximumParametersPerBody);
+        WarpCompilationAdmission.ValidateDefinitions(name, Array.AsReadOnly(blockArray), functionArray);
 
         Dictionary<int, WarpIrValueType> valueTypes = CollectBodyDefinitions(blockArray);
         ValidateBodyValues(valueTypes);

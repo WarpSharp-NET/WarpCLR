@@ -173,17 +173,23 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
                 ObjectDisposedException.ThrowIf(released, this);
                 using var device = owner.EnterDevice();
                 Check(owner.api.StreamCreate(out IntPtr stream, 1), "hipStreamCreateWithFlags(resident)");
+                bool streamTransferred = false;
                 try
                 {
-                    var execution = new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase,
-                        maximumCallDepth, CreateOperations(function, stream));
-                    var bound = new WarpBoundNativeMachineExecution(execution,
+                    var bound = new WarpBoundNativeMachineExecution(
+                        () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase,
+                            maximumCallDepth, CreateOperations(function, stream)),
                         action => WithDevice(action, checkFault: true), action => WithDevice(action, checkFault: false),
                         item => { owner.api.StreamDestroy(stream); executions.Remove(item); });
-                    executions.Add(bound);
-                    return bound;
+                    streamTransferred = true;
+                    try { executions.Add(bound); return bound; }
+                    catch { bound.Dispose(); throw; }
                 }
-                catch { owner.api.StreamDestroy(stream); throw; }
+                catch
+                {
+                    if (!streamTransferred) { owner.api.StreamDestroy(stream); }
+                    throw;
+                }
             }
         }
 
@@ -199,18 +205,16 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
 
         private WarpMachineMemoryOperations CreateOperations(IntPtr entry, IntPtr stream)
         {
-        return new WarpMachineMemoryOperations(
-            bytes => { Check(owner.api.MemoryAllocate(out IntPtr pointer, bytes), "hipMalloc(state)"); return unchecked((ulong)pointer.ToInt64()); },
-            (destination, source, bytes) => Check(owner.api.MemoryCopy(new IntPtr(unchecked((long)destination)), source, bytes, 1), "hipMemcpy(state HtoD)"),
-            (destination, source, bytes) => Check(owner.api.MemoryCopy(destination, new IntPtr(unchecked((long)source)), bytes, 2), "hipMemcpy(state DtoH)"),
-            (arguments, grid, block) => Check(owner.api.LaunchKernel(entry, grid, 1, 1, block, 1, 1, 0,
-                stream, arguments, IntPtr.Zero), "hipModuleLaunchKernel(resume)"),
-            () => Check(owner.api.StreamSynchronize(stream), "hipStreamSynchronize(resume)"),
-            pointer => { owner.api.MemoryFree(new IntPtr(unchecked((long)pointer))); },
-            () => owner.faulted = true);
+            return new WarpMachineMemoryOperations(
+                bytes => { Check(owner.api.MemoryAllocate(out IntPtr pointer, bytes), "hipMalloc(state)"); return unchecked((ulong)pointer.ToInt64()); },
+                (destination, source, bytes) => Check(owner.api.MemoryCopy(new IntPtr(unchecked((long)destination)), source, bytes, 1), "hipMemcpy(state HtoD)"),
+                (destination, source, bytes) => Check(owner.api.MemoryCopy(destination, new IntPtr(unchecked((long)source)), bytes, 2), "hipMemcpy(state DtoH)"),
+                (arguments, grid, block) => Check(owner.api.LaunchKernel(entry, grid, 1, 1, block, 1, 1, 0,
+                    stream, arguments, IntPtr.Zero), "hipModuleLaunchKernel(resume)"),
+                () => Check(owner.api.StreamSynchronize(stream), "hipStreamSynchronize(resume)"),
+                pointer => { owner.api.MemoryFree(new IntPtr(unchecked((long)pointer))); },
+                () => owner.faulted = true);
         }
-
-
 
         public uint ReduceUInt32(uint[] values, WarpReductionOperation operation, CancellationToken cancellationToken = default)
         {
@@ -252,7 +256,7 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
             int itemCount, bool reduction, CancellationToken cancellationToken = default)
         {
             Image.ValidateArguments(inputs, scalars, reduction);
-            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction);
+            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction, scalars.Count);
             lock (owner.gate)
             {
                 owner.EnsureUsable();
@@ -298,17 +302,17 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
 
         private List<ulong> UploadInputs(IReadOnlyList<uint[]> inputs, int itemCount, List<ulong> allocations, CancellationToken cancellationToken)
         {
-        var inputPointers = new List<ulong>(inputs.Count);
-        foreach (uint[] input in inputs)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
-            Check(owner.api.MemoryAllocate(out IntPtr pointer, bytes), "hipMalloc");
-            allocations.Add(unchecked((ulong)pointer.ToInt64()));
-            inputPointers.Add(unchecked((ulong)pointer.ToInt64()));
-            using var pinned = new WarpPinnedUInt32((uint[])input.Clone());
-            if (itemCount > 0) { Check(owner.api.MemoryCopy(pointer, pinned.Pointer, bytes, 1), "hipMemcpy(HtoD)"); }
-        }
+            var inputPointers = new List<ulong>(inputs.Count);
+            foreach (uint[] input in inputs)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
+                Check(owner.api.MemoryAllocate(out IntPtr pointer, bytes), "hipMalloc");
+                allocations.Add(unchecked((ulong)pointer.ToInt64()));
+                inputPointers.Add(unchecked((ulong)pointer.ToInt64()));
+                using var pinned = new WarpPinnedUInt32((uint[])input.Clone());
+                if (itemCount > 0) { Check(owner.api.MemoryCopy(pointer, pinned.Pointer, bytes, 1), "hipMemcpy(HtoD)"); }
+            }
 
             return inputPointers;
         }
@@ -318,7 +322,7 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
             lock (owner.gate)
             {
                 if (released) { return; }
-                owner.EnsureUsable();
+                ObjectDisposedException.ThrowIf(owner.disposed, owner);
                 using var device = owner.EnterDevice();
                 Release();
             }

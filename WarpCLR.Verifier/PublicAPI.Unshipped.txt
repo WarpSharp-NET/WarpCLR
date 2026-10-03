@@ -1,1 +1,27 @@
 #nullable enable
+WarpCLR.Verifier.WarpModuleVerifier
+WarpCLR.Verifier.WarpModuleVerifier.Verify(System.ReadOnlyMemory<byte> assemblyBytes) -> WarpCLR.Verifier.WarpVerifiedModule!
+WarpCLR.Verifier.WarpModuleVerifier.Verify(string! assemblyPath) -> WarpCLR.Verifier.WarpVerifiedModule!
+WarpCLR.Verifier.WarpModuleVerifier.WarpModuleVerifier() -> void
+WarpCLR.Verifier.WarpParameterRole
+WarpCLR.Verifier.WarpParameterRole.InputBuffer = 0 -> WarpCLR.Verifier.WarpParameterRole
+WarpCLR.Verifier.WarpParameterRole.Scalar = 1 -> WarpCLR.Verifier.WarpParameterRole
+WarpCLR.Verifier.WarpVerificationException
+WarpCLR.Verifier.WarpVerificationException.Code.get -> string!
+WarpCLR.Verifier.WarpVerificationException.IlOffset.get -> int?
+WarpCLR.Verifier.WarpVerificationException.WarpVerificationException() -> void
+WarpCLR.Verifier.WarpVerificationException.WarpVerificationException(string! code, string! message, int? ilOffset = null) -> void
+WarpCLR.Verifier.WarpVerificationException.WarpVerificationException(string! message) -> void
+WarpCLR.Verifier.WarpVerificationException.WarpVerificationException(string! message, System.Exception! innerException) -> void
+WarpCLR.Verifier.WarpVerifiedEntry
+WarpCLR.Verifier.WarpVerifiedEntry.GraphHash.get -> string!
+WarpCLR.Verifier.WarpVerifiedEntry.Identity.get -> string!
+WarpCLR.Verifier.WarpVerifiedEntry.Kernel.get -> WarpCLR.IR.WarpIntegerMapKernel!
+WarpCLR.Verifier.WarpVerifiedEntry.ParameterRoles.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.Verifier.WarpParameterRole>!
+WarpCLR.Verifier.WarpVerifiedEntry.RequiredCapabilities.get -> System.Collections.ObjectModel.ReadOnlyCollection<string!>!
+WarpCLR.Verifier.WarpVerifiedModule
+WarpCLR.Verifier.WarpVerifiedModule.AssemblyHash.get -> string!
+WarpCLR.Verifier.WarpVerifiedModule.Entries.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.Verifier.WarpVerifiedEntry!>!
+WarpCLR.Verifier.WarpVerifiedModule.ManifestHash.get -> string!
+WarpCLR.Verifier.WarpVerifiedModule.Producer.get -> string!
+WarpCLR.Verifier.WarpVerifiedModule.ProducerVersion.get -> string!

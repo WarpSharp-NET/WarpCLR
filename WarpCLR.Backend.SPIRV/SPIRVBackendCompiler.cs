@@ -52,6 +52,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
     public WarpBackendArtifact Compile(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        WarpCompilationAdmission.Validate(kernel);
         if (kernel.Reduction.HasValue)
         {
             return CompileReduction(kernel);

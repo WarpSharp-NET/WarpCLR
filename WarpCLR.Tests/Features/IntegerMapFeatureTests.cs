@@ -5,11 +5,13 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Features;
 
 [TestClass]
-public sealed class IntegerMapFeatureTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class IntegerMapFeatureTests
 {
     [TestMethod]
     [FourBackends]
-    public void Grayscale_map_has_exact_results(WarpBackendKind backend)
+    public void GrayscaleMapHasExactResults(WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.Grayscale));
         uint[] input =
@@ -34,7 +36,7 @@ public sealed class IntegerMapFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Multiple_inputs_and_scalars_have_exact_results(WarpBackendKind backend)
+    public void MultipleInputsAndScalarsHaveExactResults(WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.Combine));
         uint[] left = [0u, 1u, uint.MaxValue, 0x80000000u, 0x12345678u];
@@ -57,7 +59,7 @@ public sealed class IntegerMapFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Wrapping_and_logical_shift_semantics_are_exact(WarpBackendKind backend)
+    public void WrappingAndLogicalShiftSemanticsAreExact(WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.Scramble));
         uint[] input = [0u, 1u, uint.MaxValue, 0x80000000u, 0xDEADBEEFu];
@@ -76,7 +78,7 @@ public sealed class IntegerMapFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Conditional_control_flow_has_exact_results(WarpBackendKind backend)
+    public void ConditionalControlFlowHasExactResults(WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.Branch));
         uint[] input = [0u, 1u, uint.MaxValue, 0x80000000u];
@@ -93,7 +95,7 @@ public sealed class IntegerMapFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Unsigned_comparisons_and_nested_selection_have_exact_results(
+    public void UnsignedComparisonsAndNestedSelectionHaveExactResults(
         WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.CompareAndSelect));
@@ -115,7 +117,7 @@ public sealed class IntegerMapFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Backward_control_flow_has_exact_results(WarpBackendKind backend)
+    public void BackwardControlFlowHasExactResults(WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.Loop));
         WarpIntegerMapKernel verified = new WarpIntegerMapVerifier().Verify(
@@ -136,7 +138,7 @@ public sealed class IntegerMapFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Closed_world_static_call_graphs_have_exact_results(
+    public void ClosedWorldStaticCallGraphsHaveExactResults(
         WarpBackendKind backend)
     {
         MethodInfo method = GetKernel(nameof(TestKernels.Call));

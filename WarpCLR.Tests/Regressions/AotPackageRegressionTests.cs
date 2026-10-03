@@ -4,11 +4,13 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Regressions;
 
 [TestClass]
-public sealed class AotPackageRegressionTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class AotPackageRegressionTests
 {
     [TestMethod]
     [FourBackends]
-    public void Changed_module_bytes_are_rejected(WarpBackendKind backend)
+    public void ChangedModuleBytesAreRejected(WarpBackendKind backend)
     {
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(
             ManifestAssemblyFixture.ReadAssembly());
@@ -17,9 +19,9 @@ public sealed class AotPackageRegressionTests
         try
         {
             package.WriteToDirectory(directory);
-            WarpPackagedArtifact artifact = package.Artifacts.Single(
+            WarpPackagedArtifact artifact = package.Artifacts.SingleItem(
                 candidate => candidate.Sidecar.Backend == backend &&
-                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
+                    string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
             string modulePath = Path.Combine(directory, artifact.ModulePath);
             byte[] module = File.ReadAllBytes(modulePath);
             module[0] ^= 0x01;
@@ -28,7 +30,7 @@ public sealed class AotPackageRegressionTests
             InvalidDataException exception = Assert.ThrowsExactly<InvalidDataException>(
                 () => package.ValidateDirectory(directory));
 
-            StringAssert.Contains(exception.Message, "changed hash");
+            StringAssert.Contains(exception.Message, "changed hash", StringComparison.Ordinal);
         }
         finally
         {
@@ -41,7 +43,7 @@ public sealed class AotPackageRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Changed_sidecar_bytes_are_rejected(WarpBackendKind backend)
+    public void ChangedSidecarBytesAreRejected(WarpBackendKind backend)
     {
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(
             ManifestAssemblyFixture.ReadAssembly());
@@ -50,9 +52,9 @@ public sealed class AotPackageRegressionTests
         try
         {
             package.WriteToDirectory(directory);
-            WarpPackagedArtifact artifact = package.Artifacts.Single(
+            WarpPackagedArtifact artifact = package.Artifacts.SingleItem(
                 candidate => candidate.Sidecar.Backend == backend &&
-                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
+                    string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
             string sidecarPath = Path.Combine(directory, artifact.SidecarPath);
             byte[] sidecar = File.ReadAllBytes(sidecarPath);
             string changedHash = $"{(artifact.Sidecar.ModuleHash[0] == '0' ? '1' : '0')}" +
@@ -66,7 +68,7 @@ public sealed class AotPackageRegressionTests
             InvalidDataException exception = Assert.ThrowsExactly<InvalidDataException>(
                 () => package.ValidateDirectory(directory));
 
-            StringAssert.Contains(exception.Message, "package index");
+            StringAssert.Contains(exception.Message, "package index", StringComparison.Ordinal);
         }
         finally
         {

@@ -54,37 +54,45 @@ internal sealed class WarpCompiler
 
         foreach (WarpBackendKind backend in WarpBackendCatalog.Required)
         {
-            WarpBackendArtifact artifact = compilers[backend].Compile(kernel);
-            if (artifact.Backend != backend)
-            {
-                throw new InvalidOperationException(
-                    $"The {backend} compiler returned an artifact for {artifact.Backend}.");
-            }
-
-            WarpArtifactFormat requiredFormat = WarpArtifactFormatCatalog.ForBackend(backend);
-            if (artifact.Format != requiredFormat)
-            {
-                throw new InvalidOperationException(
-                    $"The {backend} compiler returned {artifact.Format} instead of {requiredFormat}.");
-            }
-
-            if (!string.Equals(
-                    artifact.EntryPoint,
-                    WarpDeviceAbi.GetEntryPoint(kernel),
-                    StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    $"The {backend} compiler returned entry point '{artifact.EntryPoint}'.");
-            }
-
-            artifacts.Add(backend, artifact);
+            artifacts.Add(backend, CompileArtifact(compilers[backend], kernel, backend));
         }
 
         return new WarpCompilation(kernel, artifacts);
     }
 
+    private static WarpBackendArtifact CompileArtifact(
+        IWarpBackendCompiler compiler,
+        WarpControlFlowKernel kernel,
+        WarpBackendKind backend)
+    {
+        WarpBackendArtifact artifact = compiler.Compile(kernel);
+        if (artifact.Backend != backend)
+        {
+            throw new InvalidOperationException(
+                $"The {backend} compiler returned an artifact for {artifact.Backend}.");
+        }
+
+        WarpArtifactFormat requiredFormat = WarpArtifactFormatCatalog.ForBackend(backend);
+        if (artifact.Format != requiredFormat)
+        {
+            throw new InvalidOperationException(
+                $"The {backend} compiler returned {artifact.Format} instead of {requiredFormat}.");
+        }
+
+        if (!string.Equals(
+                artifact.EntryPoint,
+                WarpDeviceAbi.GetEntryPoint(kernel),
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"The {backend} compiler returned entry point '{artifact.EntryPoint}'.");
+        }
+
+        return artifact;
+    }
+
     private static void ValidateBackendContracts(
-        IReadOnlyDictionary<WarpBackendKind, IWarpBackendCompiler> compilers)
+        Dictionary<WarpBackendKind, IWarpBackendCompiler> compilers)
     {
         WarpBackendContract expected = WarpProfileCatalog.BackendContract;
         foreach (WarpBackendKind backend in WarpBackendCatalog.Required)

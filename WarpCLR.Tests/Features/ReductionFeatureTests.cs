@@ -10,11 +10,13 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Features;
 
 [TestClass]
-public sealed class ReductionFeatureTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class ReductionFeatureTests
 {
     [TestMethod]
     [FourBackends]
-    public void Wrapping_sum_dispatches_with_exact_unsigned_semantics(WarpBackendKind backend)
+    public void WrappingSumDispatchesWithExactUnsignedSemantics(WarpBackendKind backend)
     {
         WarpDevelopmentSession session = LoadSession(backend, out string directory);
 
@@ -43,7 +45,7 @@ public sealed class ReductionFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Empty_wrapping_sum_returns_zero(WarpBackendKind backend)
+    public void EmptyWrappingSumReturnsZero(WarpBackendKind backend)
     {
         WarpDevelopmentSession session = LoadSession(backend, out string directory);
 
@@ -64,7 +66,7 @@ public sealed class ReductionFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Minimum_reduction_uses_unsigned_order_and_identity(WarpBackendKind backend)
+    public void MinimumReductionUsesUnsignedOrderAndIdentity(WarpBackendKind backend)
     {
         WarpCompilation compilation = CompileIdentityReduction(WarpReductionOperation.Minimum);
         var emulator = new WarpIntegerMapSemanticEmulator();
@@ -89,7 +91,7 @@ public sealed class ReductionFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Maximum_reduction_uses_unsigned_order_and_identity(WarpBackendKind backend)
+    public void MaximumReductionUsesUnsignedOrderAndIdentity(WarpBackendKind backend)
     {
         WarpCompilation compilation = CompileIdentityReduction(WarpReductionOperation.Maximum);
         var emulator = new WarpIntegerMapSemanticEmulator();

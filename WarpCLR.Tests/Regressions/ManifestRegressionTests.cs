@@ -4,11 +4,13 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Regressions;
 
 [TestClass]
-public sealed class ManifestRegressionTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class ManifestRegressionTests
 {
     [TestMethod]
     [FourBackends]
-    public void Missing_embedded_manifest_is_rejected(WarpBackendKind backend)
+    public void MissingEmbeddedManifestIsRejected(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         byte[] assembly = ManifestAssemblyFixture.ReplaceUtf8(
@@ -19,13 +21,13 @@ public sealed class ManifestRegressionTests
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
 
-        Assert.AreEqual("WRPCIL2000", exception.Code);
-        StringAssert.Contains(exception.Message, "does not contain");
+        Assert.AreEqual("WRPCIL2000", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "does not contain", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Stale_graph_hash_is_rejected(WarpBackendKind backend)
+    public void StaleGraphHashIsRejected(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         string staleHash = $"8{ManifestAssemblyFixture.MapGraphHash[1..]}";
@@ -37,31 +39,31 @@ public sealed class ManifestRegressionTests
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
 
-        Assert.AreEqual("WRPCIL2004", exception.Code);
-        StringAssert.Contains(exception.Message, ManifestAssemblyFixture.MapGraphHash);
-        StringAssert.Contains(exception.Message, staleHash);
+        Assert.AreEqual("WRPCIL2004", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, ManifestAssemblyFixture.MapGraphHash, StringComparison.Ordinal);
+        StringAssert.Contains(exception.Message, staleHash, StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Noncanonical_graph_hash_is_rejected(WarpBackendKind backend)
+    public void NoncanonicalGraphHashIsRejected(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         byte[] assembly = ManifestAssemblyFixture.ReplaceUtf8(
             ManifestAssemblyFixture.ReadAssembly(),
             ManifestAssemblyFixture.MapGraphHash,
-            ManifestAssemblyFixture.MapGraphHash.ToLowerInvariant());
+            ManifestAssemblyFixture.MapGraphHash.Replace('E', 'e'));
 
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
 
-        Assert.AreEqual("WRPCIL2001", exception.Code);
-        StringAssert.Contains(exception.Message, "uppercase SHA-256");
+        Assert.AreEqual("WRPCIL2001", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "uppercase SHA-256", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Unapproved_capability_version_is_rejected(WarpBackendKind backend)
+    public void UnapprovedCapabilityVersionIsRejected(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         string capabilityAndHash =
@@ -76,13 +78,13 @@ public sealed class ManifestRegressionTests
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
 
-        Assert.AreEqual("WRPCIL2002", exception.Code);
-        StringAssert.Contains(exception.Message, "exact profile capabilities");
+        Assert.AreEqual("WRPCIL2002", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "exact profile capabilities", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Unknown_execution_mode_is_rejected(WarpBackendKind backend)
+    public void UnknownExecutionModeIsRejected(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         byte[] assembly = ManifestAssemblyFixture.ReplaceUtf8(
@@ -93,7 +95,7 @@ public sealed class ManifestRegressionTests
         WarpVerificationException exception = Assert.ThrowsExactly<WarpVerificationException>(
             () => new WarpModuleVerifier().Verify(assembly));
 
-        Assert.AreEqual("WRPCIL2001", exception.Code);
-        StringAssert.Contains(exception.Message, "execution mode");
+        Assert.AreEqual("WRPCIL2001", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "execution mode", StringComparison.Ordinal);
     }
 }

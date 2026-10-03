@@ -4,11 +4,13 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Features;
 
 [TestClass]
-public sealed class AotPackagingFeatureTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class AotPackagingFeatureTests
 {
     [TestMethod]
     [FourBackends]
-    public void Package_backend_names_match_target_identity(WarpBackendKind backend)
+    public void PackageBackendNamesMatchTargetIdentity(WarpBackendKind backend)
     {
         string expectedName = backend switch
         {
@@ -27,27 +29,27 @@ public sealed class AotPackagingFeatureTests
             _ => throw new ArgumentOutOfRangeException(nameof(backend)),
         };
 
-        Assert.AreEqual(expectedName, WarpArtifactSidecarCodec.GetBackendName(backend));
+        Assert.AreEqual(expectedName, WarpArtifactSidecarCodec.GetBackendName(backend), StringComparer.Ordinal);
         Assert.AreEqual(
             expectedFormat,
             WarpArtifactSidecarCodec.GetFormatName(
-                WarpArtifactFormatCatalog.ForBackend(backend)));
+                WarpArtifactFormatCatalog.ForBackend(backend)), StringComparer.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Package_binds_every_artifact_hash(WarpBackendKind backend)
+    public void PackageBindsEveryArtifactHash(WarpBackendKind backend)
     {
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(
             ManifestAssemblyFixture.ReadAssembly());
 
         Assert.HasCount(8, package.Artifacts);
         Assert.HasCount(16, package.Files);
-        WarpPackagedArtifact artifact = package.Artifacts.Single(
+        WarpPackagedArtifact artifact = package.Artifacts.SingleItem(
             candidate => candidate.Sidecar.Backend == backend &&
-                candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
-        Assert.AreEqual(WarpProfileCatalog.ProfileId, artifact.Sidecar.Profile);
-        Assert.AreEqual(WarpDeviceAbi.Version, artifact.Sidecar.DeviceAbi);
+                string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
+        Assert.AreEqual(WarpProfileCatalog.ProfileId, artifact.Sidecar.Profile, StringComparer.Ordinal);
+        Assert.AreEqual(WarpDeviceAbi.Version, artifact.Sidecar.DeviceAbi, StringComparer.Ordinal);
         Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), artifact.Sidecar.Format);
 
         ReadOnlyMemory<byte> sidecarBytes = package.Files[artifact.SidecarPath];
@@ -57,30 +59,30 @@ public sealed class AotPackagingFeatureTests
             WarpArtifactSidecarCodec.Serialize(decoded),
             sidecarBytes.ToArray());
 
-        WarpPackagedArtifact reductionArtifact = package.Artifacts.Single(
+        WarpPackagedArtifact reductionArtifact = package.Artifacts.SingleItem(
             candidate => candidate.Sidecar.Backend == backend &&
-                candidate.Sidecar.Entry == ManifestAssemblyFixture.ReductionEntryIdentity);
+                string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.ReductionEntryIdentity, StringComparison.Ordinal));
         Assert.AreEqual(
             ManifestAssemblyFixture.ReductionGraphHash,
-            reductionArtifact.Sidecar.GraphHash);
+            reductionArtifact.Sidecar.GraphHash, StringComparer.Ordinal);
         Assert.AreEqual(WarpArtifactFormatCatalog.ForBackend(backend), reductionArtifact.Sidecar.Format);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Package_paths_and_bytes_are_deterministic(WarpBackendKind backend)
+    public void PackagePathsAndBytesAreDeterministic(WarpBackendKind backend)
     {
         var pipeline = new WarpBuildPipeline();
         byte[] assembly = ManifestAssemblyFixture.ReadAssembly();
         WarpAotPackage first = pipeline.CompilePackage(assembly);
         WarpAotPackage second = pipeline.CompilePackage(assembly);
 
-        WarpPackagedArtifact firstArtifact = first.Artifacts.Single(
+        WarpPackagedArtifact firstArtifact = first.Artifacts.SingleItem(
             candidate => candidate.Sidecar.Backend == backend &&
-                candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
-        WarpPackagedArtifact secondArtifact = second.Artifacts.Single(
+                string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
+        WarpPackagedArtifact secondArtifact = second.Artifacts.SingleItem(
             candidate => candidate.Sidecar.Backend == backend &&
-                candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
+                string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
         Assert.AreEqual(firstArtifact, secondArtifact);
         CollectionAssert.AreEqual(
             first.Files.Keys.ToArray(),
@@ -96,7 +98,7 @@ public sealed class AotPackagingFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Written_package_validates_from_disk(WarpBackendKind backend)
+    public void WrittenPackageValidatesFromDisk(WarpBackendKind backend)
     {
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(
             ManifestAssemblyFixture.ReadAssembly());
@@ -107,9 +109,9 @@ public sealed class AotPackagingFeatureTests
             package.WriteToDirectory(directory);
             package.ValidateDirectory(directory);
 
-            WarpPackagedArtifact artifact = package.Artifacts.Single(
+            WarpPackagedArtifact artifact = package.Artifacts.SingleItem(
                 candidate => candidate.Sidecar.Backend == backend &&
-                    candidate.Sidecar.Entry == ManifestAssemblyFixture.MapEntryIdentity);
+                    string.Equals(candidate.Sidecar.Entry, ManifestAssemblyFixture.MapEntryIdentity, StringComparison.Ordinal));
             Assert.IsTrue(File.Exists(Path.Combine(directory, artifact.ModulePath)));
             Assert.IsTrue(File.Exists(Path.Combine(directory, artifact.SidecarPath)));
         }

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using WarpCLR.IR;
 
 namespace WarpCLR.Compiler;
@@ -10,20 +9,29 @@ public sealed class WarpPortableMachineEmitter
 
     public const string ReductionEntryPoint = "warp_reduce_pass";
 
-    public string Emit(WarpLogicalMachineLayout layout, WarpBackendKind backend)
+    public static string Emit(WarpLogicalMachineLayout layout, WarpBackendKind backend)
+        => Emit(layout, backend, WarpCompilationAdmission.MaximumSourceBytes);
+
+    public static string Emit(WarpLogicalMachineLayout layout, WarpBackendKind backend, int maximumSourceBytes)
+        => Emit(layout, backend, maximumSourceBytes, CancellationToken.None);
+
+    public static string Emit(WarpLogicalMachineLayout layout, WarpBackendKind backend, int maximumSourceBytes, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(layout);
-        return new Emission(layout, backend).Emit();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSourceBytes);
+        cancellationToken.ThrowIfCancellationRequested();
+        WarpCompilationAdmission.Validate(layout.Kernel);
+        return new Emission(layout, backend, maximumSourceBytes, cancellationToken).Emit();
     }
 
     private sealed class Emission
     {
         private readonly WarpLogicalMachineLayout layout;
         private readonly WarpBackendKind backend;
-        private readonly StringBuilder source = new();
+        private readonly WarpBoundedSourceBuilder source;
         private int temporary;
 
-        public Emission(WarpLogicalMachineLayout layout, WarpBackendKind backend)
+        public Emission(WarpLogicalMachineLayout layout, WarpBackendKind backend, int maximumSourceBytes, CancellationToken cancellationToken)
         {
             this.layout = layout;
             this.backend = backend;
@@ -31,6 +39,8 @@ public sealed class WarpPortableMachineEmitter
             {
                 throw new ArgumentOutOfRangeException(nameof(backend));
             }
+
+            source = new WarpBoundedSourceBuilder(layout.Kernel.Name, maximumSourceBytes, cancellationToken);
         }
 
         public string Emit()
@@ -410,8 +420,8 @@ public sealed class WarpPortableMachineEmitter
         private void AppendBranch(int function, WarpBranchTarget target)
         {
             string[] arguments = target.Arguments.Select(LoadValue).ToArray();
-            IReadOnlyList<WarpBasicBlock> blocks = function == 0 ? layout.Kernel.Blocks : layout.Kernel.Functions[function - 1].Blocks;
-            IReadOnlyList<WarpBlockParameter> parameters = blocks[target.Block].Parameters;
+            var blocks = function == 0 ? layout.Kernel.Blocks : layout.Kernel.Functions[function - 1].Blocks;
+            var parameters = blocks[target.Block].Parameters;
             for (int index = 0; index < arguments.Length; index++)
             {
                 StoreValue(parameters[index].Value, arguments[index]);

@@ -5,11 +5,13 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Regressions;
 
 [TestClass]
-public sealed class ReductionRegressionTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class ReductionRegressionTests
 {
     [TestMethod]
     [FourBackends]
-    public void Reduction_artifacts_are_deterministic(WarpBackendKind backend)
+    public void ReductionArtifactsAreDeterministic(WarpBackendKind backend)
     {
         var pipeline = new WarpBuildPipeline();
         byte[] assembly = ManifestAssemblyFixture.ReadAssembly();

@@ -14,23 +14,27 @@ public sealed record WarpRuntimeOptions
 
     public int MaximumConcurrentDispatches { get; init; } = 4;
 
+    public int MaximumAdmittedDispatches { get; init; } = 128;
+
     public int ExecutionQuantum { get; init; } = 4096;
 
     public int MaximumResidentWorkers { get; init; } = 256;
 
     public WarpNativeRuntimeOptions Native { get; init; } = new();
 
-    internal void Validate()
+    internal static void Validate(WarpRuntimeOptions options)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumBufferBytes);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumStepsPerWorker);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumCallDepth);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(MaximumCallDepth, WarpRuntimeAbi.DefaultMaximumCallDepth);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumParallelWorkers);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumConcurrentDispatches);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ExecutionQuantum);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumResidentWorkers);
-        ArgumentNullException.ThrowIfNull(Native);
-        Native.Validate();
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumBufferBytes, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumStepsPerWorker, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumCallDepth, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaximumCallDepth, WarpRuntimeAbi.DefaultMaximumCallDepth, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumParallelWorkers, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumConcurrentDispatches, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaximumAdmittedDispatches, options.MaximumConcurrentDispatches, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.ExecutionQuantum, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumResidentWorkers, nameof(options));
+        ArgumentNullException.ThrowIfNull(options.Native, nameof(options));
+        WarpNativeRuntimeOptions.Validate(options.Native);
     }
 }

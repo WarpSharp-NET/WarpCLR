@@ -1,1 +1,166 @@
 #nullable enable
+WarpCLR.Runtime.Host.WarpDevelopmentExecutionMode
+WarpCLR.Runtime.Host.WarpDevelopmentExecutionMode.SemanticEmulation = 0 -> WarpCLR.Runtime.Host.WarpDevelopmentExecutionMode
+WarpCLR.Runtime.Host.WarpDevelopmentModuleLoader
+WarpCLR.Runtime.Host.WarpDevelopmentModuleLoader.Load(System.ReadOnlyMemory<byte> assemblyBytes, string! packageDirectory) -> WarpCLR.Runtime.Host.WarpLoadedModule!
+WarpCLR.Runtime.Host.WarpDevelopmentModuleLoader.Load(string! assemblyPath, string! packageDirectory) -> WarpCLR.Runtime.Host.WarpLoadedModule!
+WarpCLR.Runtime.Host.WarpDevelopmentModuleLoader.WarpDevelopmentModuleLoader() -> void
+WarpCLR.Runtime.Host.WarpDevelopmentSession
+WarpCLR.Runtime.Host.WarpDevelopmentSession.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.Runtime.Host.WarpDevelopmentSession.DispatchIntegerMap(string! entryIdentity, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint[]!
+WarpCLR.Runtime.Host.WarpDevelopmentSession.DispatchUInt32Reduction(string! entryIdentity, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint
+WarpCLR.Runtime.Host.WarpDevelopmentSession.Mode.get -> WarpCLR.Runtime.Host.WarpDevelopmentExecutionMode
+WarpCLR.Runtime.Host.WarpDevelopmentSession.WarpDevelopmentSession(WarpCLR.Runtime.Host.WarpLoadedModule! module, WarpCLR.IR.WarpBackendKind backend, WarpCLR.Runtime.Host.WarpDevelopmentExecutionMode mode) -> void
+WarpCLR.Runtime.Host.WarpHostException
+WarpCLR.Runtime.Host.WarpHostException.Code.get -> string!
+WarpCLR.Runtime.Host.WarpHostException.WarpHostException() -> void
+WarpCLR.Runtime.Host.WarpHostException.WarpHostException(string! code, string! message) -> void
+WarpCLR.Runtime.Host.WarpHostException.WarpHostException(string! code, string! message, System.Exception! innerException) -> void
+WarpCLR.Runtime.Host.WarpHostException.WarpHostException(string! message) -> void
+WarpCLR.Runtime.Host.WarpHostException.WarpHostException(string! message, System.Exception! innerException) -> void
+WarpCLR.Runtime.Host.WarpJitCache
+WarpCLR.Runtime.Host.WarpJitCache.DisposeAsync() -> System.Threading.Tasks.ValueTask
+WarpCLR.Runtime.Host.WarpJitCache.Statistics.get -> WarpCLR.Runtime.Host.WarpJitCacheStatistics
+WarpCLR.Runtime.Host.WarpJitCache.WarpJitCache(WarpCLR.Runtime.Host.WarpJitCacheOptions? options = null) -> void
+WarpCLR.Runtime.Host.WarpJitCacheOptions
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumDiskEntries.get -> int
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumDiskEntries.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheOptions.<Clone>$() -> WarpCLR.Runtime.Host.WarpJitCacheOptions!
+WarpCLR.Runtime.Host.WarpJitCacheOptions.DirectoryPath.get -> string?
+WarpCLR.Runtime.Host.WarpJitCacheOptions.DirectoryPath.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheOptions.Equals(WarpCLR.Runtime.Host.WarpJitCacheOptions? other) -> bool
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumConcurrentCompilations.get -> int
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumConcurrentCompilations.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumDiskBytes.get -> long
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumDiskBytes.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumMemoryEntries.get -> int
+WarpCLR.Runtime.Host.WarpJitCacheOptions.MaximumMemoryEntries.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheOptions.WarpJitCacheOptions() -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.CompilationCount.get -> long
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.CompilationCount.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.Deconstruct(out long CompilationCount, out long MemoryHitCount, out long DiskHitCount, out int MemoryEntryCount) -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.DiskHitCount.get -> long
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.DiskHitCount.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.Equals(WarpCLR.Runtime.Host.WarpJitCacheStatistics other) -> bool
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.MemoryEntryCount.get -> int
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.MemoryEntryCount.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.MemoryHitCount.get -> long
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.MemoryHitCount.init -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.WarpJitCacheStatistics() -> void
+WarpCLR.Runtime.Host.WarpJitCacheStatistics.WarpJitCacheStatistics(long CompilationCount, long MemoryHitCount, long DiskHitCount, int MemoryEntryCount) -> void
+WarpCLR.Runtime.Host.WarpLoadedEntry
+WarpCLR.Runtime.Host.WarpLoadedEntry.Identity.get -> string!
+WarpCLR.Runtime.Host.WarpLoadedEntry.InputBufferCount.get -> int
+WarpCLR.Runtime.Host.WarpLoadedEntry.ScalarArgumentCount.get -> int
+WarpCLR.Runtime.Host.WarpLoadedModule
+WarpCLR.Runtime.Host.WarpLoadedModule.AssemblyHash.get -> string!
+WarpCLR.Runtime.Host.WarpLoadedModule.Entries.get -> System.Collections.Generic.IReadOnlyDictionary<string!, WarpCLR.Runtime.Host.WarpLoadedEntry!>!
+WarpCLR.Runtime.Host.WarpLoadedModule.ManifestHash.get -> string!
+WarpCLR.Runtime.Host.WarpModuleTrust
+WarpCLR.Runtime.Host.WarpModuleTrust.WarpModuleTrust(System.Collections.Generic.IEnumerable<string!>! trustedAssemblySha256) -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.<Clone>$() -> WarpCLR.Runtime.Host.WarpNativeRuntimeOptions!
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.CompilationTimeout.get -> System.TimeSpan
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.CompilationTimeout.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.DeviceOrdinal.get -> int
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.DeviceOrdinal.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.DriverLibraryPath.get -> string?
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.DriverLibraryPath.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.Equals(WarpCLR.Runtime.Host.WarpNativeRuntimeOptions? other) -> bool
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.LlvmAssemblerPath.get -> string!
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.LlvmAssemblerPath.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.LlvmCodeGeneratorPath.get -> string!
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.LlvmCodeGeneratorPath.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.LlvmLinkerPath.get -> string!
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.LlvmLinkerPath.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.MaximumCachedModules.get -> int
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.MaximumCachedModules.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.SpirVTranslatorPath.get -> string!
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.SpirVTranslatorPath.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.SpirVValidatorPath.get -> string!
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.SpirVValidatorPath.init -> void
+WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.WarpNativeRuntimeOptions() -> void
+WarpCLR.Runtime.Host.WarpRuntimeContext
+WarpCLR.Runtime.Host.WarpRuntimeContext.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.Runtime.Host.WarpRuntimeContext.DispatchIntegerMapAsync(string! entryIdentity, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<uint[]!>!
+WarpCLR.Runtime.Host.WarpRuntimeContext.DispatchUInt32ReductionAsync(string! entryIdentity, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<uint>!
+WarpCLR.Runtime.Host.WarpRuntimeContext.DisposeAsync() -> System.Threading.Tasks.ValueTask
+WarpCLR.Runtime.Host.WarpRuntimeContext.JitStatistics.get -> WarpCLR.Runtime.Host.WarpJitCacheStatistics
+WarpCLR.Runtime.Host.WarpRuntimeContext.State.get -> WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.Runtime.Host.WarpRuntimeContext.WarpRuntimeContext(WarpCLR.Runtime.Host.WarpRuntimeModule! module, WarpCLR.IR.WarpBackendKind backend, WarpCLR.Runtime.Host.WarpRuntimeOptions? options = null, WarpCLR.Runtime.Host.WarpJitCache? jitCache = null) -> void
+WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.Runtime.Host.WarpRuntimeContextState.Disposed = 3 -> WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.Runtime.Host.WarpRuntimeContextState.Disposing = 2 -> WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.Runtime.Host.WarpRuntimeContextState.Faulted = 1 -> WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.Runtime.Host.WarpRuntimeContextState.Ready = 0 -> WarpCLR.Runtime.Host.WarpRuntimeContextState
+WarpCLR.Runtime.Host.WarpRuntimeEntry
+WarpCLR.Runtime.Host.WarpRuntimeEntry.GraphHash.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeEntry.Identity.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeEntry.InputBufferCount.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeEntry.IrHash.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeEntry.Reduction.get -> WarpCLR.IR.WarpReductionOperation?
+WarpCLR.Runtime.Host.WarpRuntimeEntry.ScalarArgumentCount.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeFaultException
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.BlockIndex.get -> int?
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.EntryIdentity.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.FunctionIdentity.get -> string?
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.FunctionIndex.get -> int?
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.Kind.get -> WarpCLR.Runtime.Host.WarpRuntimeFaultKind
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.RemainingSteps.get -> ulong?
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.WarpRuntimeFaultException() -> void
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.WarpRuntimeFaultException(string! message) -> void
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.WarpRuntimeFaultException(string! message, System.Exception! innerException) -> void
+WarpCLR.Runtime.Host.WarpRuntimeFaultException.WorkerIndex.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeFaultKind
+WarpCLR.Runtime.Host.WarpRuntimeFaultKind.CallDepth = 1 -> WarpCLR.Runtime.Host.WarpRuntimeFaultKind
+WarpCLR.Runtime.Host.WarpRuntimeFaultKind.RuntimeFailure = 2 -> WarpCLR.Runtime.Host.WarpRuntimeFaultKind
+WarpCLR.Runtime.Host.WarpRuntimeFaultKind.StepLimit = 0 -> WarpCLR.Runtime.Host.WarpRuntimeFaultKind
+WarpCLR.Runtime.Host.WarpRuntimeModule
+WarpCLR.Runtime.Host.WarpRuntimeModule.AssemblyHash.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeModule.Entries.get -> System.Collections.Generic.IReadOnlyDictionary<string!, WarpCLR.Runtime.Host.WarpRuntimeEntry!>!
+WarpCLR.Runtime.Host.WarpRuntimeModule.ManifestHash.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeModule.ProfileId.get -> string!
+WarpCLR.Runtime.Host.WarpRuntimeOptions
+WarpCLR.Runtime.Host.WarpRuntimeOptions.<Clone>$() -> WarpCLR.Runtime.Host.WarpRuntimeOptions!
+WarpCLR.Runtime.Host.WarpRuntimeOptions.Equals(WarpCLR.Runtime.Host.WarpRuntimeOptions? other) -> bool
+WarpCLR.Runtime.Host.WarpRuntimeOptions.ExecutionQuantum.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeOptions.ExecutionQuantum.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumBufferBytes.get -> long
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumBufferBytes.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumCallDepth.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumCallDepth.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumAdmittedDispatches.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumAdmittedDispatches.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumConcurrentDispatches.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumConcurrentDispatches.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumParallelWorkers.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumParallelWorkers.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumResidentWorkers.get -> int
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumResidentWorkers.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumStepsPerWorker.get -> long
+WarpCLR.Runtime.Host.WarpRuntimeOptions.MaximumStepsPerWorker.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.Native.get -> WarpCLR.Runtime.Host.WarpNativeRuntimeOptions!
+WarpCLR.Runtime.Host.WarpRuntimeOptions.Native.init -> void
+WarpCLR.Runtime.Host.WarpRuntimeOptions.WarpRuntimeOptions() -> void
+override WarpCLR.Runtime.Host.WarpJitCacheOptions.Equals(object? obj) -> bool
+override WarpCLR.Runtime.Host.WarpJitCacheOptions.GetHashCode() -> int
+override WarpCLR.Runtime.Host.WarpJitCacheOptions.ToString() -> string!
+override WarpCLR.Runtime.Host.WarpJitCacheStatistics.GetHashCode() -> int
+override WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.Equals(object? obj) -> bool
+override WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.GetHashCode() -> int
+override WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.ToString() -> string!
+override WarpCLR.Runtime.Host.WarpRuntimeOptions.Equals(object? obj) -> bool
+override WarpCLR.Runtime.Host.WarpRuntimeOptions.GetHashCode() -> int
+override WarpCLR.Runtime.Host.WarpRuntimeOptions.ToString() -> string!
+static WarpCLR.Runtime.Host.WarpJitCacheOptions.operator !=(WarpCLR.Runtime.Host.WarpJitCacheOptions? left, WarpCLR.Runtime.Host.WarpJitCacheOptions? right) -> bool
+static WarpCLR.Runtime.Host.WarpJitCacheOptions.operator ==(WarpCLR.Runtime.Host.WarpJitCacheOptions? left, WarpCLR.Runtime.Host.WarpJitCacheOptions? right) -> bool
+static WarpCLR.Runtime.Host.WarpJitCacheStatistics.operator !=(WarpCLR.Runtime.Host.WarpJitCacheStatistics left, WarpCLR.Runtime.Host.WarpJitCacheStatistics right) -> bool
+static WarpCLR.Runtime.Host.WarpJitCacheStatistics.operator ==(WarpCLR.Runtime.Host.WarpJitCacheStatistics left, WarpCLR.Runtime.Host.WarpJitCacheStatistics right) -> bool
+static WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.operator !=(WarpCLR.Runtime.Host.WarpNativeRuntimeOptions? left, WarpCLR.Runtime.Host.WarpNativeRuntimeOptions? right) -> bool
+static WarpCLR.Runtime.Host.WarpNativeRuntimeOptions.operator ==(WarpCLR.Runtime.Host.WarpNativeRuntimeOptions? left, WarpCLR.Runtime.Host.WarpNativeRuntimeOptions? right) -> bool
+static WarpCLR.Runtime.Host.WarpRuntimeModule.Load(System.ReadOnlyMemory<byte> assemblyBytes, WarpCLR.Runtime.Host.WarpModuleTrust! trust) -> WarpCLR.Runtime.Host.WarpRuntimeModule!
+static WarpCLR.Runtime.Host.WarpRuntimeOptions.operator !=(WarpCLR.Runtime.Host.WarpRuntimeOptions? left, WarpCLR.Runtime.Host.WarpRuntimeOptions? right) -> bool
+static WarpCLR.Runtime.Host.WarpRuntimeOptions.operator ==(WarpCLR.Runtime.Host.WarpRuntimeOptions? left, WarpCLR.Runtime.Host.WarpRuntimeOptions? right) -> bool
+~override WarpCLR.Runtime.Host.WarpJitCacheStatistics.Equals(object obj) -> bool
+~override WarpCLR.Runtime.Host.WarpJitCacheStatistics.ToString() -> string

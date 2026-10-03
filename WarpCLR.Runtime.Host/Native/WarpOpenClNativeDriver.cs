@@ -47,10 +47,11 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
             string name = QueryString(0x102b);
             string vendor = QueryString(0x102c);
             string runtime = QueryString(0x102d) + "/" + QueryString(0x102f) + "/" + ilVersion;
-            ulong maxWorkgroup = Query64(0x1004);
+            ulong maxWorkgroup = QueryWorkgroupLimit();
             Target = new WarpNativeTarget(WarpBackendKind.SPIRV, "opencl2.2-spirv1.2",
                 vendor + "/" + name + "/ordinal=" + deviceOrdinal, runtime,
-                checked((uint)Math.Min(maxWorkgroup, uint.MaxValue)), uint.MaxValue, Query64(0x101f));
+                checked((uint)Math.Min(maxWorkgroup, uint.MaxValue)), uint.MaxValue, Query64(0x101f),
+                checked((uint)Math.Min(Query64(0x1017), uint.MaxValue)));
             using var deviceList = new WarpNativeBlock(IntPtr.Size);
             Marshal.WriteIntPtr(deviceList.Pointer, device);
             context = api.CreateContext(IntPtr.Zero, 1, deviceList.Pointer, IntPtr.Zero, IntPtr.Zero, out int error);
@@ -71,6 +72,20 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
 
     public WarpNativeTarget Target { get; }
     public static WarpOpenClNativeDriver Open(int deviceOrdinal = 0, string? libraryPath = null) => new(deviceOrdinal, libraryPath);
+
+    private ulong QueryWorkgroupLimit()
+    {
+        uint dimensions = Query32(0x1003);
+        if (dimensions is < 1 or > 16)
+        {
+            throw new WarpHostException("WRPNATIVE1005", "The OpenCL work-item dimensions exceed the runtime's admission limits.");
+        }
+
+        using var limits = new WarpNativeBlock(checked((int)dimensions * sizeof(ulong)));
+        Check(api.GetDeviceInfo(device, 0x1005, checked((nuint)limits.Size), limits.Pointer, out _), "clGetDeviceInfo(MAX_WORK_ITEM_SIZES)");
+        ulong dimensionX = unchecked((ulong)Marshal.ReadInt64(limits.Pointer));
+        return Math.Min(Query64(0x1004), dimensionX);
+    }
 
     public IWarpNativeModule Load(WarpNativeImage image)
     {
@@ -263,12 +278,12 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
                 owner.EnsureUsable();
                 ObjectDisposedException.ThrowIf(released, this);
                 var operations = CreateOperations(kernel, Image.InputBufferCount + Image.ScalarArgumentCount + 5, Image.InputBufferCount + 1);
-                var execution = new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth, operations);
-                var bound = new WarpBoundNativeMachineExecution(execution,
+                var bound = new WarpBoundNativeMachineExecution(
+                    () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth, operations),
                     action => WithQueue(action, checkFault: true), action => WithQueue(action, checkFault: false),
                     item => executions.Remove(item));
-                executions.Add(bound);
-                return bound;
+                try { executions.Add(bound); return bound; }
+                catch { bound.Dispose(); throw; }
             }
         }
 
@@ -345,7 +360,7 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
             int itemCount, bool reduction, CancellationToken cancellationToken = default)
         {
             Image.ValidateArguments(inputs, scalars, reduction);
-            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction);
+            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction, scalars.Count);
             lock (owner.gate)
             {
                 owner.EnsureUsable();
@@ -409,23 +424,23 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
 
         private uint UploadInputs(IReadOnlyList<uint[]> inputs, int itemCount, List<IntPtr> buffers, CancellationToken cancellationToken)
         {
-        uint argument = 0;
-        foreach (uint[] input in inputs)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
-            IntPtr buffer = owner.api.CreateBuffer(owner.context, 4, bytes, IntPtr.Zero, out int error);
-            Check(error, "clCreateBuffer(input)");
-            buffers.Add(buffer);
-            using var pin = new WarpPinnedUInt32((uint[])input.Clone());
-            if (itemCount > 0)
+            uint argument = 0;
+            foreach (uint[] input in inputs)
             {
-                Check(owner.api.EnqueueWriteBuffer(owner.queue, buffer, 1, 0, bytes, pin.Pointer,
-                    0, IntPtr.Zero, IntPtr.Zero), "clEnqueueWriteBuffer");
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
+                IntPtr buffer = owner.api.CreateBuffer(owner.context, 4, bytes, IntPtr.Zero, out int error);
+                Check(error, "clCreateBuffer(input)");
+                buffers.Add(buffer);
+                using var pin = new WarpPinnedUInt32((uint[])input.Clone());
+                if (itemCount > 0)
+                {
+                    Check(owner.api.EnqueueWriteBuffer(owner.queue, buffer, 1, 0, bytes, pin.Pointer,
+                        0, IntPtr.Zero, IntPtr.Zero), "clEnqueueWriteBuffer");
+                }
 
-            SetPointer(argument++, buffer);
-        }
+                SetPointer(argument++, buffer);
+            }
 
             return argument;
         }
@@ -435,7 +450,7 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
             lock (owner.gate)
             {
                 if (released) { return; }
-                owner.EnsureUsable();
+                ObjectDisposedException.ThrowIf(owner.disposed, owner);
                 Release();
             }
         }

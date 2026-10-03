@@ -35,6 +35,13 @@ internal sealed class WarpNativeToolchain
             throw new WarpHostException("WRPNATIVE1003", "The artifact and concrete target select different backends.");
         }
 
+        return await WarpNativeCompilationDeadline.RunAsync(options.ProcessTimeout,
+            token => CompileArtifactCoreAsync(artifact, target, token), cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<WarpNativeImage> CompileArtifactCoreAsync(WarpBackendArtifact artifact, WarpNativeTarget target,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         if (artifact.Content.Length > options.MaximumSourceBytes)
         {
@@ -74,18 +81,45 @@ internal sealed class WarpNativeToolchain
             inputCount, scalarCount, null, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task<WarpNativeImage> CompileMachineAsync(
+    public async Task<WarpNativeImage> CompileMachineAsync(
         WarpLogicalMachineLayout layout,
         WarpNativeTarget target,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(target);
-        cancellationToken.ThrowIfCancellationRequested();
-        string source = new WarpPortableMachineEmitter().Emit(layout, target.Backend);
-        string sourceHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source)));
-        return CompileLlvmAsync(source, WarpPortableMachineEmitter.EntryPoint, sourceHash, target,
-            layout.Kernel.InputBufferCount, layout.Kernel.ScalarArgumentCount, layout, cancellationToken);
+        return await WarpNativeCompilationDeadline.RunAsync(options.ProcessTimeout, async token =>
+        {
+            string source = WarpPortableMachineEmitter.Emit(layout, target.Backend, options.MaximumSourceBytes, token);
+            token.ThrowIfCancellationRequested();
+            string sourceHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source)));
+            token.ThrowIfCancellationRequested();
+            return await CompileLlvmAsync(source, WarpPortableMachineEmitter.EntryPoint, sourceHash, target,
+                layout.Kernel.InputBufferCount, layout.Kernel.ScalarArgumentCount, layout, token).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> GetMachineToolchainIdentityAsync(WarpNativeTarget target, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return await WarpNativeCompilationDeadline.RunAsync(options.ProcessTimeout,
+            token => GetMachineToolchainIdentityCoreAsync(target, token), cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<string> GetMachineToolchainIdentityCoreAsync(WarpNativeTarget target, CancellationToken cancellationToken)
+    {
+        string assembler = await VersionAsync(options.LlvmAssembler, cancellationToken).ConfigureAwait(false);
+        string identity = target.Backend switch
+        {
+            WarpBackendKind.NVPTX => assembler + "\n" + await VersionAsync(options.LlvmCodeGenerator, cancellationToken).ConfigureAwait(false) +
+                "\n" + target.RuntimeIdentity,
+            WarpBackendKind.AMDGPU => assembler + "\n" + await VersionAsync(options.LlvmCodeGenerator, cancellationToken).ConfigureAwait(false) +
+                "\n" + await VersionAsync(options.LlvmLinker, cancellationToken).ConfigureAwait(false),
+            WarpBackendKind.SPIRV => assembler + "\n" + await VersionAsync(options.SpirVTranslator, cancellationToken).ConfigureAwait(false) +
+                "\n" + await VersionAsync(options.SpirVValidator, cancellationToken).ConfigureAwait(false),
+            _ => throw new ArgumentException("A native machine toolchain requires a GPU target.", nameof(target)),
+        };
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
     }
 
     private async Task<WarpNativeImage> CompileLlvmAsync(

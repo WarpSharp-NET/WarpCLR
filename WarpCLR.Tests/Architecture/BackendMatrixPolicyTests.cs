@@ -4,10 +4,12 @@ using WarpCLR.IR;
 namespace WarpCLR.Tests.Architecture;
 
 [TestClass]
-public sealed class BackendMatrixPolicyTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class BackendMatrixPolicyTests
 {
     [TestMethod]
-    public void Every_feature_and_regression_test_uses_the_four_backend_matrix()
+    public void EveryFeatureAndRegressionTestUsesTheFourBackendMatrix()
     {
         MethodInfo[] testMethods = typeof(BackendMatrixPolicyTests).Assembly
             .GetTypes()

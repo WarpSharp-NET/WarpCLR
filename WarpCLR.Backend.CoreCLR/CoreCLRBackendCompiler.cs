@@ -13,6 +13,7 @@ public sealed class CoreCLRBackendCompiler : IWarpBackendCompiler
     public WarpBackendArtifact Compile(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
+        WarpCompilationAdmission.Validate(kernel);
 
         return new WarpBackendArtifact(
             Backend,

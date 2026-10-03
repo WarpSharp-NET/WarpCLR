@@ -17,8 +17,8 @@ public sealed class WarpBasicBlock
         ArgumentNullException.ThrowIfNull(terminator);
 
         Id = id;
-        Parameters = Array.AsReadOnly(parameters.ToArray());
-        Instructions = Array.AsReadOnly(instructions.ToArray());
+        Parameters = Array.AsReadOnly(WarpCompilationAdmission.Materialize(parameters, "<IR-block>", WarpCompilationResourceKind.ValueSlots, WarpCompilationAdmission.MaximumValueSlotsPerEntry));
+        Instructions = Array.AsReadOnly(WarpCompilationAdmission.Materialize(instructions, "<IR-block>", WarpCompilationResourceKind.Instructions, WarpCompilationAdmission.MaximumInstructionsPerEntry));
         Terminator = terminator;
     }
 

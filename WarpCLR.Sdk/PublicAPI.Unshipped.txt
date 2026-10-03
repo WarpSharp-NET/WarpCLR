@@ -1,1 +1,33 @@
 #nullable enable
+WarpCLR.Sdk.WarpAotPackage
+WarpCLR.Sdk.WarpAotPackage.Artifacts.get -> System.Collections.ObjectModel.ReadOnlyCollection<WarpCLR.Sdk.WarpPackagedArtifact!>!
+WarpCLR.Sdk.WarpAotPackage.Files.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.ReadOnlyMemory<byte>>!
+WarpCLR.Sdk.WarpAotPackage.ValidateDirectory(string! directoryPath) -> void
+WarpCLR.Sdk.WarpAotPackage.WriteToDirectory(string! directoryPath, bool overwrite = false) -> void
+WarpCLR.Sdk.WarpAotPackageBuilder
+WarpCLR.Sdk.WarpBuildPipeline
+WarpCLR.Sdk.WarpBuildPipeline.CompileModule(System.ReadOnlyMemory<byte> assemblyBytes) -> WarpCLR.Sdk.WarpModuleCompilation!
+WarpCLR.Sdk.WarpBuildPipeline.CompileModule(string! assemblyPath) -> WarpCLR.Sdk.WarpModuleCompilation!
+WarpCLR.Sdk.WarpBuildPipeline.CompilePackage(System.ReadOnlyMemory<byte> assemblyBytes) -> WarpCLR.Sdk.WarpAotPackage!
+WarpCLR.Sdk.WarpBuildPipeline.CompilePackage(string! assemblyPath) -> WarpCLR.Sdk.WarpAotPackage!
+WarpCLR.Sdk.WarpBuildPipeline.WarpBuildPipeline() -> void
+WarpCLR.Sdk.WarpModuleCompilation
+WarpCLR.Sdk.WarpModuleCompilation.Entries.get -> System.Collections.Generic.IReadOnlyDictionary<string!, WarpCLR.Compiler.WarpCompilation!>!
+WarpCLR.Sdk.WarpModuleCompilation.Module.get -> WarpCLR.Verifier.WarpVerifiedModule!
+WarpCLR.Sdk.WarpPackagedArtifact
+WarpCLR.Sdk.WarpPackagedArtifact.<Clone>$() -> WarpCLR.Sdk.WarpPackagedArtifact!
+WarpCLR.Sdk.WarpPackagedArtifact.Deconstruct(out string! ModulePath, out string! SidecarPath, out WarpCLR.IR.WarpArtifactSidecar! Sidecar) -> void
+WarpCLR.Sdk.WarpPackagedArtifact.Equals(WarpCLR.Sdk.WarpPackagedArtifact? other) -> bool
+WarpCLR.Sdk.WarpPackagedArtifact.ModulePath.get -> string!
+WarpCLR.Sdk.WarpPackagedArtifact.ModulePath.init -> void
+WarpCLR.Sdk.WarpPackagedArtifact.Sidecar.get -> WarpCLR.IR.WarpArtifactSidecar!
+WarpCLR.Sdk.WarpPackagedArtifact.Sidecar.init -> void
+WarpCLR.Sdk.WarpPackagedArtifact.SidecarPath.get -> string!
+WarpCLR.Sdk.WarpPackagedArtifact.SidecarPath.init -> void
+WarpCLR.Sdk.WarpPackagedArtifact.WarpPackagedArtifact(string! ModulePath, string! SidecarPath, WarpCLR.IR.WarpArtifactSidecar! Sidecar) -> void
+override WarpCLR.Sdk.WarpPackagedArtifact.Equals(object? obj) -> bool
+override WarpCLR.Sdk.WarpPackagedArtifact.GetHashCode() -> int
+override WarpCLR.Sdk.WarpPackagedArtifact.ToString() -> string!
+static WarpCLR.Sdk.WarpAotPackageBuilder.Build(WarpCLR.Sdk.WarpModuleCompilation! compilation) -> WarpCLR.Sdk.WarpAotPackage!
+static WarpCLR.Sdk.WarpPackagedArtifact.operator !=(WarpCLR.Sdk.WarpPackagedArtifact? left, WarpCLR.Sdk.WarpPackagedArtifact? right) -> bool
+static WarpCLR.Sdk.WarpPackagedArtifact.operator ==(WarpCLR.Sdk.WarpPackagedArtifact? left, WarpCLR.Sdk.WarpPackagedArtifact? right) -> bool

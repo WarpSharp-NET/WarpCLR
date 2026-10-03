@@ -20,23 +20,24 @@ public sealed record WarpNativeRuntimeOptions
 
     public int MaximumCachedModules { get; init; } = 32;
 
-    internal void Validate()
+    internal static void Validate(WarpNativeRuntimeOptions options)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(DeviceOrdinal);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumCachedModules);
-        ArgumentException.ThrowIfNullOrWhiteSpace(LlvmAssemblerPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(LlvmCodeGeneratorPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(LlvmLinkerPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(SpirVTranslatorPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(SpirVValidatorPath);
-        if (DriverLibraryPath is not null && !Path.IsPathFullyQualified(DriverLibraryPath))
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.DeviceOrdinal, nameof(options));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumCachedModules, nameof(options));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.LlvmAssemblerPath, nameof(options));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.LlvmCodeGeneratorPath, nameof(options));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.LlvmLinkerPath, nameof(options));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.SpirVTranslatorPath, nameof(options));
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.SpirVValidatorPath, nameof(options));
+        if (options.DriverLibraryPath is not null && !Path.IsPathFullyQualified(options.DriverLibraryPath))
         {
-            throw new ArgumentException("An explicit driver library requires an absolute path.", nameof(DriverLibraryPath));
+            throw new ArgumentException("An explicit driver library requires an absolute path.", nameof(options));
         }
 
-        if (CompilationTimeout <= TimeSpan.Zero || CompilationTimeout > TimeSpan.FromHours(1))
+        if (options.CompilationTimeout <= TimeSpan.Zero || options.CompilationTimeout > TimeSpan.FromHours(1))
         {
-            throw new ArgumentOutOfRangeException(nameof(CompilationTimeout));
+            throw new ArgumentOutOfRangeException(nameof(options), options.CompilationTimeout, "Native compilation timeout must be positive and finite.");
         }
     }
 }

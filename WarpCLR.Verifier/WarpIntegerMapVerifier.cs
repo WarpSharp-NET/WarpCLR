@@ -11,6 +11,7 @@ internal sealed class WarpIntegerMapVerifier
         ArgumentNullException.ThrowIfNull(request);
 
         MethodInfo entry = request.Method;
+        WarpInitializationAdmission.RequireModule(entry.Module);
         ValidateMethod(entry, request.InputBufferCount, isEntry: true);
 
         var builder = new ReflectionMethodGraphBuilder(entry);
@@ -77,6 +78,7 @@ internal sealed class WarpIntegerMapVerifier
         int inputBufferCount,
         bool isEntry)
     {
+        WarpInitializationAdmission.RequireMethod(method);
         if (!method.IsStatic)
         {
             throw SignatureError(method, "The method must be static.");
@@ -119,11 +121,22 @@ internal sealed class WarpIntegerMapVerifier
         }
     }
 
-    private static string GetIdentity(MethodInfo method) =>
-        $"{method.DeclaringType?.FullName ?? "<global>"}.{method.Name}/{method.GetParameters().Length}";
+    private static string GetIdentity(MethodInfo method)
+    {
+        string entryIdentity = GetEntryIdentity(method);
+        string identity = $"{entryIdentity}/{method.GetParameters().Length}";
+        WarpCompilationAdmission.Require("<reflection-method>", WarpCompilationResourceKind.IdentityCharacters,
+            identity.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
+        return identity;
+    }
 
-    private static string GetEntryIdentity(MethodInfo method) =>
-        $"{method.DeclaringType?.FullName ?? "<global>"}.{method.Name}";
+    private static string GetEntryIdentity(MethodInfo method)
+    {
+        string type = method.DeclaringType?.FullName ?? "<global>";
+        WarpCompilationAdmission.Require("<reflection-method>", WarpCompilationResourceKind.IdentityCharacters,
+            type.Length + (long)method.Name.Length + 1, WarpCompilationAdmission.MaximumIdentityCharacters);
+        return $"{type}.{method.Name}";
+    }
 
     private static WarpVerificationException SignatureError(MethodInfo method, string message)
     {
@@ -141,10 +154,12 @@ internal sealed class WarpIntegerMapVerifier
         private readonly HashSet<MethodInfo> visiting = [];
         private readonly HashSet<MethodInfo> visited = [];
         private readonly List<MethodInfo> functions = [];
+        private readonly WarpCilCompilationAdmission admission;
 
         public ReflectionMethodGraphBuilder(MethodInfo entry)
         {
             this.entry = entry;
+            admission = new WarpCilCompilationAdmission(GetEntryIdentity(entry));
         }
 
         public IReadOnlyList<MethodInfo> Functions => functions;
@@ -200,9 +215,13 @@ internal sealed class WarpIntegerMapVerifier
                 ?? throw SignatureError(method, "The method does not have a CIL body.");
             byte[] il = body.GetILAsByteArray()
                 ?? throw SignatureError(method, "The method does not contain CIL bytes.");
+            admission.AdmitMethod(GetIdentity(method), method.GetParameters().Length, body.MaxStackSize,
+                body.LocalVariables.Count, il.Length, isEntry: method == entry);
             var methodCalls = new Dictionary<int, WarpCilCallTarget>();
 
-            foreach (int token in WarpIntegerMapCilVerifier.ReadCallTokens(il).Distinct())
+            IReadOnlyList<int> callTokens = WarpIntegerMapCilVerifier.ReadCallTokens(il, GetIdentity(method), out int instructionCount);
+            admission.AdmitDecodedInstructions(instructionCount);
+            foreach (int token in callTokens.Distinct())
             {
                 MethodInfo target = ResolveCallTarget(method, token);
                 ValidateMethod(target, inputBufferCount: 0, isEntry: false);
@@ -216,6 +235,8 @@ internal sealed class WarpIntegerMapVerifier
 
                 if (!functionIds.TryGetValue(target, out int functionId))
                 {
+                    WarpCompilationAdmission.Require(GetEntryIdentity(entry), WarpCompilationResourceKind.Functions,
+                        functions.Count + 1L, WarpCompilationAdmission.MaximumFunctionsPerEntry);
                     functionId = functions.Count;
                     functionIds.Add(target, functionId);
                     functions.Add(target);

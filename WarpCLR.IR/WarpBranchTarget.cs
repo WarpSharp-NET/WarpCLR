@@ -13,7 +13,8 @@ public sealed class WarpBranchTarget
         ArgumentNullException.ThrowIfNull(arguments);
 
         Block = block;
-        this.arguments = Array.AsReadOnly(arguments.ToArray());
+        this.arguments = Array.AsReadOnly(WarpCompilationAdmission.Materialize(arguments, "<IR-edge>",
+            WarpCompilationResourceKind.OperandReferences, WarpCompilationAdmission.MaximumValueSlotsPerEntry));
     }
 
     public int Block { get; }

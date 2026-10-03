@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj" />
+    <ProjectReference Include="../WarpCLR.IR/WarpCLR.IR.csproj" />
+    <ProjectReference Include="../WarpCLR.Compiler/WarpCLR.Compiler.csproj" />
+    <ProjectReference Include="../WarpCLR.Verifier/WarpCLR.Verifier.csproj" />
+  </ItemGroup>
+</Project>

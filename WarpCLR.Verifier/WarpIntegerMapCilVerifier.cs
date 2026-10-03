@@ -13,17 +13,25 @@ internal static class WarpIntegerMapCilVerifier
 
     public static WarpIntegerMapKernel Verify(
         WarpIntegerMapMethodBody method,
-        IReadOnlyList<WarpIntegerMapMethodBody> functions)
+        IReadOnlyList<WarpIntegerMapMethodBody> functions,
+        WarpModuleCompilationAdmission? moduleAdmission = null)
     {
         ArgumentNullException.ThrowIfNull(method);
         ArgumentNullException.ThrowIfNull(functions);
 
-        LoweredBody entry = VerifyAndLower(method, isEntry: true);
+        var admission = new WarpCilCompilationAdmission(method.Identity, moduleAdmission, includeCil: false);
+        admission.AdmitMethod(method.Identity, method.ParameterCount, method.MaxStack, method.LocalCount, method.Il.Length, isEntry: true);
+        foreach (WarpIntegerMapMethodBody function in functions)
+        {
+            admission.AdmitMethod(function.Identity, function.ParameterCount, function.MaxStack, function.LocalCount, function.Il.Length, isEntry: false);
+        }
+
+        LoweredBody entry = VerifyAndLower(method, admission, isEntry: true);
         var loweredFunctions = new WarpControlFlowFunction[functions.Count];
         for (int functionId = 0; functionId < functions.Count; functionId++)
         {
             WarpIntegerMapMethodBody function = functions[functionId];
-            LoweredBody lowered = VerifyAndLower(function, isEntry: false);
+            LoweredBody lowered = VerifyAndLower(function, admission, isEntry: false);
             loweredFunctions[functionId] = new WarpControlFlowFunction(
                 functionId,
                 function.Identity,
@@ -38,39 +46,49 @@ internal static class WarpIntegerMapCilVerifier
             entry.Blocks,
             method.Reduction,
             loweredFunctions);
+        WarpCompilationAdmission.Validate(controlFlow);
         return new WarpIntegerMapKernel(controlFlow);
     }
 
-    public static IReadOnlyList<int> ReadCallTokens(ReadOnlySpan<byte> il) => Decode(il)
-        .Where(instruction => Is(instruction.OpCode, OpCodes.Call))
-        .Select(instruction => instruction.Operand)
-        .ToArray();
+    public static IReadOnlyList<int> ReadCallTokens(ReadOnlySpan<byte> il) => ReadCallTokens(il, "<CIL>", out _);
+
+    public static IReadOnlyList<int> ReadCallTokens(ReadOnlySpan<byte> il, string identity, out int instructionCount)
+    {
+        DecodedInstruction[] decoded = Decode(il, identity);
+        instructionCount = decoded.Length;
+        return decoded.Where(instruction => Is(instruction.OpCode, OpCodes.Call))
+            .Select(instruction => instruction.Operand).ToArray();
+    }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "The verifier's exhaustive CIL profile checks remain in one audited sequence so rejection order and diagnostics stay stable.")]
     private static LoweredBody VerifyAndLower(
         WarpIntegerMapMethodBody method,
+        WarpCilCompilationAdmission admission,
         bool isEntry)
     {
-        DecodedInstruction[] instructions = Decode(method.Il);
+        DecodedInstruction[] instructions = Decode(method.Il, method.Identity);
+        admission.AdmitDecodedInstructions(instructions.Length);
         if (instructions.Length == 0)
         {
             throw CilError("WRPCIL1005", "The method does not end with ret.", 0);
         }
 
         ValidateSupportedInstructions(method, instructions);
-        CilBlock[] blocks = BuildBlocks(method, instructions);
+        CilBlock[] blocks = BuildBlocks(method, instructions, admission);
         FlowShape[] entryShapes = AnalyzeFlow(method, blocks);
-        return Lower(method, blocks, entryShapes, isEntry);
+        return Lower(method, blocks, entryShapes, admission, isEntry);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "The bounds-checked ECMA-335 operand decoder deliberately keeps all operand encodings in one exhaustive switch.")]
-    private static DecodedInstruction[] Decode(ReadOnlySpan<byte> il)
+    private static DecodedInstruction[] Decode(ReadOnlySpan<byte> il, string identity)
     {
+        WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.CilBytes, il.Length, WarpCompilationAdmission.MaximumCilBytesPerBody);
         var result = new List<DecodedInstruction>();
         var reader = new IlReader(il);
 
         while (!reader.IsComplete)
         {
+            WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Instructions, result.Count + 1L, WarpCompilationAdmission.MaximumInstructionsPerEntry);
             int offset = reader.Offset;
             OpCode opCode = ReadOpCode(ref reader, offset);
             int operand = 0;
@@ -131,6 +149,7 @@ internal static class WarpIntegerMapCilVerifier
                             offset);
                     }
 
+                    WarpCompilationAdmission.Require(identity, WarpCompilationResourceKind.Blocks, count, WarpCompilationAdmission.MaximumBlocksPerEntry);
                     var deltas = new int[count];
                     foreach (ref int switchDelta in deltas.AsSpan())
                     {
@@ -201,7 +220,8 @@ internal static class WarpIntegerMapCilVerifier
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "This exhaustive CIL terminator state machine preserves ordered block boundaries and validation diagnostics.")]
     private static CilBlock[] BuildBlocks(
         WarpIntegerMapMethodBody method,
-        IReadOnlyList<DecodedInstruction> instructions)
+        IReadOnlyList<DecodedInstruction> instructions,
+        WarpCilCompilationAdmission admission)
     {
         var instructionsByOffset = instructions.ToDictionary(instruction => instruction.Offset);
         var leaders = new HashSet<int> { 0 };
@@ -224,17 +244,27 @@ internal static class WarpIntegerMapCilVerifier
             }
         }
 
+        admission.AdmitBlocks(method, leaders.Count);
         int[] starts = leaders.Order().ToArray();
         var blocks = new CilBlock[starts.Length];
+        int instructionCursor = 0;
         for (int blockIndex = 0; blockIndex < starts.Length; blockIndex++)
         {
             int start = starts[blockIndex];
             int end = blockIndex + 1 < starts.Length
                 ? starts[blockIndex + 1]
                 : method.Il.Length;
-            DecodedInstruction[] blockInstructions = instructions
-                .Where(instruction => instruction.Offset >= start && instruction.Offset < end)
-                .ToArray();
+            int firstInstruction = instructionCursor;
+            while (instructionCursor < instructions.Count && instructions[instructionCursor].Offset < end)
+            {
+                instructionCursor++;
+            }
+
+            var blockInstructions = new DecodedInstruction[instructionCursor - firstInstruction];
+            for (int index = 0; index < blockInstructions.Length; index++)
+            {
+                blockInstructions[index] = instructions[firstInstruction + index];
+            }
             if (blockInstructions.Length == 0)
             {
                 throw CilError(
@@ -503,6 +533,7 @@ internal static class WarpIntegerMapCilVerifier
         WarpIntegerMapMethodBody method,
         IReadOnlyList<CilBlock> blocks,
         IReadOnlyList<FlowShape> entryShapes,
+        WarpCilCompilationAdmission admission,
         bool isEntry)
     {
         int nextValue = 0;
@@ -510,7 +541,7 @@ internal static class WarpIntegerMapCilVerifier
         var initialArguments = new int[method.ParameterCount];
         for (int argumentIndex = 0; argumentIndex < method.ParameterCount; argumentIndex++)
         {
-            int value = nextValue++;
+            int value = TakeValue(ref nextValue, admission);
             initialArguments[argumentIndex] = value;
             WarpIrOpCode load = isEntry
                 ? argumentIndex < method.InputBufferCount
@@ -530,7 +561,7 @@ internal static class WarpIntegerMapCilVerifier
         int initialLocalValue = -1;
         if (method.LocalsInitialized && method.LocalCount != 0)
         {
-            initialLocalValue = nextValue++;
+            initialLocalValue = TakeValue(ref nextValue, admission);
             prologueInstructions.Add(
                 new WarpIrInstruction(initialLocalValue, WarpIrOpCode.Constant));
         }
@@ -545,7 +576,7 @@ internal static class WarpIntegerMapCilVerifier
 
             foreach (ref int argument in arguments.AsSpan())
             {
-                int value = nextValue++;
+                int value = TakeValue(ref nextValue, admission);
                 argument = value;
                 parameters.Add(new WarpBlockParameter(value));
             }
@@ -557,7 +588,7 @@ internal static class WarpIntegerMapCilVerifier
                     continue;
                 }
 
-                int value = nextValue++;
+                int value = TakeValue(ref nextValue, admission);
                 locals[localIndex] = value;
                 parameters.Add(new WarpBlockParameter(value));
             }
@@ -565,7 +596,7 @@ internal static class WarpIntegerMapCilVerifier
             var stack = new int[shape.StackDepth];
             foreach (ref int stackValue in stack.AsSpan())
             {
-                int value = nextValue++;
+                int value = TakeValue(ref nextValue, admission);
                 stackValue = value;
                 parameters.Add(new WarpBlockParameter(value));
             }
@@ -585,6 +616,7 @@ internal static class WarpIntegerMapCilVerifier
             prologueState,
             entryShapes,
             parameterStates);
+        admission.AdmitLoweredInstructions(prologueInstructions.Count);
         var loweredBlocks = new List<WarpBasicBlock>(blocks.Count + 1)
         {
             new(
@@ -629,7 +661,7 @@ internal static class WarpIntegerMapCilVerifier
 
                 if (TryGetConstant(instruction, out uint constant))
                 {
-                    int result = nextValue++;
+                    int result = TakeValue(ref nextValue, admission);
                     loweredInstructions.Add(
                         new WarpIrInstruction(result, WarpIrOpCode.Constant, immediate: constant));
                     state.Stack.Add(result);
@@ -657,7 +689,7 @@ internal static class WarpIntegerMapCilVerifier
                 {
                     int right = Pop(state.Stack, offset);
                     int left = Pop(state.Stack, offset);
-                    int result = nextValue++;
+                    int result = TakeValue(ref nextValue, admission);
                     loweredInstructions.Add(new WarpIrInstruction(result, binary, left, right));
                     state.Stack.Add(result);
                     continue;
@@ -667,7 +699,7 @@ internal static class WarpIntegerMapCilVerifier
                 {
                     int right = Pop(state.Stack, offset);
                     int left = Pop(state.Stack, offset);
-                    int result = nextValue++;
+                    int result = TakeValue(ref nextValue, admission);
                     loweredInstructions.Add(new WarpIrInstruction(result, comparison, left, right));
                     state.Stack.Add(result);
                     continue;
@@ -682,7 +714,7 @@ internal static class WarpIntegerMapCilVerifier
                         arguments[argument] = Pop(state.Stack, offset);
                     }
 
-                    int result = nextValue++;
+                    int result = TakeValue(ref nextValue, admission);
                     loweredInstructions.Add(
                         new WarpIrInstruction(
                             result,
@@ -696,7 +728,7 @@ internal static class WarpIntegerMapCilVerifier
                 if (Is(opCode, OpCodes.Not))
                 {
                     int operand = Pop(state.Stack, offset);
-                    int result = nextValue++;
+                    int result = TakeValue(ref nextValue, admission);
                     loweredInstructions.Add(
                         new WarpIrInstruction(result, WarpIrOpCode.BitwiseNot, left: operand));
                     state.Stack.Add(result);
@@ -750,7 +782,7 @@ internal static class WarpIntegerMapCilVerifier
                             break;
                         }
 
-                        condition = nextValue++;
+                        condition = TakeValue(ref nextValue, admission);
                         loweredInstructions.Add(
                             new WarpIrInstruction(
                                 condition,
@@ -798,6 +830,7 @@ internal static class WarpIntegerMapCilVerifier
                     CreateTarget(fallthroughBlock, state, entryShapes, parameterStates));
             }
 
+            admission.AdmitLoweredInstructions(loweredInstructions.Count);
             loweredBlocks.Add(
                 new WarpBasicBlock(
                     blockId + 1,
@@ -807,6 +840,12 @@ internal static class WarpIntegerMapCilVerifier
         }
 
         return new LoweredBody(loweredBlocks);
+    }
+
+    private static int TakeValue(ref int nextValue, WarpCilCompilationAdmission admission)
+    {
+        admission.AdmitValue();
+        return nextValue++;
     }
 
     private static WarpBranchTarget CreateTarget(

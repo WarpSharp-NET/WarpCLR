@@ -11,6 +11,7 @@ internal static class WarpManifestParser
 
     public static WarpManifestData Parse(ReadOnlySpan<byte> json)
     {
+        WarpCompilationAdmission.Require("<manifest>", WarpCompilationResourceKind.ManifestBytes, json.Length, WarpCompilationAdmission.MaximumManifestBytes);
         try
         {
             using JsonDocument document = JsonDocument.Parse(json.ToArray());
@@ -112,6 +113,7 @@ internal static class WarpManifestParser
             throw Error("WRPCIL2001", "The manifest must contain at least one entry.");
         }
 
+        WarpCompilationAdmission.Require("<manifest>", WarpCompilationResourceKind.ManifestEntries, entryArray.GetArrayLength(), WarpCompilationAdmission.MaximumManifestEntries);
         var entries = new List<WarpManifestEntryData>(entryArray.GetArrayLength());
         var identities = new HashSet<string>(StringComparer.Ordinal);
         foreach (JsonElement entryElement in entryArray.EnumerateArray())
@@ -137,6 +139,7 @@ internal static class WarpManifestParser
             throw Error("WRPCIL2001", "A manifest entry must declare parameter roles.");
         }
 
+        WarpCompilationAdmission.Require("<manifest>", WarpCompilationResourceKind.Parameters, roleArray.GetArrayLength(), WarpCompilationAdmission.MaximumParametersPerBody);
         var roles = new List<WarpParameterRole>(roleArray.GetArrayLength());
         bool foundScalar = false;
         foreach (JsonElement roleElement in roleArray.EnumerateArray())

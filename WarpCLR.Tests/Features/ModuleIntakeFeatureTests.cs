@@ -5,18 +5,20 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Features;
 
 [TestClass]
-public sealed class ModuleIntakeFeatureTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class ModuleIntakeFeatureTests
 {
     [TestMethod]
     [FourBackends]
-    public void Embedded_manifest_compiles_without_loading_the_assembly(WarpBackendKind backend)
+    public void EmbeddedManifestCompilesWithoutLoadingTheAssembly(WarpBackendKind backend)
     {
         byte[] assemblyBytes = File.ReadAllBytes(typeof(TestKernels).Assembly.Location);
         WarpModuleCompilation module = new WarpBuildPipeline().CompileModule(assemblyBytes);
 
         Assert.HasCount(2, module.Module.Entries);
-        Assert.AreEqual("WarpCLR.Tests", module.Module.Producer);
-        Assert.AreEqual("0.1.0", module.Module.ProducerVersion);
+        Assert.AreEqual("WarpCLR.Tests", module.Module.Producer, StringComparer.Ordinal);
+        Assert.AreEqual("0.1.0", module.Module.ProducerVersion, StringComparer.Ordinal);
         Assert.AreEqual(64, module.Module.ManifestHash.Length);
         Assert.AreEqual(64, module.Module.AssemblyHash.Length);
 

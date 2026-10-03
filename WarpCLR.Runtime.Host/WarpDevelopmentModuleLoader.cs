@@ -38,26 +38,8 @@ public sealed class WarpDevelopmentModuleLoader
         {
             WarpControlFlowKernel expectedKernel = lowerer.Lower(entry.Kernel);
             string expectedIrHash = WarpIrHash.Compute(expectedKernel);
-            var entryArtifacts = new Dictionary<WarpBackendKind, WarpLoadedArtifact>();
-
-            foreach (WarpBackendKind backend in WarpBackendCatalog.Required)
-            {
-                if (!loadedArtifacts.TryGetValue((entry.Identity, backend), out WarpLoadedArtifact? artifact))
-                {
-                    throw Error(
-                        "WRPHOST1000",
-                        $"The AOT package is missing {backend} for entry '{entry.Identity}'.");
-                }
-
-                if (!string.Equals(artifact.Sidecar.IrHash, expectedIrHash, StringComparison.Ordinal))
-                {
-                    throw Error(
-                        "WRPHOST1000",
-                        $"The {backend} IR hash does not match entry '{entry.Identity}'.");
-                }
-
-                entryArtifacts.Add(backend, artifact);
-            }
+            Dictionary<WarpBackendKind, WarpLoadedArtifact> entryArtifacts =
+                LoadEntryArtifacts(loadedArtifacts, entry.Identity, expectedIrHash);
 
             WarpLoadedArtifact coreClrArtifact = entryArtifacts[WarpBackendKind.CoreCLR];
             byte[] expectedCoreCLRPlan = WarpCoreCLRPlanCodec.Serialize(expectedKernel);
@@ -85,6 +67,34 @@ public sealed class WarpDevelopmentModuleLoader
         }
 
         return new WarpLoadedModule(module.ManifestHash, module.AssemblyHash, loadedEntries);
+    }
+
+    private static Dictionary<WarpBackendKind, WarpLoadedArtifact> LoadEntryArtifacts(
+        Dictionary<(string Entry, WarpBackendKind Backend), WarpLoadedArtifact> loadedArtifacts,
+        string entryIdentity,
+        string expectedIrHash)
+    {
+        var entryArtifacts = new Dictionary<WarpBackendKind, WarpLoadedArtifact>();
+        foreach (WarpBackendKind backend in WarpBackendCatalog.Required)
+        {
+            if (!loadedArtifacts.TryGetValue((entryIdentity, backend), out WarpLoadedArtifact? artifact))
+            {
+                throw Error(
+                    "WRPHOST1000",
+                    $"The AOT package is missing {backend} for entry '{entryIdentity}'.");
+            }
+
+            if (!string.Equals(artifact.Sidecar.IrHash, expectedIrHash, StringComparison.Ordinal))
+            {
+                throw Error(
+                    "WRPHOST1000",
+                    $"The {backend} IR hash does not match entry '{entryIdentity}'.");
+            }
+
+            entryArtifacts.Add(backend, artifact);
+        }
+
+        return entryArtifacts;
     }
 
     private static Dictionary<(string Entry, WarpBackendKind Backend), WarpLoadedArtifact> ReadArtifacts(

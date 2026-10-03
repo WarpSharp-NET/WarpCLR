@@ -5,13 +5,15 @@ using WarpCLR.Sdk;
 namespace WarpCLR.Tests.Features;
 
 [TestClass]
-public sealed class HostDispatchFeatureTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class HostDispatchFeatureTests
 {
     private const string EntryIdentity = ManifestAssemblyFixture.MapEntryIdentity;
 
     [TestMethod]
     [FourBackends]
-    public void Explicit_emulation_dispatches_the_selected_backend(WarpBackendKind backend)
+    public void ExplicitEmulationDispatchesTheSelectedBackend(WarpBackendKind backend)
     {
         byte[] assembly = ManifestAssemblyFixture.ReadAssembly();
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(assembly);
@@ -49,7 +51,7 @@ public sealed class HostDispatchFeatureTests
 
     [TestMethod]
     [FourBackends]
-    public void Empty_dispatch_returns_an_empty_output(WarpBackendKind backend)
+    public void EmptyDispatchReturnsAnEmptyOutput(WarpBackendKind backend)
     {
         byte[] assembly = ManifestAssemblyFixture.ReadAssembly();
         WarpAotPackage package = new WarpBuildPipeline().CompilePackage(assembly);

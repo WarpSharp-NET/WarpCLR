@@ -7,32 +7,34 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Regressions;
 
 [TestClass]
-public sealed class VerifierRegressionTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class VerifierRegressionTests
 {
     [TestMethod]
     [FourBackends]
-    public void Division_is_rejected_for_every_target(WarpBackendKind backend)
+    public void DivisionIsRejectedForEveryTarget(WarpBackendKind backend)
     {
         WarpVerificationException exception = CompileRejected(nameof(TestKernels.Divide), 1, backend);
 
-        Assert.AreEqual("WRPCIL1001", exception.Code);
-        StringAssert.Contains(exception.Message, "div.un");
+        Assert.AreEqual("WRPCIL1001", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "div.un", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Recursive_calls_are_rejected_until_the_portable_stack_exists(
+    public void RecursiveCallsAreRejectedUntilThePortableStackExists(
         WarpBackendKind backend)
     {
         WarpVerificationException exception = CompileRejected(nameof(TestKernels.Recursive), 1, backend);
 
-        Assert.AreEqual("WRPCIL1014", exception.Code);
-        StringAssert.Contains(exception.Message, "portable logical stack");
+        Assert.AreEqual("WRPCIL1014", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "portable logical stack", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Calls_outside_the_closed_module_are_rejected_for_every_target(
+    public void CallsOutsideTheClosedModuleAreRejectedForEveryTarget(
         WarpBackendKind backend)
     {
         WarpVerificationException exception = CompileRejected(
@@ -40,33 +42,33 @@ public sealed class VerifierRegressionTests
             1,
             backend);
 
-        Assert.AreEqual("WRPCIL1013", exception.Code);
-        StringAssert.Contains(exception.Message, "closed module");
+        Assert.AreEqual("WRPCIL1013", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "closed module", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Invalid_signatures_are_rejected_for_every_target(WarpBackendKind backend)
+    public void InvalidSignaturesAreRejectedForEveryTarget(WarpBackendKind backend)
     {
         WarpVerificationException exception = CompileRejected(nameof(TestKernels.WrongParameter), 1, backend);
 
-        Assert.AreEqual("WRPCIL1000", exception.Code);
-        StringAssert.Contains(exception.Message, "System.UInt32");
+        Assert.AreEqual("WRPCIL1000", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "System.UInt32", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Floating_point_is_rejected_for_every_target(WarpBackendKind backend)
+    public void FloatingPointIsRejectedForEveryTarget(WarpBackendKind backend)
     {
         WarpVerificationException exception = CompileRejected(nameof(TestKernels.FloatingPoint), 1, backend);
 
-        Assert.AreEqual("WRPCIL1000", exception.Code);
-        StringAssert.Contains(exception.Message, "System.UInt32");
+        Assert.AreEqual("WRPCIL1000", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "System.UInt32", StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void Branch_merges_require_identical_stack_depths(WarpBackendKind backend)
+    public void BranchMergesRequireIdenticalStackDepths(WarpBackendKind backend)
     {
         Assert.IsTrue(WarpBackendCatalog.Required.Contains(backend));
         byte[] il =
@@ -91,8 +93,8 @@ public sealed class VerifierRegressionTests
                     localCount: 0,
                     il: il)));
 
-        Assert.AreEqual("WRPCIL1002", exception.Code);
-        StringAssert.Contains(exception.Message, "different stack depths");
+        Assert.AreEqual("WRPCIL1002", exception.Code, StringComparer.Ordinal);
+        StringAssert.Contains(exception.Message, "different stack depths", StringComparison.Ordinal);
     }
 
     private static WarpVerificationException CompileRejected(

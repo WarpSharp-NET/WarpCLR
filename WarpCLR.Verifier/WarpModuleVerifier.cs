@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
@@ -17,13 +18,23 @@ public sealed class WarpModuleVerifier
     public WarpVerifiedModule Verify(string assemblyPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(assemblyPath);
-        return Verify(File.ReadAllBytes(assemblyPath));
+        using FileStream stream = File.OpenRead(assemblyPath);
+        WarpCompilationAdmission.Require("<module>", WarpCompilationResourceKind.AssemblyBytes, stream.Length, WarpCompilationAdmission.MaximumAssemblyBytes);
+        byte[] snapshot = new byte[checked((int)stream.Length)];
+        stream.ReadExactly(snapshot);
+        if (stream.ReadByte() != -1)
+        {
+            throw new IOException("The assembly grew during bounded module intake; supply a stable assembly snapshot.");
+        }
+
+        return Verify(snapshot);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the verifier service's existing instance invocation contract used by friend compiler assemblies.")]
     internal IReadOnlyDictionary<string, string> ComputeGraphHashes(
         ReadOnlyMemory<byte> assemblyBytes)
     {
+        WarpCompilationAdmission.Require("<module>", WarpCompilationResourceKind.AssemblyBytes, assemblyBytes.Length, WarpCompilationAdmission.MaximumAssemblyBytes);
         if (assemblyBytes.IsEmpty)
         {
             throw new ArgumentException("The assembly cannot be empty.", nameof(assemblyBytes));
@@ -37,25 +48,27 @@ public sealed class WarpModuleVerifier
         }
 
         MetadataReader metadata = peReader.GetMetadataReader();
+        WarpInitializationAdmission.RequireModule(metadata);
         string manifestJson = ReadEmbeddedManifest(metadata);
         WarpManifestData manifest = WarpManifestParser.Parse(Encoding.UTF8.GetBytes(manifestJson));
         ValidateCapabilities(manifest);
 
+        var admission = new WarpModuleCompilationAdmission();
         var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (WarpManifestEntryData entry in manifest.Entries)
         {
             MethodDefinitionHandle methodHandle = FindMethod(metadata, entry);
             MethodDefinition method = metadata.GetMethodDefinition(methodHandle);
-            MethodSignature<WarpMetadataType> signature = method.DecodeSignature(
-                new WarpMetadataTypeProvider(),
-                genericContext: null);
+            WarpInitializationAdmission.RequireMethod(metadata, method, $"{entry.Type}.{entry.Method}");
+            MethodSignature<WarpMetadataType> signature = WarpMetadataCompilationAdmission.ReadMethodSignature(metadata, method, $"{entry.Type}.{entry.Method}");
             ValidateSignature(method, signature, entry);
             string identity = $"{entry.Type}.{entry.Method}";
             MetadataMethodGraph graph = BuildMethodGraph(
                 peReader,
                 metadata,
                 methodHandle,
-                identity);
+                identity,
+                admission);
             hashes.Add(identity, ComputeGraphHash(graph.Methods));
         }
 
@@ -65,6 +78,7 @@ public sealed class WarpModuleVerifier
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the maintained public verifier instance API; changing this member to static would break compiled callers.")]
     public WarpVerifiedModule Verify(ReadOnlyMemory<byte> assemblyBytes)
     {
+        WarpCompilationAdmission.Require("<module>", WarpCompilationResourceKind.AssemblyBytes, assemblyBytes.Length, WarpCompilationAdmission.MaximumAssemblyBytes);
         if (assemblyBytes.IsEmpty)
         {
             throw new ArgumentException("The assembly cannot be empty.", nameof(assemblyBytes));
@@ -81,6 +95,7 @@ public sealed class WarpModuleVerifier
             }
 
             MetadataReader metadata = peReader.GetMetadataReader();
+            WarpInitializationAdmission.RequireModule(metadata);
             if (!metadata.IsAssembly)
             {
                 throw Error("WRPCIL2000", "The input metadata does not define an assembly.");
@@ -91,10 +106,11 @@ public sealed class WarpModuleVerifier
             WarpManifestData manifest = WarpManifestParser.Parse(manifestBytes);
             ValidateCapabilities(manifest);
 
+            var admission = new WarpModuleCompilationAdmission();
             var entries = new List<WarpVerifiedEntry>(manifest.Entries.Count);
             foreach (WarpManifestEntryData entry in manifest.Entries)
             {
-                entries.Add(VerifyEntry(peReader, metadata, entry));
+                entries.Add(VerifyEntry(peReader, metadata, entry, admission));
             }
 
             return new WarpVerifiedModule(
@@ -117,13 +133,13 @@ public sealed class WarpModuleVerifier
     private static WarpVerifiedEntry VerifyEntry(
         PEReader peReader,
         MetadataReader metadata,
-        WarpManifestEntryData entry)
+        WarpManifestEntryData entry,
+        WarpModuleCompilationAdmission admission)
     {
         MethodDefinitionHandle methodHandle = FindMethod(metadata, entry);
         MethodDefinition method = metadata.GetMethodDefinition(methodHandle);
-        MethodSignature<WarpMetadataType> signature = method.DecodeSignature(
-            new WarpMetadataTypeProvider(),
-            genericContext: null);
+        WarpInitializationAdmission.RequireMethod(metadata, method, $"{entry.Type}.{entry.Method}");
+        MethodSignature<WarpMetadataType> signature = WarpMetadataCompilationAdmission.ReadMethodSignature(metadata, method, $"{entry.Type}.{entry.Method}");
 
         ValidateSignature(method, signature, entry);
         string identity = $"{entry.Type}.{entry.Method}";
@@ -131,7 +147,8 @@ public sealed class WarpModuleVerifier
             peReader,
             metadata,
             methodHandle,
-            identity);
+            identity,
+            admission);
         string actualGraphHash = ComputeGraphHash(graph.Methods);
         if (!string.Equals(entry.GraphHash, actualGraphHash, StringComparison.Ordinal))
         {
@@ -165,8 +182,10 @@ public sealed class WarpModuleVerifier
                         node.Il,
                         localsInitialized: node.LocalsInitialized,
                         callTargets: node.CallTargets))
-                .ToArray());
+                .ToArray(),
+            admission);
 
+        admission.AdmitKernel(kernel.ControlFlow);
         return new WarpVerifiedEntry(
             identity,
             actualGraphHash,
@@ -215,13 +234,15 @@ public sealed class WarpModuleVerifier
         PEReader peReader,
         MetadataReader metadata,
         MethodDefinitionHandle entryHandle,
-        string entryIdentity)
+        string entryIdentity,
+        WarpModuleCompilationAdmission moduleAdmission)
     {
         var order = new List<MethodDefinitionHandle> { entryHandle };
         var functionIds = new Dictionary<MethodDefinitionHandle, int>();
         var drafts = new Dictionary<MethodDefinitionHandle, MetadataMethodDraft>();
         var visiting = new HashSet<MethodDefinitionHandle>();
         var visited = new HashSet<MethodDefinitionHandle>();
+        var admission = new WarpCilCompilationAdmission(entryIdentity, moduleAdmission);
 
         Visit(entryHandle, entryIdentity, isEntry: true);
         MetadataMethodNode[] methods = order
@@ -247,10 +268,10 @@ public sealed class WarpModuleVerifier
                     "Recursion requires the portable logical stack.");
             }
 
-            MetadataMethodDraft draft = CreateMethodDraft(peReader, metadata, handle, identity, isEntry);
+            MetadataMethodDraft draft = CreateMethodDraft(peReader, metadata, handle, identity, isEntry, admission);
             drafts.Add(handle, draft);
 
-            foreach (int token in WarpIntegerMapCilVerifier.ReadCallTokens(draft.Il).Distinct())
+            foreach (int token in ReadAdmittedCallTokens(draft, admission))
             {
                 MethodDefinitionHandle targetHandle = ResolveCallHandle(token, identity);
                 (string targetIdentity, int parameterCount) = ReadClosedCallSignature(metadata, targetHandle);
@@ -277,13 +298,20 @@ public sealed class WarpModuleVerifier
         }
     }
 
+    private static IEnumerable<int> ReadAdmittedCallTokens(MetadataMethodDraft draft, WarpCilCompilationAdmission admission)
+    {
+        IReadOnlyList<int> tokens = WarpIntegerMapCilVerifier.ReadCallTokens(draft.Il, draft.Identity, out int instructionCount);
+        admission.AdmitDecodedInstructions(instructionCount);
+        return tokens.Distinct();
+    }
+
     private static (string Identity, int ParameterCount) ReadClosedCallSignature(
         MetadataReader metadata,
         MethodDefinitionHandle handle)
     {
         MethodDefinition definition = metadata.GetMethodDefinition(handle);
-        MethodSignature<WarpMetadataType> signature = definition.DecodeSignature(
-            new WarpMetadataTypeProvider(), genericContext: null);
+        WarpInitializationAdmission.RequireMethod(metadata, definition, "<closed-method>");
+        MethodSignature<WarpMetadataType> signature = WarpMetadataCompilationAdmission.ReadMethodSignature(metadata, definition, "<closed-method>");
         string identity = GetMethodIdentity(metadata, handle, signature.ParameterTypes.Length);
         ValidateClosedFunction(definition, signature, identity);
         return (identity, signature.ParameterTypes.Length);
@@ -309,12 +337,12 @@ public sealed class WarpModuleVerifier
         MetadataReader metadata,
         MethodDefinitionHandle handle,
         string identity,
-        bool isEntry)
+        bool isEntry,
+        WarpCilCompilationAdmission admission)
     {
         MethodDefinition definition = metadata.GetMethodDefinition(handle);
-        MethodSignature<WarpMetadataType> signature = definition.DecodeSignature(
-            new WarpMetadataTypeProvider(),
-            genericContext: null);
+        WarpInitializationAdmission.RequireMethod(metadata, definition, identity);
+        MethodSignature<WarpMetadataType> signature = WarpMetadataCompilationAdmission.ReadMethodSignature(metadata, definition, identity);
         ValidateDeclaringType(metadata, definition, identity);
         if (!isEntry)
         {
@@ -326,13 +354,14 @@ public sealed class WarpModuleVerifier
             throw MethodError(identity, "The method does not have a CIL body.");
         }
 
-        MethodBodyBlock body = peReader.GetMethodBody(definition.RelativeVirtualAddress);
+        MethodBodyBlock body = WarpMetadataCompilationAdmission.ReadMethodBody(peReader, definition.RelativeVirtualAddress, identity);
         if (body.ExceptionRegions.Length != 0)
         {
             throw MethodError(identity, "Exception regions are outside the integer map profile.");
         }
 
         int localCount = ValidateLocals(metadata, body, identity);
+        admission.AdmitMethod(identity, signature.ParameterTypes.Length, body.MaxStack, localCount, body.GetILReader().Length, isEntry);
         byte[] il = body.GetILBytes()
             ?? throw MethodError(identity, "The method does not contain CIL bytes.");
         return new MetadataMethodDraft(
@@ -424,10 +453,14 @@ public sealed class WarpModuleVerifier
         TypeDefinition type = metadata.GetTypeDefinition(method.GetDeclaringType());
         string typeName = metadata.GetString(type.Name);
         string typeNamespace = metadata.GetString(type.Namespace);
+        string methodName = metadata.GetString(method.Name);
+        WarpCompilationAdmission.Require("<metadata-method>", WarpCompilationResourceKind.IdentityCharacters,
+            typeName.Length + (long)typeNamespace.Length + methodName.Length + (string.IsNullOrEmpty(typeNamespace) ? 0 : 1) +
+            2 + parameterCount.ToString(CultureInfo.InvariantCulture).Length, WarpCompilationAdmission.MaximumIdentityCharacters);
         string declaringType = string.IsNullOrEmpty(typeNamespace)
             ? typeName
             : $"{typeNamespace}.{typeName}";
-        return $"{declaringType}.{metadata.GetString(method.Name)}/{parameterCount}";
+        return $"{declaringType}.{methodName}/{parameterCount}";
     }
 
     private static int ValidateLocals(
@@ -441,9 +474,7 @@ public sealed class WarpModuleVerifier
         }
 
         StandaloneSignature localSignature = metadata.GetStandaloneSignature(body.LocalSignature);
-        ImmutableArray<WarpMetadataType> locals = localSignature.DecodeLocalSignature(
-            new WarpMetadataTypeProvider(),
-            genericContext: null);
+        ImmutableArray<WarpMetadataType> locals = WarpMetadataCompilationAdmission.ReadLocalSignature(metadata, localSignature, identity);
         if (locals.Any(
                 type => type is not WarpMetadataType.UInt32 and
                     not WarpMetadataType.Boolean))
@@ -472,6 +503,8 @@ public sealed class WarpModuleVerifier
             TypeDefinition type = metadata.GetTypeDefinition(typeHandle);
             string typeName = metadata.GetString(type.Name);
             string typeNamespace = metadata.GetString(type.Namespace);
+            WarpCompilationAdmission.Require("<metadata-type>", WarpCompilationResourceKind.IdentityCharacters,
+                typeName.Length + (long)typeNamespace.Length + (string.IsNullOrEmpty(typeNamespace) ? 0 : 1), WarpCompilationAdmission.MaximumIdentityCharacters);
             string identity = string.IsNullOrEmpty(typeNamespace)
                 ? typeName
                 : $"{typeNamespace}.{typeName}";
@@ -538,6 +571,8 @@ public sealed class WarpModuleVerifier
 
             manifest = value
                 ?? throw Error("WRPCIL2000", "The WarpCIL manifest value cannot be null.");
+            WarpCompilationAdmission.Require("<manifest>", WarpCompilationResourceKind.ManifestBytes,
+                Encoding.UTF8.GetByteCount(manifest), WarpCompilationAdmission.MaximumManifestBytes);
         }
 
         return manifest

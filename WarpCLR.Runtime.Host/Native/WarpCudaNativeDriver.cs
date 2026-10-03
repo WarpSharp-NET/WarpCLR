@@ -185,13 +185,13 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
                 owner.EnsureUsable();
                 ObjectDisposedException.ThrowIf(released, this);
                 using var scope = owner.EnterContext();
-                var execution = new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase,
-                    maximumCallDepth, CreateOperations(function));
-                var bound = new WarpBoundNativeMachineExecution(execution,
+                var bound = new WarpBoundNativeMachineExecution(
+                    () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase,
+                        maximumCallDepth, CreateOperations(function)),
                     action => WithContext(action, checkFault: true), action => WithContext(action, checkFault: false),
                     item => executions.Remove(item));
-                executions.Add(bound);
-                return bound;
+                try { executions.Add(bound); return bound; }
+                catch { bound.Dispose(); throw; }
             }
         }
 
@@ -207,18 +207,16 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
 
         private WarpMachineMemoryOperations CreateOperations(IntPtr entry)
         {
-        return new WarpMachineMemoryOperations(
-            bytes => { Check(owner.api.MemoryAllocate(out ulong pointer, bytes), "cuMemAlloc(state)"); return pointer; },
-            (destination, source, bytes) => Check(owner.api.CopyHostToDevice(destination, source, bytes), "cuMemcpyHtoD(state)"),
-            (destination, source, bytes) => Check(owner.api.CopyDeviceToHost(destination, source, bytes), "cuMemcpyDtoH(state)"),
-            (arguments, grid, block) => Check(owner.api.LaunchKernel(entry, grid, 1, 1, block, 1, 1, 0,
-                IntPtr.Zero, arguments, IntPtr.Zero), "cuLaunchKernel(resume)"),
-            () => Check(owner.api.ContextSynchronize(), "cuCtxSynchronize(resume)"),
-            pointer => { owner.api.MemoryFree(pointer); },
-            () => owner.faulted = true);
+            return new WarpMachineMemoryOperations(
+                bytes => { Check(owner.api.MemoryAllocate(out ulong pointer, bytes), "cuMemAlloc(state)"); return pointer; },
+                (destination, source, bytes) => Check(owner.api.CopyHostToDevice(destination, source, bytes), "cuMemcpyHtoD(state)"),
+                (destination, source, bytes) => Check(owner.api.CopyDeviceToHost(destination, source, bytes), "cuMemcpyDtoH(state)"),
+                (arguments, grid, block) => Check(owner.api.LaunchKernel(entry, grid, 1, 1, block, 1, 1, 0,
+                    IntPtr.Zero, arguments, IntPtr.Zero), "cuLaunchKernel(resume)"),
+                () => Check(owner.api.ContextSynchronize(), "cuCtxSynchronize(resume)"),
+                pointer => { owner.api.MemoryFree(pointer); },
+                () => owner.faulted = true);
         }
-
-
 
         public uint ReduceUInt32(uint[] values, WarpReductionOperation operation, CancellationToken cancellationToken = default)
         {
@@ -251,7 +249,7 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
         {
             ArgumentNullException.ThrowIfNull(scalars);
             Image.ValidateArguments(inputs, scalars, reduction);
-            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction);
+            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction, scalars.Count);
             lock (owner.gate)
             {
                 owner.EnsureUsable();
@@ -295,17 +293,17 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
 
         private List<ulong> UploadInputs(IReadOnlyList<uint[]> inputs, int itemCount, List<ulong> allocations, CancellationToken cancellationToken)
         {
-        var inputPointers = new List<ulong>(inputs.Count);
-        foreach (uint[] input in inputs)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
-            Check(owner.api.MemoryAllocate(out ulong pointer, bytes), "cuMemAlloc");
-            allocations.Add(pointer);
-            inputPointers.Add(pointer);
-            using var pin = new WarpPinnedUInt32((uint[])input.Clone());
-            if (itemCount > 0) { Check(owner.api.CopyHostToDevice(pointer, pin.Pointer, bytes), "cuMemcpyHtoD"); }
-        }
+            var inputPointers = new List<ulong>(inputs.Count);
+            foreach (uint[] input in inputs)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
+                Check(owner.api.MemoryAllocate(out ulong pointer, bytes), "cuMemAlloc");
+                allocations.Add(pointer);
+                inputPointers.Add(pointer);
+                using var pin = new WarpPinnedUInt32((uint[])input.Clone());
+                if (itemCount > 0) { Check(owner.api.CopyHostToDevice(pointer, pin.Pointer, bytes), "cuMemcpyHtoD"); }
+            }
 
             return inputPointers;
         }
@@ -315,7 +313,7 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
             lock (owner.gate)
             {
                 if (released) { return; }
-                owner.EnsureUsable();
+                ObjectDisposedException.ThrowIf(owner.disposed, owner);
                 using var scope = owner.EnterContext();
                 Release();
             }

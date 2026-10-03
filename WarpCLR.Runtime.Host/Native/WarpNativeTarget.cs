@@ -15,7 +15,8 @@ internal sealed record WarpNativeTarget
         string runtimeIdentity,
         uint maxWorkgroupSize,
         uint maxGridX,
-        ulong globalMemoryBytes)
+        ulong globalMemoryBytes,
+        uint maximumKernelArgumentBytes = 4096)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(architecture);
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceIdentity);
@@ -43,6 +44,8 @@ internal sealed record WarpNativeTarget
             throw new ArgumentOutOfRangeException(nameof(maxWorkgroupSize), "Device resource limits must be positive.");
         }
 
+        ArgumentOutOfRangeException.ThrowIfZero(maximumKernelArgumentBytes);
+
         Backend = backend;
         Architecture = architecture;
         DeviceIdentity = deviceIdentity;
@@ -50,11 +53,13 @@ internal sealed record WarpNativeTarget
         MaxWorkgroupSize = maxWorkgroupSize;
         MaxGridX = maxGridX;
         GlobalMemoryBytes = globalMemoryBytes;
+        MaximumKernelArgumentBytes = maximumKernelArgumentBytes;
         CacheIdentity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             string.Join('\n', backend, architecture, deviceIdentity, runtimeIdentity,
                 maxWorkgroupSize.ToString(CultureInfo.InvariantCulture),
                 maxGridX.ToString(CultureInfo.InvariantCulture),
-                globalMemoryBytes.ToString(CultureInfo.InvariantCulture)))));
+                globalMemoryBytes.ToString(CultureInfo.InvariantCulture),
+                maximumKernelArgumentBytes.ToString(CultureInfo.InvariantCulture)))));
     }
 
     public WarpBackendKind Backend { get; }
@@ -64,5 +69,6 @@ internal sealed record WarpNativeTarget
     public uint MaxWorkgroupSize { get; }
     public uint MaxGridX { get; }
     public ulong GlobalMemoryBytes { get; }
+    public uint MaximumKernelArgumentBytes { get; }
     public string CacheIdentity { get; }
 }

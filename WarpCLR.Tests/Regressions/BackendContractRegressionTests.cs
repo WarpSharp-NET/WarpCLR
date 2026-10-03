@@ -12,11 +12,14 @@ using WarpCLR.Verifier;
 namespace WarpCLR.Tests.Regressions;
 
 [TestClass]
-public sealed class BackendContractRegressionTests
+[global::System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes",
+    Justification = "MSTest creates this internal fixture through reflected discovery.")]
+internal sealed class BackendContractRegressionTests
 {
+    private static readonly uint[][] MismatchedInputs = [[1u], [2u, 3u]];
     [TestMethod]
     [FourBackends]
-    public void A_missing_backend_prevents_compilation(WarpBackendKind backend)
+    public void AMissingBackendPreventsCompilation(WarpBackendKind backend)
     {
         WarpIntegerMapKernel verifiedKernel = VerifyCombine();
         IWarpBackendCompiler[] compilers = CreateCompilers()
@@ -26,12 +29,12 @@ public sealed class BackendContractRegressionTests
         InvalidOperationException exception = Assert.ThrowsExactly<InvalidOperationException>(
             () => new WarpCompiler().Compile(verifiedKernel, compilers));
 
-        StringAssert.Contains(exception.Message, backend.ToString());
+        StringAssert.Contains(exception.Message, backend.ToString(), StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void A_backend_with_a_smaller_feature_set_prevents_compilation(
+    public void ABackendWithASmallerFeatureSetPreventsCompilation(
         WarpBackendKind backend)
     {
         WarpIntegerMapKernel verifiedKernel = VerifyCombine();
@@ -51,13 +54,13 @@ public sealed class BackendContractRegressionTests
         InvalidOperationException exception = Assert.ThrowsExactly<InvalidOperationException>(
             () => new WarpCompiler().Compile(verifiedKernel, compilers));
 
-        StringAssert.Contains(exception.Message, backend.ToString());
-        StringAssert.Contains(exception.Message, nameof(WarpIrOpCode.Multiply));
+        StringAssert.Contains(exception.Message, backend.ToString(), StringComparison.Ordinal);
+        StringAssert.Contains(exception.Message, nameof(WarpIrOpCode.Multiply), StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void A_backend_without_ssa_block_arguments_prevents_compilation(
+    public void ABackendWithoutSsaBlockArgumentsPreventsCompilation(
         WarpBackendKind backend)
     {
         WarpIntegerMapKernel verifiedKernel = VerifyCombine();
@@ -77,13 +80,13 @@ public sealed class BackendContractRegressionTests
         InvalidOperationException exception = Assert.ThrowsExactly<InvalidOperationException>(
             () => new WarpCompiler().Compile(verifiedKernel, compilers));
 
-        StringAssert.Contains(exception.Message, backend.ToString());
-        StringAssert.Contains(exception.Message, nameof(WarpControlFlowOperation.BlockArguments));
+        StringAssert.Contains(exception.Message, backend.ToString(), StringComparison.Ordinal);
+        StringAssert.Contains(exception.Message, nameof(WarpControlFlowOperation.BlockArguments), StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void An_artifact_cannot_use_another_backend_format(WarpBackendKind backend)
+    public void AnArtifactCannotUseAnotherBackendFormat(WarpBackendKind backend)
     {
         WarpArtifactFormat required = WarpArtifactFormatCatalog.ForBackend(backend);
         WarpArtifactFormat wrong = Enum.GetValues<WarpArtifactFormat>()
@@ -96,12 +99,12 @@ public sealed class BackendContractRegressionTests
                 WarpDeviceAbi.IntegerMapEntryPoint,
                 Encoding.UTF8.GetBytes("invalid")));
 
-        StringAssert.Contains(exception.Message, backend.ToString());
+        StringAssert.Contains(exception.Message, backend.ToString(), StringComparison.Ordinal);
     }
 
     [TestMethod]
     [FourBackends]
-    public void A_shared_expression_is_lowered_once(WarpBackendKind backend)
+    public void ASharedExpressionIsLoweredOnce(WarpBackendKind backend)
     {
         var controlFlow = new WarpControlFlowKernel(
             "shared",
@@ -139,7 +142,7 @@ public sealed class BackendContractRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Backend_artifacts_are_deterministic(WarpBackendKind backend)
+    public void BackendArtifactsAreDeterministic(WarpBackendKind backend)
     {
         MethodInfo method = typeof(TestKernels).GetMethod(
             nameof(TestKernels.Combine),
@@ -155,7 +158,7 @@ public sealed class BackendContractRegressionTests
 
     [TestMethod]
     [FourBackends]
-    public void Mismatched_input_lengths_are_rejected(WarpBackendKind backend)
+    public void MismatchedInputLengthsAreRejected(WarpBackendKind backend)
     {
         WarpIntegerMapKernel verifiedKernel = VerifyCombine();
         WarpCompilation compilation = new WarpCompiler().Compile(verifiedKernel, CreateCompilers());
@@ -164,10 +167,10 @@ public sealed class BackendContractRegressionTests
             () => new WarpIntegerMapSemanticEmulator().Execute(
                 compilation.Artifacts[backend],
                 compilation.Kernel,
-                [new uint[] { 1u }, new uint[] { 2u, 3u }],
+                MismatchedInputs,
                 [4u, 5u]));
 
-        StringAssert.Contains(exception.Message, "same length");
+        StringAssert.Contains(exception.Message, "same length", StringComparison.Ordinal);
     }
 
     private static WarpIntegerMapKernel VerifyCombine()
