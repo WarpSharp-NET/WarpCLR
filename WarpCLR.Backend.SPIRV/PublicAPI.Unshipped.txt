@@ -1,1 +1,6 @@
 #nullable enable
+WarpCLR.Backend.SPIRV.SPIRVBackendCompiler
+WarpCLR.Backend.SPIRV.SPIRVBackendCompiler.Backend.get -> WarpCLR.IR.WarpBackendKind
+WarpCLR.Backend.SPIRV.SPIRVBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
+WarpCLR.Backend.SPIRV.SPIRVBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!
+WarpCLR.Backend.SPIRV.SPIRVBackendCompiler.SPIRVBackendCompiler() -> void

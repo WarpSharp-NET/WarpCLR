@@ -74,11 +74,20 @@ public sealed class WarpLogicalMachineLayout
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSteps);
         uint[] state = new uint[GetStateWords(maximumCallDepth)];
+        ResetState(state, maximumSteps);
+        return state;
+    }
+
+    public void ResetState(Span<uint> state, long maximumSteps)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSteps);
+        ArgumentOutOfRangeException.ThrowIfLessThan(state.Length, HeaderWords + FrameWords, nameof(state));
+        state[..HeaderWords].Clear();
+        state.Slice(HeaderWords, FrameHeaderWords).Clear();
         state[RemainingStepsLowOffset] = unchecked((uint)maximumSteps);
         state[RemainingStepsHighOffset] = (uint)((ulong)maximumSteps >> 32);
         state[DepthOffset] = 1;
         state[HeaderWords + FrameProgramCounterOffset] = checked((uint)GetBlockEntry(0, 0));
-        return state;
     }
 
     private static void AppendBody(int function, IReadOnlyList<WarpBasicBlock> blocks, Dictionary<(int Function, int Block), int> entries, List<WarpLogicalMachineNode> nodes)

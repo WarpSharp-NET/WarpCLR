@@ -67,16 +67,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         int addressRegisterCount = addressRegister + 1;
 
         StringBuilder ptx = CreateEntryHeader(kernel, WarpDeviceAbi.IntegerMapEntryPoint, registerCount, addressRegisterCount);
-        ptx.AppendLine("    mov.u32 %r0, %tid.x;");
-        ptx.AppendLine("    mov.u32 %r1, %ctaid.x;");
-        ptx.AppendLine("    mov.u32 %r2, %ntid.x;");
-        ptx.AppendLine("    mad.lo.u32 %r3, %r1, %r2, %r0;");
-        ptx.AppendLine("    ld.param.u32 %r4, [warp_count];");
-        ptx.AppendLine("    setp.ge.u32 %p0, %r3, %r4;");
-        ptx.AppendLine("    @%p0 bra warp_done;");
-        ptx.AppendLine();
-        ptx.AppendLine("    mul.wide.u32 %rd0, %r3, 4;");
-        ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
+        AppendMapEntry(ptx);
 
         AppendInputBases(ptx, kernel.InputBufferCount, firstInputBaseRegister);
 
@@ -155,22 +146,7 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
             copyTemporaryRegister,
             "warp",
             "warp_kernel_return");
-        ptx.AppendLine("warp_kernel_return:");
-        AppendReduction(
-            ptx,
-            operation,
-            accumulatorRegister,
-            kernelResultRegister);
-        ptx.AppendLine("    add.u32 %r3, %r3, 1;");
-        ptx.AppendLine("    bra warp_reduce_loop;");
-        ptx.AppendLine();
-        ptx.AppendLine("warp_reduce_store:");
-        ptx.Append("    st.global.u32 [%rd1], %r")
-            .Append(Invariant(accumulatorRegister))
-            .AppendLine(";");
-        ptx.AppendLine("warp_reduce_done:");
-        ptx.AppendLine("    ret;");
-        ptx.AppendLine("}");
+        AppendReductionTail(ptx, operation, accumulatorRegister, kernelResultRegister);
 
         return new WarpBackendArtifact(
             Backend,
@@ -223,6 +199,20 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
 
     }
 
+    private static void AppendMapEntry(StringBuilder ptx)
+    {
+        ptx.AppendLine("    mov.u32 %r0, %tid.x;");
+        ptx.AppendLine("    mov.u32 %r1, %ctaid.x;");
+        ptx.AppendLine("    mov.u32 %r2, %ntid.x;");
+        ptx.AppendLine("    mad.lo.u32 %r3, %r1, %r2, %r0;");
+        ptx.AppendLine("    ld.param.u32 %r4, [warp_count];");
+        ptx.AppendLine("    setp.ge.u32 %p0, %r3, %r4;");
+        ptx.AppendLine("    @%p0 bra warp_done;");
+        ptx.AppendLine();
+        ptx.AppendLine("    mul.wide.u32 %rd0, %r3, 4;");
+        ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
+    }
+
     private static void AppendReductionEntry(StringBuilder ptx)
     {
         ptx.AppendLine("    mov.u32 %r0, %tid.x;");
@@ -233,6 +223,30 @@ public sealed class NVPTXBackendCompiler : IWarpBackendCompiler
         ptx.AppendLine("    @%p0 bra warp_reduce_done;");
         ptx.AppendLine("    ld.param.u32 %r4, [warp_count];");
         ptx.AppendLine("    ld.param.u64 %rd1, [warp_output];");
+    }
+
+    private static void AppendReductionTail(
+        StringBuilder ptx,
+        WarpReductionOperation operation,
+        int accumulatorRegister,
+        int kernelResultRegister)
+    {
+        ptx.AppendLine("warp_kernel_return:");
+        AppendReduction(
+            ptx,
+            operation,
+            accumulatorRegister,
+            kernelResultRegister);
+        ptx.AppendLine("    add.u32 %r3, %r3, 1;");
+        ptx.AppendLine("    bra warp_reduce_loop;");
+        ptx.AppendLine();
+        ptx.AppendLine("warp_reduce_store:");
+        ptx.Append("    st.global.u32 [%rd1], %r")
+            .Append(Invariant(accumulatorRegister))
+            .AppendLine(";");
+        ptx.AppendLine("warp_reduce_done:");
+        ptx.AppendLine("    ret;");
+        ptx.AppendLine("}");
     }
 
     private static void AppendReduction(

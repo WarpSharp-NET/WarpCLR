@@ -18,6 +18,8 @@ public sealed record WarpRuntimeOptions
 
     public int MaximumResidentWorkers { get; init; } = 256;
 
+    public WarpNativeRuntimeOptions Native { get; init; } = new();
+
     internal void Validate()
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumBufferBytes);
@@ -28,37 +30,7 @@ public sealed record WarpRuntimeOptions
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumConcurrentDispatches);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ExecutionQuantum);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumResidentWorkers);
+        ArgumentNullException.ThrowIfNull(Native);
+        Native.Validate();
     }
-}
-
-public enum WarpRuntimeContextState
-{
-    Ready,
-    Faulted,
-    Disposing,
-    Disposed,
-}
-
-public enum WarpRuntimeFaultKind
-{
-    StepLimit,
-    CallDepth,
-    RuntimeFailure,
-}
-
-public sealed class WarpRuntimeFaultException : Exception
-{
-    internal WarpRuntimeFaultException(string entryIdentity, int workerIndex, WarpRuntimeFaultKind kind, Exception innerException)
-        : base($"Entry '{entryIdentity}' failed at logical worker {workerIndex}: {kind}.", innerException)
-    {
-        EntryIdentity = entryIdentity;
-        WorkerIndex = workerIndex;
-        Kind = kind;
-    }
-
-    public string EntryIdentity { get; }
-
-    public int WorkerIndex { get; }
-
-    public WarpRuntimeFaultKind Kind { get; }
 }

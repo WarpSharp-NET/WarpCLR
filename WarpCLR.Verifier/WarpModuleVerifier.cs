@@ -253,20 +253,8 @@ public sealed class WarpModuleVerifier
             foreach (int token in WarpIntegerMapCilVerifier.ReadCallTokens(draft.Il).Distinct())
             {
                 MethodDefinitionHandle targetHandle = ResolveCallHandle(token, identity);
-                MethodDefinition targetDefinition = metadata.GetMethodDefinition(targetHandle);
-                MethodSignature<WarpMetadataType> targetSignature = targetDefinition.DecodeSignature(
-                    new WarpMetadataTypeProvider(),
-                    genericContext: null);
-                string targetIdentity = GetMethodIdentity(metadata, targetHandle, targetSignature.ParameterTypes.Length);
-                ValidateClosedFunction(targetDefinition, targetSignature, targetIdentity);
-
-                if (visiting.Contains(targetHandle))
-                {
-                    throw Error(
-                        "WRPCIL1014",
-                        $"Call from '{identity}' to '{targetIdentity}' is recursive. " +
-                        "Recursion requires the portable logical stack.");
-                }
+                (string targetIdentity, int parameterCount) = ReadClosedCallSignature(metadata, targetHandle);
+                RequireAcyclicCall(visiting, targetHandle, identity, targetIdentity);
 
                 if (!functionIds.TryGetValue(targetHandle, out int functionId))
                 {
@@ -279,13 +267,40 @@ public sealed class WarpModuleVerifier
                     token,
                     new WarpCilCallTarget(
                         functionId,
-                        targetSignature.ParameterTypes.Length,
+                        parameterCount,
                         targetIdentity));
                 Visit(targetHandle, targetIdentity, isEntry: false);
             }
 
             visiting.Remove(handle);
             visited.Add(handle);
+        }
+    }
+
+    private static (string Identity, int ParameterCount) ReadClosedCallSignature(
+        MetadataReader metadata,
+        MethodDefinitionHandle handle)
+    {
+        MethodDefinition definition = metadata.GetMethodDefinition(handle);
+        MethodSignature<WarpMetadataType> signature = definition.DecodeSignature(
+            new WarpMetadataTypeProvider(), genericContext: null);
+        string identity = GetMethodIdentity(metadata, handle, signature.ParameterTypes.Length);
+        ValidateClosedFunction(definition, signature, identity);
+        return (identity, signature.ParameterTypes.Length);
+    }
+
+    private static void RequireAcyclicCall(
+        HashSet<MethodDefinitionHandle> visiting,
+        MethodDefinitionHandle target,
+        string sourceIdentity,
+        string targetIdentity)
+    {
+        if (visiting.Contains(target))
+        {
+            throw Error(
+                "WRPCIL1014",
+                $"Call from '{sourceIdentity}' to '{targetIdentity}' is recursive. " +
+                "Recursion requires the portable logical stack.");
         }
     }
 

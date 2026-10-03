@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using WarpCLR.IR;
@@ -39,7 +40,7 @@ public static class WarpCoreCLRPlanCodec
 
     private static void AppendBody(
         StringBuilder plan,
-        IReadOnlyList<WarpBasicBlock> blocks)
+        ReadOnlyCollection<WarpBasicBlock> blocks)
     {
         plan.Append("blocks=").Append(Invariant(blocks.Count)).Append('\n');
 
@@ -118,37 +119,9 @@ public static class WarpCoreCLRPlanCodec
         }
 
         int lineIndex = 5;
-        var functions = new List<WarpControlFlowFunction>(functionCount);
-        for (int expectedFunction = 0; expectedFunction < functionCount; expectedFunction++)
-        {
-            if (lineIndex >= lines.Length - 1)
-            {
-                throw new InvalidDataException("The CoreCLR plan function sequence is incomplete.");
-            }
+        List<WarpControlFlowFunction> functions = ParseFunctions(lines, functionCount, ref lineIndex);
 
-            (int functionId, int parameterCount, string functionName) =
-                ParseFunction(lines[lineIndex++]);
-            if (functionId != expectedFunction)
-            {
-                throw new InvalidDataException("The CoreCLR plan function sequence is invalid.");
-            }
-
-            IReadOnlyList<WarpBasicBlock> functionBlocks = ParseBody(lines, ref lineIndex);
-            if (lineIndex >= lines.Length - 1 ||
-                !string.Equals(lines[lineIndex++], "endfunction", StringComparison.Ordinal))
-            {
-                throw new InvalidDataException("The CoreCLR plan function ending is invalid.");
-            }
-
-            functions.Add(
-                new WarpControlFlowFunction(
-                    functionId,
-                    functionName,
-                    parameterCount,
-                    functionBlocks));
-        }
-
-        IReadOnlyList<WarpBasicBlock> blocks = ParseBody(lines, ref lineIndex);
+        List<WarpBasicBlock> blocks = ParseBody(lines, ref lineIndex);
 
         if (lineIndex != lines.Length - 1)
         {
@@ -170,11 +143,49 @@ public static class WarpCoreCLRPlanCodec
         return kernel;
     }
 
-    private static IReadOnlyList<WarpBasicBlock> ParseBody(
-        IReadOnlyList<string> lines,
+    private static List<WarpControlFlowFunction> ParseFunctions(
+        string[] lines,
+        int functionCount,
         ref int lineIndex)
     {
-        if (lineIndex >= lines.Count - 1 ||
+        var functions = new List<WarpControlFlowFunction>(functionCount);
+        for (int expectedFunction = 0; expectedFunction < functionCount; expectedFunction++)
+        {
+            if (lineIndex >= lines.Length - 1)
+            {
+                throw new InvalidDataException("The CoreCLR plan function sequence is incomplete.");
+            }
+
+            (int functionId, int parameterCount, string functionName) =
+                ParseFunction(lines[lineIndex++]);
+            if (functionId != expectedFunction)
+            {
+                throw new InvalidDataException("The CoreCLR plan function sequence is invalid.");
+            }
+
+            List<WarpBasicBlock> functionBlocks = ParseBody(lines, ref lineIndex);
+            if (lineIndex >= lines.Length - 1 ||
+                !string.Equals(lines[lineIndex++], "endfunction", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("The CoreCLR plan function ending is invalid.");
+            }
+
+            functions.Add(
+                new WarpControlFlowFunction(
+                    functionId,
+                    functionName,
+                    parameterCount,
+                    functionBlocks));
+        }
+
+        return functions;
+    }
+
+    private static List<WarpBasicBlock> ParseBody(
+        string[] lines,
+        ref int lineIndex)
+    {
+        if (lineIndex >= lines.Length - 1 ||
             !TryParsePrefixedInt(lines[lineIndex++], "blocks=", out int blockCount) ||
             blockCount <= 0)
         {
@@ -184,7 +195,7 @@ public static class WarpCoreCLRPlanCodec
         var blocks = new List<WarpBasicBlock>(blockCount);
         for (int expectedBlock = 0; expectedBlock < blockCount; expectedBlock++)
         {
-            if (lineIndex >= lines.Count - 1 ||
+            if (lineIndex >= lines.Length - 1 ||
                 !TryParsePrefixedInt(lines[lineIndex++], "block=", out int blockId) ||
                 blockId != expectedBlock)
             {
@@ -192,27 +203,27 @@ public static class WarpCoreCLRPlanCodec
             }
 
             var parameters = new List<WarpBlockParameter>();
-            while (lineIndex < lines.Count - 1 &&
+            while (lineIndex < lines.Length - 1 &&
                    lines[lineIndex].StartsWith("parameter=", StringComparison.Ordinal))
             {
                 parameters.Add(ParseParameter(lines[lineIndex++]));
             }
 
             var instructions = new List<WarpIrInstruction>();
-            while (lineIndex < lines.Count - 1 &&
+            while (lineIndex < lines.Length - 1 &&
                    lines[lineIndex].StartsWith("instruction=", StringComparison.Ordinal))
             {
                 instructions.Add(ParseInstruction(lines[lineIndex++]));
             }
 
-            if (lineIndex >= lines.Count - 1 ||
+            if (lineIndex >= lines.Length - 1 ||
                 !lines[lineIndex].StartsWith("terminator=", StringComparison.Ordinal))
             {
                 throw new InvalidDataException("The CoreCLR plan block terminator is missing.");
             }
 
             WarpBlockTerminator terminator = ParseTerminator(lines[lineIndex++]);
-            if (lineIndex >= lines.Count - 1 ||
+            if (lineIndex >= lines.Length - 1 ||
                 !string.Equals(lines[lineIndex++], "endblock", StringComparison.Ordinal))
             {
                 throw new InvalidDataException("The CoreCLR plan block ending is invalid.");
@@ -396,7 +407,7 @@ public static class WarpCoreCLRPlanCodec
         }
     }
 
-    private static int[] ParseList(string value) => value == "-"
+    private static int[] ParseList(string value) => string.Equals(value, "-", StringComparison.Ordinal)
         ? []
         : value.Split(';').Select(ParseRequiredInt).ToArray();
 

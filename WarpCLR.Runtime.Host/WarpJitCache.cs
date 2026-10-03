@@ -10,7 +10,7 @@ namespace WarpCLR.Runtime.Host;
 public sealed class WarpJitCache
 {
     private const string CacheSchema = "warp.jit-cache/0.1";
-    private readonly object sync = new();
+    private readonly Lock sync = new();
     private readonly Dictionary<string, CacheEntry> entries = new(StringComparer.Ordinal);
     private readonly LinkedList<string> recency = new();
     private readonly WarpJitCacheOptions options;
@@ -39,7 +39,7 @@ public sealed class WarpJitCache
         }
     }
 
-    internal async Task<CoreCLRJitKernel> GetOrCompileAsync(WarpRuntimeModule module, WarpRuntimeEntry entry, CancellationToken cancellationToken)
+    internal async Task<CoreCLRResumableKernel> GetOrCompileAsync(WarpRuntimeModule module, WarpRuntimeEntry entry, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string key = GetKey(module, entry);
@@ -62,13 +62,13 @@ public sealed class WarpJitCache
                     throw new WarpHostException("WRPRUNTIME1002", "The JIT compilation admission limit is exhausted.");
                 }
 
-                var compilation = new Lazy<Task<CoreCLRJitKernel>>(() => Task.Run(() => Compile(key, entry)), LazyThreadSafetyMode.ExecutionAndPublication);
+                var compilation = new Lazy<Task<CoreCLRResumableKernel>>(() => Task.Run(() => Compile(key, entry)), LazyThreadSafetyMode.ExecutionAndPublication);
                 cacheEntry = new CacheEntry(compilation, recency.AddLast(key));
                 entries.Add(key, cacheEntry);
             }
         }
 
-        Task<CoreCLRJitKernel> task = cacheEntry.Compilation.Value;
+        Task<CoreCLRResumableKernel> task = cacheEntry.Compilation.Value;
         try
         {
             // Cancelling one waiter never cancels a compilation shared by other dispatches.
@@ -102,20 +102,22 @@ public sealed class WarpJitCache
             writer.Write(module.ProfileId);
             writer.Write(WarpRuntimeAbi.Version);
             writer.Write(WarpRuntimeAbi.SafepointPolicy);
+            writer.Write(WarpLogicalMachineLayout.Version);
+            writer.Write("coreclr.resumable-native/0.1");
             writer.Write(nameof(WarpBackendKind.CoreCLR));
             writer.Write(RuntimeInformation.FrameworkDescription);
             writer.Write(RuntimeInformation.ProcessArchitecture.ToString());
-            writer.Write(typeof(CoreCLRJitKernel).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
+            writer.Write(typeof(CoreCLRResumableKernel).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
         }
 
         return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
     }
 
-    private CoreCLRJitKernel Compile(string key, WarpRuntimeEntry entry)
+    private CoreCLRResumableKernel Compile(string key, WarpRuntimeEntry entry)
     {
         byte[] canonicalPlan = WarpCoreCLRPlanCodec.Serialize(entry.Kernel);
         ValidateDiskPlan(key, canonicalPlan);
-        CoreCLRJitKernel compiled = CoreCLRJitKernel.Compile(entry.Kernel);
+        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(entry.Layout);
         lock (sync)
         {
             compilationCount++;
@@ -248,5 +250,5 @@ public sealed class WarpJitCache
         }
     }
 
-    private sealed record CacheEntry(Lazy<Task<CoreCLRJitKernel>> Compilation, LinkedListNode<string> Recency);
+    private sealed record CacheEntry(Lazy<Task<CoreCLRResumableKernel>> Compilation, LinkedListNode<string> Recency);
 }

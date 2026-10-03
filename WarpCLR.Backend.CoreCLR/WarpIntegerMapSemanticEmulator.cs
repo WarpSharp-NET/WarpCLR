@@ -1,9 +1,11 @@
+using System.Collections.ObjectModel;
 using WarpCLR.IR;
 
 namespace WarpCLR.Backend.CoreCLR;
 
 public sealed class WarpIntegerMapSemanticEmulator
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the maintained development emulator instance API used by existing callers; this is not the production execution path.")]
     public uint[] Execute(
         WarpBackendArtifact artifact,
         WarpControlFlowKernel kernel,
@@ -51,6 +53,7 @@ public sealed class WarpIntegerMapSemanticEmulator
         return output;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserve the maintained development emulator instance API used by existing callers; this is not the production execution path.")]
     public uint ExecuteReduction(
         WarpBackendArtifact artifact,
         WarpControlFlowKernel kernel,
@@ -124,7 +127,7 @@ public sealed class WarpIntegerMapSemanticEmulator
 
     private static uint Evaluate(
         WarpControlFlowKernel kernel,
-        IReadOnlyList<uint> inputs,
+        uint[] inputs,
         IReadOnlyList<uint> scalarArguments) =>
         EvaluateBody(
             kernel,
@@ -136,11 +139,11 @@ public sealed class WarpIntegerMapSemanticEmulator
 
     private static uint EvaluateBody(
         WarpControlFlowKernel kernel,
-        IReadOnlyList<WarpBasicBlock> blocks,
+        ReadOnlyCollection<WarpBasicBlock> blocks,
         int valueCount,
-        IReadOnlyList<uint> inputs,
+        uint[] inputs,
         IReadOnlyList<uint> scalarArguments,
-        IReadOnlyList<uint> functionArguments)
+        uint[] functionArguments)
     {
         var values = new uint[valueCount];
 
@@ -150,36 +153,7 @@ public sealed class WarpIntegerMapSemanticEmulator
             WarpBasicBlock block = blocks[blockId];
             foreach (WarpIrInstruction instruction in block.Instructions)
             {
-                uint left = instruction.Left < 0 ? 0 : values[instruction.Left];
-                uint right = instruction.Right < 0 ? 0 : values[instruction.Right];
-                uint third = instruction.Third < 0 ? 0 : values[instruction.Third];
-
-                values[instruction.Result] = instruction.OpCode switch
-                {
-                    WarpIrOpCode.LoadInput => inputs[checked((int)instruction.Immediate)],
-                    WarpIrOpCode.LoadScalar => scalarArguments[checked((int)instruction.Immediate)],
-                    WarpIrOpCode.LoadArgument => functionArguments[checked((int)instruction.Immediate)],
-                    WarpIrOpCode.Constant => instruction.Immediate,
-                    WarpIrOpCode.BitwiseNot => ~left,
-                    WarpIrOpCode.Add => unchecked(left + right),
-                    WarpIrOpCode.Subtract => unchecked(left - right),
-                    WarpIrOpCode.Multiply => unchecked(left * right),
-                    WarpIrOpCode.BitwiseAnd => left & right,
-                    WarpIrOpCode.BitwiseOr => left | right,
-                    WarpIrOpCode.ExclusiveOr => left ^ right,
-                    WarpIrOpCode.ShiftLeft => left << (int)(right & 31),
-                    WarpIrOpCode.ShiftRightLogical => left >> (int)(right & 31),
-                    WarpIrOpCode.Equal => left == right ? 1u : 0u,
-                    WarpIrOpCode.NotEqual => left != right ? 1u : 0u,
-                    WarpIrOpCode.LessThanUnsigned => left < right ? 1u : 0u,
-                    WarpIrOpCode.LessThanOrEqualUnsigned => left <= right ? 1u : 0u,
-                    WarpIrOpCode.GreaterThanUnsigned => left > right ? 1u : 0u,
-                    WarpIrOpCode.GreaterThanOrEqualUnsigned => left >= right ? 1u : 0u,
-                    WarpIrOpCode.Select => left != 0 ? right : third,
-                    WarpIrOpCode.Call => EvaluateFunction(kernel, instruction, values),
-                    _ => throw new InvalidOperationException(
-                        "The semantic emulator received an unregistered opcode."),
-                };
+                values[instruction.Result] = EvaluateInstruction(kernel, instruction, values, inputs, scalarArguments, functionArguments);
             }
 
             switch (block.Terminator)
@@ -207,10 +181,50 @@ public sealed class WarpIntegerMapSemanticEmulator
         }
     }
 
+    private static uint EvaluateInstruction(
+        WarpControlFlowKernel kernel,
+        WarpIrInstruction instruction,
+        uint[] values,
+        uint[] inputs,
+        IReadOnlyList<uint> scalarArguments,
+        uint[] functionArguments)
+    {
+        uint left = instruction.Left < 0 ? 0 : values[instruction.Left];
+        uint right = instruction.Right < 0 ? 0 : values[instruction.Right];
+        uint third = instruction.Third < 0 ? 0 : values[instruction.Third];
+
+        return instruction.OpCode switch
+        {
+            WarpIrOpCode.LoadInput => inputs[checked((int)instruction.Immediate)],
+            WarpIrOpCode.LoadScalar => scalarArguments[checked((int)instruction.Immediate)],
+            WarpIrOpCode.LoadArgument => functionArguments[checked((int)instruction.Immediate)],
+            WarpIrOpCode.Constant => instruction.Immediate,
+            WarpIrOpCode.BitwiseNot => ~left,
+            WarpIrOpCode.Add => unchecked(left + right),
+            WarpIrOpCode.Subtract => unchecked(left - right),
+            WarpIrOpCode.Multiply => unchecked(left * right),
+            WarpIrOpCode.BitwiseAnd => left & right,
+            WarpIrOpCode.BitwiseOr => left | right,
+            WarpIrOpCode.ExclusiveOr => left ^ right,
+            WarpIrOpCode.ShiftLeft => left << (int)(right & 31),
+            WarpIrOpCode.ShiftRightLogical => left >> (int)(right & 31),
+            WarpIrOpCode.Equal => left == right ? 1u : 0u,
+            WarpIrOpCode.NotEqual => left != right ? 1u : 0u,
+            WarpIrOpCode.LessThanUnsigned => left < right ? 1u : 0u,
+            WarpIrOpCode.LessThanOrEqualUnsigned => left <= right ? 1u : 0u,
+            WarpIrOpCode.GreaterThanUnsigned => left > right ? 1u : 0u,
+            WarpIrOpCode.GreaterThanOrEqualUnsigned => left >= right ? 1u : 0u,
+            WarpIrOpCode.Select => left != 0 ? right : third,
+            WarpIrOpCode.Call => EvaluateFunction(kernel, instruction, values),
+            _ => throw new InvalidOperationException(
+                "The semantic emulator received an unregistered opcode."),
+        };
+    }
+
     private static uint EvaluateFunction(
         WarpControlFlowKernel kernel,
         WarpIrInstruction instruction,
-        IReadOnlyList<uint> callerValues)
+        uint[] callerValues)
     {
         WarpControlFlowFunction function = kernel.Functions[instruction.Callee];
         var arguments = new uint[instruction.Arguments.Count];
@@ -229,7 +243,7 @@ public sealed class WarpIntegerMapSemanticEmulator
     }
 
     private static void AssignParameters(
-        IReadOnlyList<WarpBasicBlock> blocks,
+        ReadOnlyCollection<WarpBasicBlock> blocks,
         uint[] values,
         WarpBranchTarget target)
     {

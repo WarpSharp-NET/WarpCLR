@@ -1,5 +1,7 @@
 #nullable enable
+const WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.MaximumAdmittedFrameBytes = 32768 -> int
 static WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.Backend.CoreCLR.CoreCLRJitKernel!
+static WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.Compile(WarpCLR.IR.WarpLogicalMachineLayout! layout) -> WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel!
 static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Deserialize(System.ReadOnlySpan<byte> content, string! name, int inputBufferCount, int scalarArgumentCount) -> WarpCLR.IR.WarpControlFlowKernel!
 static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Serialize(WarpCLR.IR.WarpControlFlowKernel! kernel) -> byte[]!
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler
@@ -7,9 +9,15 @@ WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Backend.get -> WarpCLR.IR.WarpBac
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.CoreCLRBackendCompiler() -> void
+WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException
+WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException.BodyName.get -> string!
+WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException.CoreCLRCompilationResourceException(string! bodyName, long estimatedFrameBytes, long frameLimitBytes) -> void
+WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException.EstimatedFrameBytes.get -> long
+WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException.FrameLimitBytes.get -> long
 WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget
 WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CancellationToken.get -> System.Threading.CancellationToken
 WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.Charge(int steps) -> void
+WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CheckNativeStack() -> void
 WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CoreCLRExecutionBudget(long maximumSteps, int maximumCallDepth, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
 WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.CurrentCallDepth.get -> int
 WarpCLR.Backend.CoreCLR.CoreCLRExecutionBudget.EnterCall() -> void
@@ -32,7 +40,13 @@ WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.Limit.get -> long
 WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitException.StepsConsumed.get -> long
 WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
 WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind.CallDepth = 1 -> WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
+WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind.StackExhausted = 2 -> WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
 WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind.StepLimit = 0 -> WarpCLR.Backend.CoreCLR.CoreCLRResourceLimitKind
+WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel
+WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.CompiledEntryPoint.get -> System.Reflection.MethodInfo!
+WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.ExecuteQuantum(uint[]![]! inputs, uint[]! scalarArguments, int workerIndex, uint[]! state, int maximumCallDepth, int quantum, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
+WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.IsCollectible.get -> bool
+WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.Layout.get -> WarpCLR.IR.WarpLogicalMachineLayout!
 WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec
 WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator
 WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.Execute(WarpCLR.IR.WarpBackendArtifact! artifact, WarpCLR.IR.WarpControlFlowKernel! kernel, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint[]!

@@ -87,9 +87,9 @@ public sealed class RuntimeLifecycleTests
     public async Task Failed_buffer_admission_does_not_compile_or_taint_the_context()
     {
         await using var context = new WarpRuntimeContext(LoadModule(), WarpBackendKind.CoreCLR,
-            new WarpRuntimeOptions { MaximumBufferBytes = 12 });
+            new WarpRuntimeOptions { MaximumBufferBytes = 220, MaximumCallDepth = 2, MaximumResidentWorkers = 1 });
         WarpHostException error = await Assert.ThrowsAsync<WarpHostException>(() =>
-            context.DispatchIntegerMapAsync(ManifestAssemblyFixture.MapEntryIdentity, [new uint[2]], [0]));
+            context.DispatchIntegerMapAsync(ManifestAssemblyFixture.MapEntryIdentity, [new uint[8]], [0]));
         Assert.AreEqual("WRPRUNTIME1005", error.Code);
         Assert.AreEqual(0, context.JitStatistics.CompilationCount);
         uint[] output = await context.DispatchIntegerMapAsync(ManifestAssemblyFixture.MapEntryIdentity, [new uint[1]], [5]);
@@ -154,14 +154,11 @@ public sealed class RuntimeLifecycleTests
     }
 
     [TestMethod]
-    public void Missing_native_provider_is_an_explicit_error_never_cpu_fallback()
+    public void An_unregistered_backend_is_an_explicit_error_never_cpu_fallback()
     {
         WarpRuntimeModule module = LoadModule();
-        foreach (WarpBackendKind backend in WarpBackendCatalog.Required.Where(backend => backend != WarpBackendKind.CoreCLR))
-        {
-            WarpHostException error = Assert.Throws<WarpHostException>(() => new WarpRuntimeContext(module, backend));
-            Assert.AreEqual("WRPRUNTIME1003", error.Code);
-        }
+        WarpHostException error = Assert.Throws<WarpHostException>(() => new WarpRuntimeContext(module, (WarpBackendKind)int.MaxValue));
+        Assert.AreEqual("WRPRUNTIME1003", error.Code);
     }
 
     internal static WarpRuntimeModule LoadModule()

@@ -5,10 +5,11 @@ namespace WarpCLR.Runtime.Host;
 
 public sealed class WarpRuntimeContext : IAsyncDisposable
 {
-    private readonly object sync = new();
+    private readonly Lock sync = new();
     private readonly WarpRuntimeModule module;
     private readonly WarpRuntimeOptions options;
     private readonly WarpJitCache jitCache;
+    private readonly WarpNativeExecutionProvider? nativeProvider;
     private readonly SemaphoreSlim dispatchSlots;
     private readonly CancellationTokenSource lifetime = new();
     private readonly TaskCompletionSource drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -20,15 +21,16 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
     public WarpRuntimeContext(WarpRuntimeModule module, WarpBackendKind backend, WarpRuntimeOptions? options = null, WarpJitCache? jitCache = null)
     {
         ArgumentNullException.ThrowIfNull(module);
-        if (backend != WarpBackendKind.CoreCLR)
+        if (!WarpBackendCatalog.Required.Contains(backend))
         {
-            throw new WarpHostException("WRPRUNTIME1003", "The selected device has no admitted production execution provider. No backend fallback is permitted.");
+            throw new WarpHostException("WRPRUNTIME1003", "The selected backend is not registered. No backend fallback is permitted.");
         }
 
         this.module = module;
         this.options = options ?? new WarpRuntimeOptions();
         this.options.Validate();
         this.jitCache = jitCache ?? new WarpJitCache();
+        nativeProvider = backend == WarpBackendKind.CoreCLR ? null : new WarpNativeExecutionProvider(backend, this.options.Native);
         dispatchSlots = new SemaphoreSlim(this.options.MaximumConcurrentDispatches);
         Backend = backend;
     }
@@ -91,11 +93,18 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
             }
         }
 
-        await lifetime.CancelAsync().ConfigureAwait(false);
-        await drained.Task.ConfigureAwait(false);
-        lock (sync)
+        try
         {
-            if (state != WarpRuntimeContextState.Disposed)
+            await lifetime.CancelAsync().ConfigureAwait(false);
+            await drained.Task.ConfigureAwait(false);
+            if (nativeProvider is not null)
+            {
+                await nativeProvider.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            lock (sync)
             {
                 state = WarpRuntimeContextState.Disposed;
                 dispatchSlots.Dispose();
@@ -119,8 +128,14 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         int count = ValidateArguments(entry, inputs, scalarArguments);
+        if (options.ExecutionQuantum < entry.Layout.MaximumBlockCost)
+        {
+            throw new WarpHostException("WRPRUNTIME1005", "The requested execution quantum cannot admit one verified basic block.");
+        }
+
         long reductionWords = entry.Reduction.HasValue ? ((long)count + 1023) / 1024 * 2 : 0;
-        long bytes = checked(((long)count * (entry.InputBufferCount + 1) + reductionWords + entry.ScalarArgumentCount) * sizeof(uint));
+        long stackWords = (long)Math.Min(count, options.MaximumResidentWorkers) * entry.Layout.GetStateWords(options.MaximumCallDepth);
+        long bytes = checked(((long)count * (entry.InputBufferCount + 1) + reductionWords + stackWords + entry.ScalarArgumentCount) * sizeof(uint));
         CancellationToken contextToken;
         lock (sync)
         {
@@ -148,8 +163,32 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
             }
 
             uint[] scalars = scalarArguments?.ToArray() ?? [];
-            CoreCLRJitKernel compiled = await jitCache.GetOrCompileAsync(module, entry, linked.Token).ConfigureAwait(false);
-            uint[] result = await Task.Run(() => Execute(entry, compiled, snapshots, scalars, count, linked.Token), linked.Token).ConfigureAwait(false);
+            uint[] result;
+            if (nativeProvider is null)
+            {
+                CoreCLRResumableKernel compiled = await jitCache.GetOrCompileAsync(module, entry, linked.Token).ConfigureAwait(false);
+                result = await Task.Run(() => Execute(entry, compiled, snapshots, scalars, count, linked.Token), linked.Token).ConfigureAwait(false);
+            }
+            else
+            {
+                Native.IWarpNativeModule compiled = await nativeProvider.GetOrCompileAsync(entry, linked.Token).ConfigureAwait(false);
+                try
+                {
+                    result = await Task.Run(() => ExecuteNative(entry, compiled, snapshots, scalars, count, linked.Token), linked.Token).ConfigureAwait(false);
+                }
+                catch when (compiled.IsFaulted)
+                {
+                    lock (sync)
+                    {
+                        if (state == WarpRuntimeContextState.Ready)
+                        {
+                            state = WarpRuntimeContextState.Faulted;
+                        }
+                    }
+
+                    throw;
+                }
+            }
             linked.Token.ThrowIfCancellationRequested();
             lock (sync)
             {
@@ -176,48 +215,126 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
         }
     }
 
-    private uint[] Execute(WarpRuntimeEntry entry, CoreCLRJitKernel compiled, uint[][] inputs, uint[] scalars, int count, CancellationToken cancellationToken)
+    private uint[] ExecuteNative(WarpRuntimeEntry entry, Native.IWarpNativeModule compiled, uint[][] inputs, uint[] scalars, int count, CancellationToken cancellationToken)
+    {
+        uint[] output = new uint[count];
+        int stride = entry.Layout.GetStateWords(options.MaximumCallDepth);
+        for (int inputBase = 0; inputBase < count;)
+        {
+            int batchCount = Math.Min(count - inputBase, options.MaximumResidentWorkers);
+            uint[] states = new uint[checked(batchCount * stride)];
+            for (int worker = 0; worker < batchCount; worker++)
+            {
+                entry.Layout.ResetState(states.AsSpan(worker * stride, stride), options.MaximumStepsPerWorker);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            using Native.IWarpNativeMachineExecution execution = compiled.CreateMachineExecution(states, inputs, scalars, batchCount, inputBase, options.MaximumCallDepth);
+            bool pending;
+            do
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                states = execution.Resume(options.ExecutionQuantum, cancellationToken);
+                pending = false;
+                for (int worker = 0; worker < batchCount; worker++)
+                {
+                    if (states[worker * stride + WarpLogicalMachineLayout.StatusOffset] == WarpLogicalMachineLayout.Runnable)
+                    {
+                        pending = true;
+                    }
+                }
+            }
+            while (pending);
+
+            for (int worker = 0; worker < batchCount; worker++)
+            {
+                int offset = worker * stride;
+                if (states[offset + WarpLogicalMachineLayout.StatusOffset] == WarpLogicalMachineLayout.Faulted)
+                {
+                    WarpRuntimeFaultKind kind = GetFaultKind(states[offset + WarpLogicalMachineLayout.FaultKindOffset]);
+                    lock (sync)
+                    {
+                        if (state == WarpRuntimeContextState.Ready)
+                        {
+                            state = WarpRuntimeContextState.Faulted;
+                        }
+                    }
+
+                    throw new WarpRuntimeFaultException(entry.Identity, inputBase + worker, kind, new InvalidOperationException("The native logical worker reported a portable resource fault."));
+                }
+
+                output[inputBase + worker] = states[offset + WarpLogicalMachineLayout.ResultOffset];
+            }
+
+            inputBase += batchCount;
+        }
+
+        if (!entry.Reduction.HasValue)
+        {
+            return output;
+        }
+
+        return [compiled.ReduceUInt32(output, entry.Reduction.Value, cancellationToken)];
+    }
+
+    private uint[] Execute(WarpRuntimeEntry entry, CoreCLRResumableKernel compiled, uint[][] inputs, uint[] scalars, int count, CancellationToken cancellationToken)
     {
         uint[] output = new uint[count];
         WarpRuntimeFaultException? firstFault = null;
-        object faultSync = new();
+        Lock faultSync = new();
         var parallelOptions = new ParallelOptions { CancellationToken = cancellationToken, MaxDegreeOfParallelism = options.MaximumParallelWorkers };
-        Parallel.For(0, count, parallelOptions,
-            () => new CoreCLRExecutionBudget(options.MaximumStepsPerWorker, options.MaximumCallDepth, cancellationToken),
-            (worker, _, budget) =>
+        int residentCount = Math.Min(count, options.MaximumResidentWorkers);
+        uint[][] states = new uint[residentCount][];
+        for (int index = 0; index < residentCount; index++)
+        {
+            states[index] = entry.Layout.CreateInitialState(options.MaximumCallDepth, options.MaximumStepsPerWorker);
+        }
+
+        for (int batchBase = 0; batchBase < count;)
+        {
+            int batchCount = Math.Min(count - batchBase, options.MaximumResidentWorkers);
+            int inputBase = batchBase;
+            Parallel.For(0, batchCount, parallelOptions, batchWorker =>
             {
-                budget.Reset();
+                int worker = inputBase + batchWorker;
+                uint[] logicalState = states[batchWorker];
+                entry.Layout.ResetState(logicalState, options.MaximumStepsPerWorker);
                 try
                 {
-                    output[worker] = compiled.Invoke(inputs, scalars, worker, budget);
+                    while (logicalState[WarpLogicalMachineLayout.StatusOffset] == WarpLogicalMachineLayout.Runnable)
+                    {
+                        compiled.ExecuteQuantum(inputs, scalars, worker, logicalState, options.MaximumCallDepth, options.ExecutionQuantum, cancellationToken);
+                    }
+
+                    if (logicalState[WarpLogicalMachineLayout.StatusOffset] == WarpLogicalMachineLayout.Faulted)
+                    {
+                        WarpRuntimeFaultKind kind = GetFaultKind(logicalState[WarpLogicalMachineLayout.FaultKindOffset]);
+                        var fault = new WarpRuntimeFaultException(entry.Identity, worker, kind, new InvalidOperationException("The compiled logical worker reported a portable resource fault."));
+                        RecordFault(fault);
+                    }
+                    else
+                    {
+                        output[worker] = logicalState[WarpLogicalMachineLayout.ResultOffset];
+                    }
                 }
                 catch (CoreCLRResourceLimitException exception)
                 {
                     WarpRuntimeFaultKind kind = exception.Kind == CoreCLRResourceLimitKind.StepLimit ? WarpRuntimeFaultKind.StepLimit : WarpRuntimeFaultKind.CallDepth;
                     var fault = new WarpRuntimeFaultException(entry.Identity, worker, kind, exception);
-                    lock (faultSync)
-                    {
-                        if (firstFault is null || worker < firstFault.WorkerIndex)
-                        {
-                            firstFault = fault;
-                        }
-                    }
+                    RecordFault(fault);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     var fault = new WarpRuntimeFaultException(entry.Identity, worker, WarpRuntimeFaultKind.RuntimeFailure, exception);
-                    lock (faultSync)
-                    {
-                        if (firstFault is null || worker < firstFault.WorkerIndex)
-                        {
-                            firstFault = fault;
-                        }
-                    }
+                    RecordFault(fault);
                 }
-
-                return budget;
-            },
-            _ => { });
+            });
+            batchBase += batchCount;
+            if (firstFault is not null)
+            {
+                break;
+            }
+        }
 
         if (firstFault is not null)
         {
@@ -238,7 +355,25 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
         }
 
         return [Reduce(entry.Reduction.Value, output, parallelOptions)];
+
+        void RecordFault(WarpRuntimeFaultException fault)
+        {
+            lock (faultSync)
+            {
+                if (firstFault is null || fault.WorkerIndex < firstFault.WorkerIndex)
+                {
+                    firstFault = fault;
+                }
+            }
+        }
     }
+
+    private static WarpRuntimeFaultKind GetFaultKind(uint kind) => kind switch
+    {
+        WarpLogicalMachineLayout.StepLimitFault => WarpRuntimeFaultKind.StepLimit,
+        WarpLogicalMachineLayout.CallDepthFault => WarpRuntimeFaultKind.CallDepth,
+        _ => WarpRuntimeFaultKind.RuntimeFailure,
+    };
 
     private static uint Reduce(WarpReductionOperation operation, uint[] values, ParallelOptions parallelOptions)
     {

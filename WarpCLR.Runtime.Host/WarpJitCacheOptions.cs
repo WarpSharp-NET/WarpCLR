@@ -25,5 +25,3 @@ public sealed record WarpJitCacheOptions
         }
     }
 }
-
-public readonly record struct WarpJitCacheStatistics(long CompilationCount, long MemoryHitCount, long DiskHitCount, int MemoryEntryCount);

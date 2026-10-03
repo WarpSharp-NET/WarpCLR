@@ -49,11 +49,7 @@ public sealed class CoreCLRJitKernel
             throw new PlatformNotSupportedException("The CoreCLR backend requires an available native .NET JIT.");
         }
 
-        ValidateNativeFrameAdmission(kernel.Name, kernel.Blocks, kernel.ValueCount, parameterCount: 4);
-        foreach (WarpControlFlowFunction function in kernel.Functions)
-        {
-            ValidateNativeFrameAdmission(function.Name, function.Blocks, function.ValueCount, function.ParameterCount + 1);
-        }
+        ValidateKernelNativeFrameAdmission(kernel);
 
         var assemblyName = new AssemblyName(
             $"WarpCLR.CoreCLR.Jit.{Interlocked.Increment(ref nextAssemblyId)}");
@@ -148,6 +144,15 @@ public sealed class CoreCLRJitKernel
         finally
         {
             budget.EndInvocation();
+        }
+    }
+
+    private static void ValidateKernelNativeFrameAdmission(WarpControlFlowKernel kernel)
+    {
+        ValidateNativeFrameAdmission(kernel.Name, kernel.Blocks, kernel.ValueCount, parameterCount: 4);
+        foreach (WarpControlFlowFunction function in kernel.Functions)
+        {
+            ValidateNativeFrameAdmission(function.Name, function.Blocks, function.ValueCount, function.ParameterCount + 1);
         }
     }
 

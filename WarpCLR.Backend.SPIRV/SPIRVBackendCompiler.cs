@@ -234,7 +234,7 @@ public sealed class SPIRVBackendCompiler : IWarpBackendCompiler
         IReadOnlyList<WarpBasicBlock> blocks,
         string indexValue)
     {
-        IReadOnlyDictionary<int, IReadOnlyList<IncomingEdge>> incoming = GetIncomingEdges(blocks);
+        Dictionary<int, IReadOnlyList<IncomingEdge>> incoming = GetIncomingEdges(blocks);
         foreach (WarpBasicBlock block in blocks)
         {
             llvm.Append("warp_block_").Append(Invariant(block.Id)).AppendLine(":");

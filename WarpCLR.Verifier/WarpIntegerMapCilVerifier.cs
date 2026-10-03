@@ -6,7 +6,7 @@ namespace WarpCLR.Verifier;
 
 internal static class WarpIntegerMapCilVerifier
 {
-    private static readonly IReadOnlyDictionary<short, OpCode> OpCodesByValue = CreateOpCodeMap();
+    private static readonly Dictionary<short, OpCode> OpCodesByValue = CreateOpCodeMap();
 
     public static WarpIntegerMapKernel Verify(WarpIntegerMapMethodBody method)
         => Verify(method, []);
