@@ -13,23 +13,23 @@ internal sealed class WarpIntegerMapVerifier
 
         MethodInfo entry = request.Method;
         WarpInitializationAdmission.RequireModule(entry.Module);
-        ValidateMethod(entry, request.InputBufferCount, isEntry: true);
+        ValidateMethod(entry, request.InputBufferCount, isEntry: true, request.WordArena);
 
-        var builder = new ReflectionMethodGraphBuilder(entry);
+        var builder = new ReflectionMethodGraphBuilder(entry, request.WordArena);
         builder.Discover();
 
         WarpIntegerMapMethodBody entryBody = CreateBody(
             entry,
             GetEntryIdentity(entry),
             request.InputBufferCount,
-            builder.GetCallTargets(entry));
+            builder.GetCallTargets(entry), request.WordArena);
         WarpIntegerMapMethodBody[] functions = builder.Functions
             .Select(
                 method => CreateBody(
                     method,
                     GetIdentity(method),
                     inputBufferCount: 0,
-                    callTargets: builder.GetCallTargets(method)))
+                    callTargets: builder.GetCallTargets(method), request.WordArena))
             .ToArray();
 
         return WarpIntegerMapCilVerifier.Verify(entryBody, functions);
@@ -39,7 +39,8 @@ internal sealed class WarpIntegerMapVerifier
         MethodInfo method,
         string identity,
         int inputBufferCount,
-        IReadOnlyDictionary<int, WarpCilCallTarget> callTargets)
+        IReadOnlyDictionary<int, WarpCilCallTarget> callTargets,
+        bool wordArena = false)
     {
         MethodBody body = method.GetMethodBody()
             ?? throw SignatureError(method, "The method does not have a CIL body.");
@@ -76,13 +77,43 @@ internal sealed class WarpIntegerMapVerifier
             localTypes.MoveToImmutable(),
             il,
             localsInitialized: body.InitLocals,
-            callTargets: callTargets);
+            callTargets: callTargets,
+            wordArena: wordArena,
+            arenaParameters: method.GetParameters().Select(parameter => parameter.ParameterType == typeof(uint[])).ToImmutableArray(),
+            arenaElementTokens: wordArena ? ResolveArenaElements(method, il) : null);
+    }
+
+    private static ImmutableHashSet<int> ResolveArenaElements(MethodInfo method, byte[] il)
+    {
+        var tokens = ImmutableHashSet.CreateBuilder<int>();
+        foreach ((int token, int offset) in WarpIntegerMapCilVerifier.ReadArenaElementTokens(il, GetIdentity(method)))
+        {
+            Type element;
+            try
+            {
+                element = method.Module.ResolveType(token);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new WarpVerificationException("WRPCIL1017", "An arena element token is invalid: " + exception.Message, offset);
+            }
+
+            if (element != typeof(uint))
+            {
+                throw new WarpVerificationException("WRPCIL1017", "An arena address must point to an exact System.UInt32 element.", offset);
+            }
+
+            tokens.Add(token);
+        }
+
+        return tokens.ToImmutable();
     }
 
     private static void ValidateMethod(
         MethodInfo method,
         int inputBufferCount,
-        bool isEntry)
+        bool isEntry,
+        bool wordArena = false)
     {
         WarpInitializationAdmission.RequireMethod(method);
         if (!method.IsStatic)
@@ -120,10 +151,15 @@ internal sealed class WarpIntegerMapVerifier
 
         foreach (ParameterInfo parameter in parameters)
         {
-            if (parameter.ParameterType != typeof(uint))
+            if (parameter.ParameterType != typeof(uint) && (!wordArena || parameter.ParameterType != typeof(uint[])))
             {
                 throw SignatureError(method, "All method parameters must have type System.UInt32.");
             }
+        }
+
+        if (parameters.Count(parameter => parameter.ParameterType == typeof(uint[])) > 1)
+        {
+            throw SignatureError(method, "A portable word service can bind only one context arena.");
         }
     }
 
@@ -155,6 +191,7 @@ internal sealed class WarpIntegerMapVerifier
     private sealed class ReflectionMethodGraphBuilder
     {
         private readonly MethodInfo entry;
+        private readonly bool wordArena;
         private readonly Dictionary<MethodInfo, int> functionIds = new();
         private readonly Dictionary<MethodInfo, IReadOnlyDictionary<int, WarpCilCallTarget>> calls = new();
         private readonly HashSet<MethodInfo> visiting = [];
@@ -162,9 +199,10 @@ internal sealed class WarpIntegerMapVerifier
         private readonly List<MethodInfo> functions = [];
         private readonly WarpCilCompilationAdmission admission;
 
-        public ReflectionMethodGraphBuilder(MethodInfo entry)
+        public ReflectionMethodGraphBuilder(MethodInfo entry, bool wordArena)
         {
             this.entry = entry;
+            this.wordArena = wordArena;
             admission = new WarpCilCompilationAdmission(GetEntryIdentity(entry));
         }
 
@@ -230,7 +268,7 @@ internal sealed class WarpIntegerMapVerifier
             foreach (int token in callTokens.Distinct())
             {
                 MethodInfo target = ResolveCallTarget(method, token);
-                ValidateMethod(target, inputBufferCount: 0, isEntry: false);
+                ValidateMethod(target, inputBufferCount: 0, isEntry: false, wordArena);
                 if (visiting.Contains(target))
                 {
                     throw new WarpVerificationException(
@@ -253,7 +291,10 @@ internal sealed class WarpIntegerMapVerifier
                     new WarpCilCallTarget(
                         functionId,
                         target.GetParameters().Length,
-                        GetIdentity(target)));
+                        GetIdentity(target))
+                    {
+                        ArenaParameters = target.GetParameters().Select(parameter => parameter.ParameterType == typeof(uint[])).ToImmutableArray(),
+                    });
                 Visit(target);
             }
 

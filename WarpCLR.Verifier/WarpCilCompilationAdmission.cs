@@ -65,6 +65,14 @@ internal sealed class WarpCilCompilationAdmission
         module?.AdmitValue();
     }
 
+    internal void AdmitTypeWorkspace(WarpIntegerMapMethodBody method, int count)
+    {
+        long bodyWorkspace = count * (long)method.MaxStack;
+        workspace += bodyWorkspace;
+        Require(identity, WarpCompilationResourceKind.VerifierWorkspaceSlots, workspace, WarpCompilationAdmission.MaximumVerifierWorkspaceSlotsPerEntry);
+        module?.AdmitWorkspace(bodyWorkspace);
+    }
+
     public void AdmitLoweredInstructions(int count)
     {
         loweredInstructions += count;

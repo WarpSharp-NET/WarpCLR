@@ -14,7 +14,10 @@ internal sealed class WarpIntegerMapMethodBody
         ReadOnlySpan<byte> il,
         WarpReductionOperation? reduction = null,
         bool localsInitialized = false,
-        IReadOnlyDictionary<int, WarpCilCallTarget>? callTargets = null)
+        IReadOnlyDictionary<int, WarpCilCallTarget>? callTargets = null,
+        bool wordArena = false,
+        ImmutableArray<bool> arenaParameters = default,
+        ImmutableHashSet<int>? arenaElementTokens = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
         WarpCompilationAdmission.Require("<CIL-method>", WarpCompilationResourceKind.IdentityCharacters, identity.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
@@ -51,6 +54,15 @@ internal sealed class WarpIntegerMapMethodBody
         Reduction = reduction;
         LocalsInitialized = localsInitialized;
         CallTargets = callTargets ?? new Dictionary<int, WarpCilCallTarget>();
+        WordArena = wordArena;
+        if ((!arenaParameters.IsDefault && arenaParameters.Length != parameterCount) ||
+            (!wordArena && !arenaParameters.IsDefault && arenaParameters.Any(value => value)))
+        {
+            throw new ArgumentException("Arena parameter capabilities must match the admitted signature.", nameof(arenaParameters));
+        }
+
+        ArenaParameters = arenaParameters.IsDefault ? ImmutableArray.CreateRange(Enumerable.Repeat(false, parameterCount)) : arenaParameters;
+        ArenaElementTokens = arenaElementTokens ?? ImmutableHashSet<int>.Empty;
     }
 
     public string Identity { get; }
@@ -72,4 +84,10 @@ internal sealed class WarpIntegerMapMethodBody
     public bool LocalsInitialized { get; }
 
     public IReadOnlyDictionary<int, WarpCilCallTarget> CallTargets { get; }
+
+    internal bool WordArena { get; }
+
+    internal ImmutableArray<bool> ArenaParameters { get; }
+
+    internal ImmutableHashSet<int> ArenaElementTokens { get; }
 }

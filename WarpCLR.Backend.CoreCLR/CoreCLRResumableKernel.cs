@@ -49,7 +49,7 @@ public sealed class CoreCLRResumableKernel
             "CompiledQuantum", TypeAttributes.Public | TypeAttributes.Abstract | TypeAttributes.Sealed);
         MethodBuilder method = type.DefineMethod("ExecuteQuantum", MethodAttributes.Public | MethodAttributes.Static,
             typeof(void),
-            [typeof(uint[][]), typeof(uint[]), typeof(int), typeof(uint[]), typeof(int), typeof(int), typeof(CancellationToken)]);
+            [typeof(uint[][]), typeof(uint[]), typeof(int), typeof(uint[]), typeof(int), typeof(int), typeof(CancellationToken), typeof(uint[])]);
         new QuantumEmitter(layout, method.GetILGenerator(), maximumParallelCopies).Emit();
         MethodInfo compiledMethod = type.CreateType()!.GetMethod(method.Name)!;
         RuntimeHelpers.PrepareMethod(compiledMethod.MethodHandle);
@@ -65,6 +65,21 @@ public sealed class CoreCLRResumableKernel
         int quantum,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(inputs);
+        ArgumentNullException.ThrowIfNull(scalarArguments);
+        ArgumentNullException.ThrowIfNull(state);
+        if (Layout.RequiresManagedMemory)
+        {
+            throw new ArgumentException("This logical program requires its explicitly bound managed arena.", nameof(inputs));
+        }
+
+        ExecuteManagedQuantum(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum, [], cancellationToken);
+    }
+
+    internal void ExecuteManagedQuantum(uint[][] inputs, uint[] scalarArguments, int workerIndex, uint[] state,
+        int maximumCallDepth, int quantum, uint[] managedArena, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(managedArena);
         ValidateInvocation(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum);
         if (state[WarpLogicalMachineLayout.StatusOffset] != WarpLogicalMachineLayout.Runnable)
         {
@@ -82,7 +97,7 @@ public sealed class CoreCLRResumableKernel
                 CoreCLRResourceLimitKind.StackExhausted, 0, depth: checked((int)state[WarpLogicalMachineLayout.DepthOffset]));
         }
 
-        entryPoint(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum, cancellationToken);
+        entryPoint(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum, cancellationToken, managedArena);
     }
 
     private void ValidateInvocation(uint[][] inputs, uint[] scalars, int workerIndex, uint[] state, int maximumCallDepth, int quantum)
@@ -154,7 +169,8 @@ public sealed class CoreCLRResumableKernel
         uint[] state,
         int maximumCallDepth,
         int quantum,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        uint[] managedArena);
 
     private void ValidateReturnLocation(uint[] state, int frame, uint function)
     {
@@ -246,6 +262,7 @@ public sealed class CoreCLRResumableKernel
 
             foreach (WarpIrInstruction instruction in node.Instructions)
             {
+                EmitManagedBoundsCheck(instruction, node);
                 StoreFrame(frame, WarpLogicalMachineLayout.FrameHeaderWords + instruction.Result,
                     () => EmitInstruction(instruction));
             }
@@ -446,6 +463,12 @@ public sealed class CoreCLRResumableKernel
 
         private void EmitInstruction(WarpIrInstruction instruction)
         {
+            if (WarpManagedMemoryOpCode.RequiresArena(instruction.OpCode))
+            {
+                EmitManagedInstruction(instruction);
+                return;
+            }
+
             switch (instruction.OpCode)
             {
                 case WarpIrOpCode.LoadInput:
@@ -487,6 +510,53 @@ public sealed class CoreCLRResumableKernel
 
             EmitBinaryInstruction(instruction);
         }
+
+        private void EmitManagedInstruction(WarpIrInstruction instruction)
+        {
+            if (instruction.OpCode == WarpManagedMemoryOpCode.WordAddress)
+            {
+                LoadValue(instruction.Left);
+                return;
+            }
+
+            LoadArena();
+            if (instruction.OpCode == WarpManagedMemoryOpCode.WordCount)
+            {
+                il.Emit(OpCodes.Ldlen);
+                il.Emit(OpCodes.Conv_U4);
+                return;
+            }
+
+            LoadValue(instruction.Left);
+            if (instruction.OpCode == WarpManagedMemoryOpCode.LoadWord)
+            {
+                il.Emit(OpCodes.Ldelem_U4);
+                return;
+            }
+
+            LoadValue(instruction.Right);
+            il.Emit(OpCodes.Stelem_I4);
+            LoadValue(instruction.Right);
+        }
+
+        private void EmitManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
+        {
+            if (!WarpManagedMemoryOpCode.RequiresBounds(instruction.OpCode))
+            {
+                return;
+            }
+
+            Label valid = il.DefineLabel();
+            LoadValue(instruction.Left);
+            LoadArena();
+            il.Emit(OpCodes.Ldlen);
+            il.Emit(OpCodes.Conv_U4);
+            il.Emit(OpCodes.Blt_Un, valid);
+            EmitFault(node, WarpLogicalMachineLayout.ManagedMemoryBoundsFault);
+            il.MarkLabel(valid);
+        }
+
+        private void LoadArena() => il.Emit(OpCodes.Ldarg_S, (byte)7);
 
         private void EmitBinaryInstruction(WarpIrInstruction instruction)
         {

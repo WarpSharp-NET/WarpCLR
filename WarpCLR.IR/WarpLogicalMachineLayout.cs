@@ -5,7 +5,7 @@ namespace WarpCLR.IR;
 
 public sealed class WarpLogicalMachineLayout
 {
-    public const string Version = "warp.logical-machine/0.2";
+    public const string Version = "warp.logical-machine/0.3";
     public const int HeaderWords = 16;
     public const int FrameHeaderWords = 4;
     public const int StatusOffset = 0;
@@ -26,6 +26,7 @@ public sealed class WarpLogicalMachineLayout
     public const uint Faulted = 2;
     public const uint StepLimitFault = 1;
     public const uint CallDepthFault = 2;
+    internal const uint ManagedMemoryBoundsFault = 4;
 
     private readonly FrozenDictionary<(int Function, int Block), int> blockEntries;
 
@@ -34,6 +35,8 @@ public sealed class WarpLogicalMachineLayout
         ArgumentNullException.ThrowIfNull(kernel);
         WarpCompilationAdmission.Validate(kernel);
         Kernel = kernel;
+        RequiresManagedMemory = kernel.Instructions.Concat(kernel.Functions.SelectMany(function => function.Instructions))
+            .Any(instruction => WarpManagedMemoryOpCode.RequiresArena(instruction.OpCode));
         ResultWordCount = kernel.Blocks.Select(block => block.Terminator).OfType<WarpTupleReturnTerminator>()
             .Select(tuple => tuple.Values.Count).DefaultIfEmpty(1).First();
         MaximumValueCount = Math.Max(kernel.ValueCount, kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ValueCount));
@@ -68,6 +71,8 @@ public sealed class WarpLogicalMachineLayout
     public ReadOnlyCollection<WarpLogicalMachineNode> Nodes { get; }
 
     internal int ResultWordCount { get; }
+
+    internal bool RequiresManagedMemory { get; }
 
     internal int ResultTailWords => Math.Max(0, ResultWordCount - 2);
 

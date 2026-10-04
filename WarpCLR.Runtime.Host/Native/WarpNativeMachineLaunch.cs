@@ -25,6 +25,10 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumCallDepth);
         WarpLogicalMachineLayout layout = image.MachineLayout
             ?? throw new WarpHostException("WRPNATIVE1008", "The loaded module does not implement the resumable logical CLR ABI.");
+        if (layout.RequiresManagedMemory)
+        {
+            throw new WarpHostException("WRPNATIVE1008", "This program requires the managed arena launch ABI.");
+        }
         if (quantum < layout.MaximumBlockCost)
         {
             throw new WarpHostException("WRPNATIVE1004", "The logical quantum cannot be smaller than one block's maximum charged cost.");

@@ -4,7 +4,7 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
 
-internal static class WarpIntegerMapCilVerifier
+internal static partial class WarpIntegerMapCilVerifier
 {
     private static readonly Dictionary<short, OpCode> OpCodesByValue = CreateOpCodeMap();
 
@@ -42,7 +42,7 @@ internal static class WarpIntegerMapCilVerifier
         var controlFlow = new WarpControlFlowKernel(
             method.Identity,
             method.InputBufferCount,
-            method.ParameterCount - method.InputBufferCount,
+            method.WordArena ? 0 : method.ParameterCount - method.InputBufferCount,
             entry.Blocks,
             method.Reduction,
             loweredFunctions);
@@ -76,6 +76,11 @@ internal static class WarpIntegerMapCilVerifier
         ValidateSupportedInstructions(method, instructions);
         CilBlock[] blocks = BuildBlocks(method, instructions, admission);
         FlowShape[] entryShapes = AnalyzeFlow(method, blocks);
+        if (method.WordArena)
+        {
+            AnalyzeArenaTypes(method, blocks, admission);
+        }
+
         return Lower(method, blocks, entryShapes, admission, isEntry);
     }
 
@@ -196,6 +201,9 @@ internal static class WarpIntegerMapCilVerifier
                 Is(opCode, OpCodes.Dup) ||
                 Is(opCode, OpCodes.Pop) ||
                 Is(opCode, OpCodes.Ret) ||
+                method.WordArena && (Is(opCode, OpCodes.Ldlen) || Is(opCode, OpCodes.Ldelem_U4) || Is(opCode, OpCodes.Stelem_I4) ||
+                    Is(opCode, OpCodes.Ldind_U4) || Is(opCode, OpCodes.Ldind_I4) || Is(opCode, OpCodes.Stind_I4) ||
+                    Is(opCode, OpCodes.Ldelema) && method.ArenaElementTokens.Contains(instruction.Operand)) ||
                 IsUnconditionalBranch(opCode) ||
                 TryGetArgumentIndex(instruction, out _) ||
                 TryGetArgumentWriteIndex(instruction, out _) ||
@@ -441,6 +449,25 @@ internal static class WarpIntegerMapCilVerifier
                 RequireStack(stackDepth, target.ParameterCount, offset);
                 stackDepth = stackDepth - target.ParameterCount + 1;
             }
+            else if (Is(opCode, OpCodes.Ldlen) || Is(opCode, OpCodes.Ldind_U4) || Is(opCode, OpCodes.Ldind_I4))
+            {
+                RequireStack(stackDepth, 1, offset);
+            }
+            else if (Is(opCode, OpCodes.Ldelem_U4) || Is(opCode, OpCodes.Ldelema))
+            {
+                RequireStack(stackDepth, 2, offset);
+                stackDepth--;
+            }
+            else if (Is(opCode, OpCodes.Stind_I4))
+            {
+                RequireStack(stackDepth, 2, offset);
+                stackDepth -= 2;
+            }
+            else if (Is(opCode, OpCodes.Stelem_I4))
+            {
+                RequireStack(stackDepth, 3, offset);
+                stackDepth -= 3;
+            }
             else if (Is(opCode, OpCodes.Not) ||
                      Is(opCode, OpCodes.Conv_U4) ||
                      Is(opCode, OpCodes.Conv_I4))
@@ -539,18 +566,24 @@ internal static class WarpIntegerMapCilVerifier
         int nextValue = 0;
         var prologueInstructions = new List<WarpIrInstruction>();
         var initialArguments = new int[method.ParameterCount];
+        int wordArgument = 0;
         for (int argumentIndex = 0; argumentIndex < method.ParameterCount; argumentIndex++)
         {
             int value = TakeValue(ref nextValue, admission);
             initialArguments[argumentIndex] = value;
-            WarpIrOpCode load = isEntry
-                ? argumentIndex < method.InputBufferCount
+            WarpIrOpCode load = isEntry && method.ArenaParameters[argumentIndex]
+                ? WarpIrOpCode.Constant
+                : isEntry
+                ? method.WordArena ? WarpIrOpCode.LoadInput
+                : argumentIndex < method.InputBufferCount
                     ? WarpIrOpCode.LoadInput
                     : WarpIrOpCode.LoadScalar
                 : WarpIrOpCode.LoadArgument;
-            int sourceIndex = isEntry && argumentIndex >= method.InputBufferCount
-                ? argumentIndex - method.InputBufferCount
-                : argumentIndex;
+            int sourceIndex = isEntry && method.ArenaParameters[argumentIndex] ? 0
+                : isEntry && method.WordArena ? wordArgument++
+                : isEntry && argumentIndex >= method.InputBufferCount
+                    ? argumentIndex - method.InputBufferCount
+                    : argumentIndex;
             prologueInstructions.Add(
                 new WarpIrInstruction(
                     value,
@@ -744,6 +777,11 @@ internal static class WarpIntegerMapCilVerifier
                     loweredInstructions.Add(
                         new WarpIrInstruction(result, WarpIrOpCode.BitwiseNot, left: operand));
                     state.Stack.Add(result);
+                    continue;
+                }
+
+                if (LowerArenaInstruction(instruction, state.Stack, loweredInstructions, admission, ref nextValue))
+                {
                     continue;
                 }
 

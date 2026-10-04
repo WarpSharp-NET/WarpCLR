@@ -365,6 +365,17 @@ public sealed class WarpControlFlowKernel
     {
         switch (instruction.OpCode)
         {
+            case WarpManagedMemoryOpCode.WordCount:
+                RequireNoOperands(instruction);
+                if (instruction.Immediate != 0)
+                {
+                    throw new ArgumentException("An arena size instruction cannot declare an immediate.", nameof(instruction));
+                }
+
+                break;
+
+            case WarpManagedMemoryOpCode.LoadWord:
+            case WarpManagedMemoryOpCode.WordAddress:
             case WarpIrOpCode.BitwiseNot:
                 ValidateUnaryInstruction(instruction, available);
                 break;
@@ -383,6 +394,7 @@ public sealed class WarpControlFlowKernel
             case WarpIrOpCode.LessThanOrEqualUnsigned:
             case WarpIrOpCode.GreaterThanUnsigned:
             case WarpIrOpCode.GreaterThanOrEqualUnsigned:
+            case WarpManagedMemoryOpCode.StoreWord:
                 ValidateBinaryInstruction(instruction, available);
                 break;
 

@@ -167,6 +167,10 @@ public sealed class WarpPortableMachineEmitter
             }
 
             parameters.AddRange(["i32 %warp_count", "i32 %warp_base", "i32 %warp_max_depth", "i32 %warp_quantum"]);
+            if (layout.RequiresManagedMemory)
+            {
+                parameters.AddRange(["ptr addrspace(1) %warp_heap", "i32 %warp_heap_words"]);
+            }
             string attribute = backend == WarpBackendKind.AMDGPU ? " #0" : string.Empty;
             Line($"define {convention} void @{EntryPoint}({string.Join(", ", parameters)}){attribute} {{");
         }
@@ -255,6 +259,7 @@ public sealed class WarpPortableMachineEmitter
 
             foreach (WarpIrInstruction instruction in node.Instructions)
             {
+                AppendManagedBoundsCheck(instruction, node);
                 string value = EmitInstruction(instruction);
                 StoreValue(instruction.Result, value);
             }
@@ -295,6 +300,11 @@ public sealed class WarpPortableMachineEmitter
 
         private string EmitInstruction(WarpIrInstruction instruction)
         {
+            if (instruction.OpCode == WarpManagedMemoryOpCode.WordCount)
+            {
+                return "%warp_heap_words";
+            }
+
             if (instruction.OpCode == WarpIrOpCode.Constant)
             {
                 return N(instruction.Immediate);
@@ -317,6 +327,25 @@ public sealed class WarpPortableMachineEmitter
             }
 
             string left = LoadValue(instruction.Left);
+            if (instruction.OpCode == WarpManagedMemoryOpCode.WordAddress)
+            {
+                return left;
+            }
+
+            if (instruction.OpCode is WarpManagedMemoryOpCode.LoadWord or WarpManagedMemoryOpCode.StoreWord)
+            {
+                string index = Assign($"zext i32 {left} to i64");
+                string pointer = Assign($"getelementptr i32, ptr addrspace(1) %warp_heap, i64 {index}");
+                if (instruction.OpCode == WarpManagedMemoryOpCode.LoadWord)
+                {
+                    return Assign($"load i32, ptr addrspace(1) {pointer}, align 4");
+                }
+
+                string value = LoadValue(instruction.Right);
+                Line($"  store i32 {value}, ptr addrspace(1) {pointer}, align 4");
+                return value;
+            }
+
             if (instruction.OpCode == WarpIrOpCode.BitwiseNot)
             {
                 return Assign($"xor i32 {left}, -1");
@@ -330,6 +359,22 @@ public sealed class WarpPortableMachineEmitter
             }
 
             return EmitBinary(instruction.OpCode, left, right);
+        }
+
+        private void AppendManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
+        {
+            if (!WarpManagedMemoryOpCode.RequiresBounds(instruction.OpCode))
+            {
+                return;
+            }
+
+            string index = LoadValue(instruction.Left);
+            string invalid = Assign($"icmp uge i32 {index}, %warp_heap_words");
+            string suffix = N(temporary++);
+            Line($"  br i1 {invalid}, label %memory_fault_{suffix}, label %memory_valid_{suffix}");
+            Line($"memory_fault_{suffix}:");
+            AppendFault(node, WarpLogicalMachineLayout.ManagedMemoryBoundsFault);
+            Line($"memory_valid_{suffix}:");
         }
 
         private string EmitBinary(WarpIrOpCode opCode, string left, string right)
