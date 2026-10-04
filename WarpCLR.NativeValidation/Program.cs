@@ -35,6 +35,15 @@ internal static class Program
 
         await ValidateAsync(CreateLoopAndCallLayout(), toolchain, reports).ConfigureAwait(false);
         await ValidateAsync(CreateInstructionSetLayout(), toolchain, reports).ConfigureAwait(false);
+        foreach (WarpLogicalMachineLayout layout in WarpPortableNumericKernels.CreateBinary64Arithmetic())
+        {
+            await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
+        }
+        foreach (WarpLogicalMachineLayout layout in WarpPortableNumericKernels.CreateBinary32Arithmetic())
+        {
+            await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
+        }
+
         await Console.Out.WriteLineAsync(JsonSerializer.Serialize(reports)).ConfigureAwait(false);
         return 0;
     }
