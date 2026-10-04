@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using WarpCLR.Compiler;
 using WarpCLR.IR;
@@ -42,6 +43,14 @@ internal static class Program
         foreach (WarpLogicalMachineLayout layout in WarpPortableNumericKernels.CreateBinary32Arithmetic())
         {
             await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
+        }
+
+        foreach (MethodInfo method in typeof(WarpFloatingPointSourceKernels).GetMethods(BindingFlags.Public | BindingFlags.Static))
+        {
+            foreach (WarpLogicalMachineLayout layout in WarpFloatingPointMapLowerer.Lower(method).Results)
+            {
+                await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
+            }
         }
 
         await Console.Out.WriteLineAsync(JsonSerializer.Serialize(reports)).ConfigureAwait(false);
