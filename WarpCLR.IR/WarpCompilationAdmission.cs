@@ -62,7 +62,7 @@ public static class WarpCompilationAdmission
         long definitions = 0;
         foreach (WarpBasicBlock block in blocks)
         {
-            definitions += block.Parameters.Count + (long)block.Instructions.Count;
+            definitions += block.Parameters.Count + block.Instructions.Sum(instruction => (long)instruction.ResultWordCount);
             Require(identity, WarpCompilationResourceKind.ValueSlots, definitions, MaximumValueSlotsPerEntry);
         }
 

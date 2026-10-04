@@ -45,6 +45,11 @@ public sealed class WarpControlFlowKernel
             isEntry: true);
         ValidateReachability(blockArray);
 
+        if (reduction.HasValue && blockArray.Any(block => block.Terminator is WarpTupleReturnTerminator))
+        {
+            throw new ArgumentException("A wide result requires a reduction contract with a matching accumulator width.", nameof(reduction));
+        }
+
         ValidateFunctionBodies(functionArray);
         ValidateAcyclicCallGraph(blockArray, functionArray);
 
@@ -148,7 +153,10 @@ public sealed class WarpControlFlowKernel
 
             foreach (WarpIrInstruction instruction in block.Instructions)
             {
-                AddDefinition(result, instruction.Result, instruction.ResultType);
+                for (int word = 0; word < instruction.ResultWordCount; word++)
+                {
+                    AddDefinition(result, checked(instruction.Result + word), instruction.ResultType);
+                }
             }
         }
 
@@ -193,7 +201,7 @@ public sealed class WarpControlFlowKernel
         IReadOnlyList<WarpControlFlowFunction> functions,
         bool isEntry)
     {
-        bool hasReturn = false;
+        int returnWords = -1;
         foreach (WarpBasicBlock block in blocks)
         {
             var available = new HashSet<int>();
@@ -212,44 +220,67 @@ public sealed class WarpControlFlowKernel
                     argumentCount,
                     functions,
                     isEntry);
-                available.Add(instruction.Result);
+                for (int word = 0; word < instruction.ResultWordCount; word++)
+                {
+                    available.Add(checked(instruction.Result + word));
+                }
             }
 
-            switch (block.Terminator)
-            {
-                case WarpBranchTerminator branch:
-                    ValidateTarget(branch.Target, blocks, valueTypes, available);
-                    break;
-
-                case WarpConditionalBranchTerminator conditional:
-                    RequireAvailable(conditional.Condition, available);
-                    if (conditional.WhenNonZero.Block == conditional.WhenZero.Block)
-                    {
-                        throw new ArgumentException(
-                            "A conditional branch must have distinct successor blocks.", nameof(blocks));
-                    }
-
-                    ValidateTarget(conditional.WhenNonZero, blocks, valueTypes, available);
-                    ValidateTarget(conditional.WhenZero, blocks, valueTypes, available);
-                    break;
-
-                case WarpReturnTerminator @return:
-                    RequireAvailable(@return.Value, available);
-                    hasReturn = true;
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        nameof(blocks),
-                        block.Terminator,
-                        "The block terminator is not registered.");
-            }
+            RequireReturnWidth(ref returnWords, ValidateTerminator(block.Terminator, blocks, valueTypes, available, isEntry));
         }
 
-        if (!hasReturn)
+        if (returnWords < 0)
         {
             throw new ArgumentException("A control-flow kernel requires a return terminator.", nameof(blocks));
         }
+    }
+
+    private static int ValidateTerminator(WarpBlockTerminator terminator, IReadOnlyList<WarpBasicBlock> blocks,
+        IReadOnlyDictionary<int, WarpIrValueType> valueTypes, HashSet<int> available, bool isEntry)
+    {
+        switch (terminator)
+        {
+            case WarpBranchTerminator branch:
+                ValidateTarget(branch.Target, blocks, valueTypes, available);
+                return -1;
+            case WarpConditionalBranchTerminator conditional:
+                RequireAvailable(conditional.Condition, available);
+                if (conditional.WhenNonZero.Block == conditional.WhenZero.Block)
+                {
+                    throw new ArgumentException("A conditional branch must have distinct successor blocks.", nameof(blocks));
+                }
+
+                ValidateTarget(conditional.WhenNonZero, blocks, valueTypes, available);
+                ValidateTarget(conditional.WhenZero, blocks, valueTypes, available);
+                return -1;
+            case WarpReturnTerminator single:
+                RequireAvailable(single.Value, available);
+                return 1;
+            case WarpTupleReturnTerminator tuple:
+                foreach (int value in tuple.Values)
+                {
+                    RequireAvailable(value, available);
+                }
+
+                return tuple.Values.Count;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(terminator), terminator, "The block terminator is not registered.");
+        }
+    }
+
+    private static void RequireReturnWidth(ref int actual, int expected)
+    {
+        if (expected < 0)
+        {
+            return;
+        }
+
+        if (actual >= 0 && actual != expected)
+        {
+            throw new ArgumentException("Every return in a body must preserve the same result width.", nameof(expected));
+        }
+
+        actual = expected;
     }
 
     private static void ValidateInstruction(
@@ -269,6 +300,10 @@ public sealed class WarpControlFlowKernel
         if (instruction.OpCode != WarpIrOpCode.Call)
         {
             RequireNoCallMetadata(instruction);
+            if (instruction.ResultWordCount != 1)
+            {
+                throw new ArgumentException("Only a call can define a result tuple.", nameof(instruction));
+            }
         }
 
         if (instruction.OpCode is WarpIrOpCode.LoadInput or WarpIrOpCode.LoadScalar or
@@ -413,6 +448,10 @@ public sealed class WarpControlFlowKernel
         }
 
         WarpControlFlowFunction callee = functions[instruction.Callee];
+        if (instruction.ResultWordCount != callee.ResultWordCount)
+        {
+            throw new ArgumentException("A call result width does not match its function signature.", nameof(instruction));
+        }
         if (instruction.Arguments.Count != callee.ParameterCount)
         {
             throw new ArgumentException("A call argument count does not match its function signature.", nameof(instruction));

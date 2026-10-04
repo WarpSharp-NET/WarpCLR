@@ -31,6 +31,29 @@ public sealed class WarpControlFlowFunction
         Blocks = Array.AsReadOnly(blockArray);
         Instructions = Array.AsReadOnly(blockArray.SelectMany(block => block.Instructions).ToArray());
         ValueCount = valueTypes.Count;
+        int resultWords = -1;
+        foreach (WarpBasicBlock block in blockArray)
+        {
+            int words = block.Terminator switch
+            {
+                WarpReturnTerminator => 1,
+                WarpTupleReturnTerminator tuple => tuple.Values.Count,
+                _ => -1,
+            };
+            if (words < 0)
+            {
+                continue;
+            }
+
+            if (resultWords >= 0 && words != resultWords)
+            {
+                throw new ArgumentException("Every helper return must match its result signature.", nameof(blocks));
+            }
+
+            resultWords = words;
+        }
+
+        ResultWordCount = resultWords < 0 ? 1 : resultWords;
     }
 
     public int Id { get; }
@@ -44,4 +67,6 @@ public sealed class WarpControlFlowFunction
     public ReadOnlyCollection<WarpIrInstruction> Instructions { get; }
 
     public int ValueCount { get; }
+
+    internal int ResultWordCount { get; }
 }

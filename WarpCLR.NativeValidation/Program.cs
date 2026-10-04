@@ -47,10 +47,18 @@ internal static class Program
 
         foreach (MethodInfo method in typeof(WarpFloatingPointSourceKernels).GetMethods(BindingFlags.Public | BindingFlags.Static))
         {
-            foreach (WarpLogicalMachineLayout layout in WarpFloatingPointMapLowerer.Lower(method).Results)
-            {
-                await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
-            }
+            await ValidateAsync(WarpFloatingPointMapLowerer.Lower(method).Layout, toolchain, reports).ConfigureAwait(false);
+        }
+
+        await ValidateAsync(WarpPortableResultKernels.CreateWideCall(), toolchain, reports).ConfigureAwait(false);
+        await ValidateAsync(WarpPortableResultKernels.CreateVoidCall(), toolchain, reports).ConfigureAwait(false);
+        await ValidateAsync(WarpPortableResultKernels.CreateTupleCall(), toolchain, reports).ConfigureAwait(false);
+        foreach (WarpLogicalMachineLayout layout in WarpPortableIntegerKernels.Create32()
+            .Concat(WarpPortableIntegerKernels.Create64())
+            .Concat(WarpPortableSemanticKernels.CreateComparisons())
+            .Concat(WarpPortableSemanticKernels.CreateConversions()))
+        {
+            await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
         }
 
         await Console.Out.WriteLineAsync(JsonSerializer.Serialize(reports)).ConfigureAwait(false);

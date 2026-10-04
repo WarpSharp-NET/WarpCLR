@@ -5,7 +5,7 @@ namespace WarpCLR.IR;
 
 public sealed class WarpLogicalMachineLayout
 {
-    public const string Version = "warp.logical-machine/0.1";
+    public const string Version = "warp.logical-machine/0.2";
     public const int HeaderWords = 16;
     public const int FrameHeaderWords = 4;
     public const int StatusOffset = 0;
@@ -16,9 +16,11 @@ public sealed class WarpLogicalMachineLayout
     public const int RemainingStepsHighOffset = 5;
     public const int DepthOffset = 6;
     public const int ResultOffset = 7;
+    internal const int ResultHighOffset = 8;
     public const int FrameFunctionOffset = 0;
     public const int FrameProgramCounterOffset = 1;
     public const int FrameReturnValueOffset = 2;
+    internal const int FrameReturnWordCountOffset = 3;
     public const uint Runnable = 0;
     public const uint Completed = 1;
     public const uint Faulted = 2;
@@ -32,6 +34,8 @@ public sealed class WarpLogicalMachineLayout
         ArgumentNullException.ThrowIfNull(kernel);
         WarpCompilationAdmission.Validate(kernel);
         Kernel = kernel;
+        ResultWordCount = kernel.Blocks.Select(block => block.Terminator).OfType<WarpTupleReturnTerminator>()
+            .Select(tuple => tuple.Values.Count).DefaultIfEmpty(1).First();
         MaximumValueCount = Math.Max(kernel.ValueCount, kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ValueCount));
         MaximumArgumentCount = kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ParameterCount);
         ArgumentOffset = checked(FrameHeaderWords + MaximumValueCount);
@@ -63,12 +67,23 @@ public sealed class WarpLogicalMachineLayout
 
     public ReadOnlyCollection<WarpLogicalMachineNode> Nodes { get; }
 
+    internal int ResultWordCount { get; }
+
+    internal int ResultTailWords => Math.Max(0, ResultWordCount - 2);
+
+    internal int GetResultWordOffset(int word, int maximumCallDepth)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(word);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(word, ResultWordCount);
+        return word < 2 ? ResultOffset + word : checked(HeaderWords + FrameWords * maximumCallDepth + word - 2);
+    }
+
     public int GetBlockEntry(int function, int block) => blockEntries[(function, block)];
 
     public int GetStateWords(int maximumCallDepth)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumCallDepth);
-        return checked(HeaderWords + FrameWords * maximumCallDepth);
+        return checked(HeaderWords + FrameWords * maximumCallDepth + ResultTailWords);
     }
 
     public uint[] CreateInitialState(int maximumCallDepth, long maximumSteps)
@@ -82,9 +97,13 @@ public sealed class WarpLogicalMachineLayout
     public void ResetState(Span<uint> state, long maximumSteps)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSteps);
-        ArgumentOutOfRangeException.ThrowIfLessThan(state.Length, HeaderWords + FrameWords, nameof(state));
+        ArgumentOutOfRangeException.ThrowIfLessThan(state.Length, HeaderWords + FrameWords + ResultTailWords, nameof(state));
         state[..HeaderWords].Clear();
         state.Slice(HeaderWords, FrameHeaderWords).Clear();
+        if (ResultTailWords != 0)
+        {
+            state[^ResultTailWords..].Clear();
+        }
         state[RemainingStepsLowOffset] = unchecked((uint)maximumSteps);
         state[RemainingStepsHighOffset] = (uint)((ulong)maximumSteps >> 32);
         state[DepthOffset] = 1;

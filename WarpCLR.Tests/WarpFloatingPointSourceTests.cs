@@ -23,15 +23,14 @@ internal sealed class WarpFloatingPointSourceTests
         Assert.AreEqual(wide ? typeof(double) : typeof(float), plan.SourceType);
         Assert.AreEqual(4, plan.InputValueCount);
         Assert.AreEqual(wide ? 2 : 1, plan.StorageWordsPerValue);
-        Assert.HasCount(plan.StorageWordsPerValue, plan.Results);
-        CoreCLRResumableKernel[] compiled = plan.Results.Select(CoreCLRResumableKernel.Compile).ToArray();
+        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(plan.Layout);
         uint[][] inputs = Enumerable.Range(0, 4 * plan.StorageWordsPerValue).Select(_ => new uint[1]).ToArray();
-        uint[][] states = plan.Results.Select(layout => layout.CreateInitialState(16, 100000)).ToArray();
+        uint[] state = plan.Layout.CreateInitialState(16, 100000);
         ulong random = 0x352064FF0355046A;
         for (int index = 0; index < 2048; index++)
         {
             ulong[] values = Enumerable.Range(0, 4).Select(_ => wide ? NextBits(ref random) : (uint)NextBits(ref random)).ToArray();
-            ulong actual = Execute(compiled, inputs, states, values, wide, minimumQuantum);
+            ulong actual = Execute(compiled, inputs, state, values, wide, minimumQuantum);
             ulong expected = wide ? Oracle64(values) : Oracle32(values);
             Assert.AreEqual(expected, actual, $"Typed {name}: {string.Join(",", values.Select(value => value.ToString("X16", System.Globalization.CultureInfo.InvariantCulture)))}.");
         }
@@ -44,15 +43,15 @@ internal sealed class WarpFloatingPointSourceTests
     {
         string name = wide ? nameof(WarpFloatingPointSourceKernels.Transport64) : nameof(WarpFloatingPointSourceKernels.Transport32);
         WarpFloatingPointMapPlan plan = WarpFloatingPointMapLowerer.Lower(Source(name));
-        CoreCLRResumableKernel[] compiled = plan.Results.Select(CoreCLRResumableKernel.Compile).ToArray();
+        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(plan.Layout);
         uint[][] inputs = Enumerable.Range(0, plan.StorageWordsPerValue).Select(_ => new uint[1]).ToArray();
-        uint[][] states = plan.Results.Select(layout => layout.CreateInitialState(16, 100000)).ToArray();
+        uint[] state = plan.Layout.CreateInitialState(16, 100000);
         ulong[] bits = wide ?
             [0, 0x8000000000000000, 1, 0x7FF0000000000001, 0x7FF8123456789ABC, 0xFFF0000000000001, 0xFFFABCDEF0123456, ulong.MaxValue] :
             [0, 0x80000000, 1, 0x7F800001, 0x7FC12345, 0xFF800001, 0xFFC54321, uint.MaxValue];
         foreach (ulong value in bits)
         {
-            Assert.AreEqual(value, Execute(compiled, inputs, states, [value], wide, minimumQuantum: true));
+            Assert.AreEqual(value, Execute(compiled, inputs, state, [value], wide, minimumQuantum: true));
         }
     }
 
@@ -81,11 +80,11 @@ internal sealed class WarpFloatingPointSourceTests
     {
         MethodInfo method = typeof(WarpFloatingPointTestKernels).GetMethod(nameof(WarpFloatingPointTestKernels.Constant))!;
         WarpFloatingPointMapPlan plan = WarpFloatingPointMapLowerer.Lower(method);
-        CoreCLRResumableKernel[] compiled = plan.Results.Select(CoreCLRResumableKernel.Compile).ToArray();
+        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(plan.Layout);
         uint[][] inputs = [new uint[1], new uint[1]];
-        uint[][] states = plan.Results.Select(layout => layout.CreateInitialState(16, 100000)).ToArray();
+        uint[] state = plan.Layout.CreateInitialState(16, 100000);
         ulong value = BitConverter.DoubleToUInt64Bits(1.0);
-        ulong actual = Execute(compiled, inputs, states, [value], wide: true, minimumQuantum: true);
+        ulong actual = Execute(compiled, inputs, state, [value], wide: true, minimumQuantum: true);
         Assert.AreEqual(BitConverter.DoubleToUInt64Bits(WarpFloatingPointTestKernels.Constant(1.0)), actual);
         Assert.AreNotEqual(BitConverter.DoubleToUInt64Bits((double)(float)0.1), actual);
     }
@@ -98,14 +97,14 @@ internal sealed class WarpFloatingPointSourceTests
         string name = wide ? nameof(WarpFloatingPointTestKernels.Round64) : nameof(WarpFloatingPointTestKernels.Round32);
         MethodInfo method = typeof(WarpFloatingPointTestKernels).GetMethod(name)!;
         WarpFloatingPointMapPlan plan = WarpFloatingPointMapLowerer.Lower(method);
-        CoreCLRResumableKernel[] compiled = plan.Results.Select(CoreCLRResumableKernel.Compile).ToArray();
+        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(plan.Layout);
         uint[][] inputs = Enumerable.Range(0, 3 * plan.StorageWordsPerValue).Select(_ => new uint[1]).ToArray();
-        uint[][] states = plan.Results.Select(layout => layout.CreateInitialState(16, 100000)).ToArray();
+        uint[] state = plan.Layout.CreateInitialState(16, 100000);
         double delta = wide ? Math.ScaleB(1.0, -27) : Math.ScaleB(1.0, -13);
         ulong[] values = wide ?
             [BitConverter.DoubleToUInt64Bits(1 + delta), BitConverter.DoubleToUInt64Bits(1 - delta), BitConverter.DoubleToUInt64Bits(-1)] :
             [BitConverter.SingleToUInt32Bits((float)(1 + delta)), BitConverter.SingleToUInt32Bits((float)(1 - delta)), BitConverter.SingleToUInt32Bits(-1)];
-        ulong actual = Execute(compiled, inputs, states, values, wide, minimumQuantum: true);
+        ulong actual = Execute(compiled, inputs, state, values, wide, minimumQuantum: true);
         Assert.AreEqual(0UL, actual);
         ulong fused = wide ? BitConverter.DoubleToUInt64Bits(Math.FusedMultiplyAdd(1 + delta, 1 - delta, -1)) :
             BitConverter.SingleToUInt32Bits(MathF.FusedMultiplyAdd((float)(1 + delta), (float)(1 - delta), -1));
@@ -120,12 +119,12 @@ internal sealed class WarpFloatingPointSourceTests
         string name = wide ? nameof(WarpFloatingPointTestKernels.Local64) : nameof(WarpFloatingPointTestKernels.Local32);
         MethodInfo method = typeof(WarpFloatingPointTestKernels).GetMethod(name)!;
         WarpFloatingPointMapPlan plan = WarpFloatingPointMapLowerer.Lower(method);
-        CoreCLRResumableKernel[] compiled = plan.Results.Select(CoreCLRResumableKernel.Compile).ToArray();
+        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(plan.Layout);
         uint[][] inputs = Enumerable.Range(0, 2 * plan.StorageWordsPerValue).Select(_ => new uint[1]).ToArray();
-        uint[][] states = plan.Results.Select(layout => layout.CreateInitialState(16, 100000)).ToArray();
+        uint[] state = plan.Layout.CreateInitialState(16, 100000);
         ulong[] values = wide ? [BitConverter.DoubleToUInt64Bits(1), BitConverter.DoubleToUInt64Bits(Math.ScaleB(1, -30))] :
             [BitConverter.SingleToUInt32Bits(1), BitConverter.SingleToUInt32Bits(MathF.ScaleB(1, -15))];
-        ulong actual = Execute(compiled, inputs, states, values, wide, minimumQuantum: true);
+        ulong actual = Execute(compiled, inputs, state, values, wide, minimumQuantum: true);
         ulong expected = wide ? BitConverter.DoubleToUInt64Bits(WarpFloatingPointTestKernels.Local64(1, Math.ScaleB(1, -30))) :
             BitConverter.SingleToUInt32Bits(WarpFloatingPointTestKernels.Local32(1, MathF.ScaleB(1, -15)));
         Assert.AreEqual(expected, actual);
@@ -133,7 +132,7 @@ internal sealed class WarpFloatingPointSourceTests
 
     private static MethodInfo Source(string name) => typeof(WarpFloatingPointSourceKernels).GetMethod(name)!;
 
-    private static ulong Execute(CoreCLRResumableKernel[] compiled, uint[][] inputs, uint[][] states, ulong[] values, bool wide, bool minimumQuantum)
+    private static ulong Execute(CoreCLRResumableKernel compiled, uint[][] inputs, uint[] state, ulong[] values, bool wide, bool minimumQuantum)
     {
         for (int index = 0; index < values.Length; index++)
         {
@@ -144,24 +143,19 @@ internal sealed class WarpFloatingPointSourceTests
             }
         }
 
-        uint[] results = new uint[compiled.Length];
-        for (int word = 0; word < compiled.Length; word++)
+        compiled.Layout.ResetState(state, 100000);
+        int quantum = minimumQuantum ? compiled.Layout.MaximumBlockCost : 100000;
+        for (int iteration = 0; state[WarpLogicalMachineLayout.StatusOffset] == WarpLogicalMachineLayout.Runnable; iteration++)
         {
-            CoreCLRResumableKernel executable = compiled[word];
-            uint[] state = states[word];
-            executable.Layout.ResetState(state, 100000);
-            int quantum = minimumQuantum ? executable.Layout.MaximumBlockCost : 100000;
-            for (int iteration = 0; state[WarpLogicalMachineLayout.StatusOffset] == WarpLogicalMachineLayout.Runnable; iteration++)
-            {
-                Assert.IsLessThan(10000, iteration);
-                executable.ExecuteQuantum(inputs, [], 0, state, 16, quantum);
-            }
-
-            Assert.AreEqual(WarpLogicalMachineLayout.Completed, state[WarpLogicalMachineLayout.StatusOffset]);
-            results[word] = state[WarpLogicalMachineLayout.ResultOffset];
+            Assert.IsLessThan(10000, iteration);
+            Assert.AreEqual(0u, state[WarpLogicalMachineLayout.ResultOffset]);
+            Assert.AreEqual(0u, state[WarpLogicalMachineLayout.ResultHighOffset]);
+            compiled.ExecuteQuantum(inputs, [], 0, state, 16, quantum);
         }
 
-        return wide ? (ulong)results[1] << 32 | results[0] : results[0];
+        Assert.AreEqual(WarpLogicalMachineLayout.Completed, state[WarpLogicalMachineLayout.StatusOffset]);
+        return wide ? (ulong)state[WarpLogicalMachineLayout.ResultHighOffset] << 32 | state[WarpLogicalMachineLayout.ResultOffset]
+            : state[WarpLogicalMachineLayout.ResultOffset];
     }
 
     private static ulong Oracle64(ulong[] values)

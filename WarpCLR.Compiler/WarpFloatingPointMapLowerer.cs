@@ -246,16 +246,12 @@ internal static class WarpFloatingPointMapLowerer
         {
             string semantics = wide ? WarpPortableBinary64.Semantics : WarpPortableBinary32.Semantics;
             string name = $"{method.DeclaringType!.FullName}.{method.Name}/{semantics}";
-            int[] results = wide ? [result.Low, result.High] : [result.Low];
-            var layouts = new List<WarpLogicalMachineLayout>(results.Length);
-            for (int word = 0; word < results.Length; word++)
-            {
-                var kernel = new WarpControlFlowKernel(name + $"/word-{word}", arguments.Length * Words, 0,
-                    [new WarpBasicBlock(0, [], instructions, new WarpReturnTerminator(results[word]))], functions: functions);
-                layouts.Add(new WarpLogicalMachineLayout(kernel));
-            }
-
-            return new WarpFloatingPointMapPlan(method.ReturnType, arguments.Length, layouts);
+            WarpBlockTerminator terminator = wide
+                ? new WarpWideReturnTerminator(result.Low, result.High)
+                : new WarpReturnTerminator(result.Low);
+            var kernel = new WarpControlFlowKernel(name, arguments.Length * Words, 0,
+                [new WarpBasicBlock(0, [], instructions, terminator)], functions: functions);
+            return new WarpFloatingPointMapPlan(method.ReturnType, arguments.Length, new WarpLogicalMachineLayout(kernel));
         }
 
         private int Append(WarpIrOpCode operation, uint immediate = 0, int callee = -1, int[]? callArguments = null)

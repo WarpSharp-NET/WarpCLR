@@ -6,6 +6,18 @@ namespace WarpCLR.IR;
 public readonly record struct WarpIrInstruction
 {
     private readonly ReadOnlyCollection<int>? arguments;
+    private readonly int resultWordCountDelta;
+
+    internal WarpIrInstruction(int result, int callee, IEnumerable<int> arguments, int resultWordCount)
+        : this(result, WarpIrOpCode.Call, callee: callee, arguments: arguments)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(resultWordCount);
+        WarpCompilationAdmission.Require("<IR-call>", WarpCompilationResourceKind.Parameters,
+            resultWordCount, WarpCompilationAdmission.MaximumParametersPerBody);
+        resultWordCountDelta = resultWordCount - 1;
+    }
+
+    internal int ResultWordCount => resultWordCountDelta + 1;
 
     public WarpIrInstruction(
         int result,

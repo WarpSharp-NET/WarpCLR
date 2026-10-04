@@ -48,6 +48,7 @@ internal sealed class WarpCompilationUsage
             {
                 WarpBranchTerminator branch => branch.Target.Arguments.Count,
                 WarpConditionalBranchTerminator branch => branch.WhenNonZero.Arguments.Count + (long)branch.WhenZero.Arguments.Count,
+                WarpTupleReturnTerminator tuple => tuple.Values.Count,
                 _ => 0,
             };
             Require(WarpCompilationResourceKind.OperandReferences, operands, WarpCompilationAdmission.MaximumOperandReferencesPerEntry);

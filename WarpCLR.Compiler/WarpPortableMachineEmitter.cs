@@ -185,7 +185,7 @@ public sealed class WarpPortableMachineEmitter
             Line("  %input_index = add i64 %base64, %worker");
             Line("  %max_depth64 = zext i32 %warp_max_depth to i64");
             Line($"  %frame_area = mul i64 %max_depth64, {N(layout.FrameWords)}");
-            Line($"  %stride = add i64 %frame_area, {N(WarpLogicalMachineLayout.HeaderWords)}");
+            Line($"  %stride = add i64 %frame_area, {N(WarpLogicalMachineLayout.HeaderWords + layout.ResultTailWords)}");
             Line("  %state_offset = mul i64 %worker, %stride");
             Line("  %state = getelementptr i32, ptr addrspace(1) %warp_states, i64 %state_offset");
             Line("  br label %dispatch");
@@ -383,7 +383,8 @@ public sealed class WarpPortableMachineEmitter
             string callee = Assign($"getelementptr i32, ptr addrspace(1) %frame, i64 {N(layout.FrameWords)}");
             StoreAt(callee, WarpLogicalMachineLayout.FrameFunctionOffset, N(call.Callee + 1));
             StoreAt(callee, WarpLogicalMachineLayout.FrameProgramCounterOffset, N(layout.GetBlockEntry(call.Callee + 1, 0)));
-            StoreAt(callee, WarpLogicalMachineLayout.FrameReturnValueOffset, N(call.Result));
+            StoreAt(callee, WarpLogicalMachineLayout.FrameReturnValueOffset, N(call.ResultWordCount == 0 ? 0 : call.Result));
+            StoreAt(callee, WarpLogicalMachineLayout.FrameReturnWordCountOffset, N(call.ResultWordCount));
             for (int index = 0; index < arguments.Length; index++)
             {
                 StoreAt(callee, layout.ArgumentOffset + index, arguments[index]);
@@ -410,7 +411,10 @@ public sealed class WarpPortableMachineEmitter
                     AppendBranch(node.Function, conditional.WhenZero);
                     break;
                 case WarpReturnTerminator result:
-                    AppendReturn(node, result);
+                    AppendReturn(node, [result.Value]);
+                    break;
+                case WarpTupleReturnTerminator tuple:
+                    AppendReturn(node, tuple.Values);
                     break;
                 default:
                     throw new InvalidOperationException("The verified machine has an unknown terminator.");
@@ -431,12 +435,16 @@ public sealed class WarpPortableMachineEmitter
             Line("  br label %dispatch");
         }
 
-        private void AppendReturn(WarpLogicalMachineNode node, WarpReturnTerminator result)
+        private void AppendReturn(WarpLogicalMachineNode node, IReadOnlyList<int> results)
         {
-            string value = LoadValue(result.Value);
+            string[] values = results.Select(LoadValue).ToArray();
             if (node.Function == 0)
             {
-                StoreHeader(WarpLogicalMachineLayout.ResultOffset, value);
+                for (int word = 0; word < values.Length; word++)
+                {
+                    StoreRootResult(word, values[word]);
+                }
+
                 StoreHeader(WarpLogicalMachineLayout.StatusOffset, N(WarpLogicalMachineLayout.Completed));
                 Line("  br label %done");
                 return;
@@ -444,12 +452,29 @@ public sealed class WarpPortableMachineEmitter
 
             string returnValue = LoadFrame(WarpLogicalMachineLayout.FrameReturnValueOffset);
             string caller = Assign($"getelementptr i32, ptr addrspace(1) %frame, i64 -{N(layout.FrameWords)}");
-            string offset = Assign($"add i32 {returnValue}, {N(WarpLogicalMachineLayout.FrameHeaderWords)}");
-            string offset64 = Assign($"zext i32 {offset} to i64");
-            string pointer = Assign($"getelementptr i32, ptr addrspace(1) {caller}, i64 {offset64}");
-            Line($"  store i32 {value}, ptr addrspace(1) {pointer}, align 4");
+            for (int word = 0; word < values.Length; word++)
+            {
+                string offset = Assign($"add i32 {returnValue}, {N(WarpLogicalMachineLayout.FrameHeaderWords + word)}");
+                string offset64 = Assign($"zext i32 {offset} to i64");
+                string pointer = Assign($"getelementptr i32, ptr addrspace(1) {caller}, i64 {offset64}");
+                Line($"  store i32 {values[word]}, ptr addrspace(1) {pointer}, align 4");
+            }
+
             StoreHeader(WarpLogicalMachineLayout.DepthOffset, Assign("sub i32 %depth, 1"));
             Line("  br label %dispatch");
+        }
+
+        private void StoreRootResult(int word, string value)
+        {
+            if (word < 2)
+            {
+                StoreHeader(WarpLogicalMachineLayout.ResultOffset + word, value);
+                return;
+            }
+
+            string offset = Assign($"add i64 %frame_area, {N(WarpLogicalMachineLayout.HeaderWords + word - 2)}");
+            string pointer = Assign($"getelementptr i32, ptr addrspace(1) %state, i64 {offset}");
+            Line($"  store i32 {value}, ptr addrspace(1) {pointer}, align 4");
         }
 
         private void AppendFault(WarpLogicalMachineNode node, uint kind)

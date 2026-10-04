@@ -140,9 +140,12 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
                 int callerOffset = frameOffset - layout.FrameWords;
                 uint callerFunction = states[callerOffset + WarpLogicalMachineLayout.FrameFunctionOffset];
                 int callerValues = callerFunction == 0 ? layout.Kernel.ValueCount : layout.Kernel.Functions[checked((int)callerFunction - 1)].ValueCount;
-                if (states[frameOffset + WarpLogicalMachineLayout.FrameReturnValueOffset] >= callerValues)
+                int words = layout.Kernel.Functions[checked((int)function - 1)].ResultWordCount;
+                uint destination = states[frameOffset + WarpLogicalMachineLayout.FrameReturnValueOffset];
+                if (states[frameOffset + WarpLogicalMachineLayout.FrameReturnWordCountOffset] != (uint)words ||
+                    (words != 0 && (destination >= (uint)callerValues || (uint)words > (uint)callerValues - destination)))
                 {
-                    throw new WarpHostException(errorCode, "The logical continuation has an invalid caller return destination.");
+                    throw new WarpHostException(errorCode, "The logical continuation has an invalid caller result tuple destination.");
                 }
             }
         }

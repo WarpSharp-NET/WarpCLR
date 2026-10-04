@@ -141,15 +141,8 @@ public sealed class CoreCLRResumableKernel
 
             if (depth != 0)
             {
-                int callerFrame = frame - Layout.FrameWords;
-                uint callerFunction = state[callerFrame + WarpLogicalMachineLayout.FrameFunctionOffset];
-                int callerValues = callerFunction == 0
-                    ? Layout.Kernel.ValueCount
-                    : Layout.Kernel.Functions[checked((int)callerFunction - 1)].ValueCount;
-                if (state[frame + WarpLogicalMachineLayout.FrameReturnValueOffset] >= (uint)callerValues)
-                {
-                    throw new ArgumentException("A logical machine frame has an invalid return destination.", nameof(state));
-                }
+                ValidateReturnLocation(state, frame, function);
+
             }
         }
     }
@@ -163,6 +156,21 @@ public sealed class CoreCLRResumableKernel
         int quantum,
         CancellationToken cancellationToken);
 
+    private void ValidateReturnLocation(uint[] state, int frame, uint function)
+    {
+        int callerFrame = frame - Layout.FrameWords;
+        uint callerFunction = state[callerFrame + WarpLogicalMachineLayout.FrameFunctionOffset];
+        int callerValues = callerFunction == 0 ? Layout.Kernel.ValueCount
+            : Layout.Kernel.Functions[checked((int)callerFunction - 1)].ValueCount;
+        int words = Layout.Kernel.Functions[checked((int)function - 1)].ResultWordCount;
+        uint destination = state[frame + WarpLogicalMachineLayout.FrameReturnValueOffset];
+        if (state[frame + WarpLogicalMachineLayout.FrameReturnWordCountOffset] != (uint)words ||
+            (words != 0 && (destination >= (uint)callerValues || (uint)words > (uint)callerValues - destination)))
+        {
+            throw new ArgumentException("A logical machine frame has an invalid result tuple destination.", nameof(state));
+        }
+    }
+
     private sealed class QuantumEmitter
     {
         private static readonly MethodInfo CancellationCheck = typeof(CancellationToken)
@@ -174,7 +182,6 @@ public sealed class CoreCLRResumableKernel
         private readonly LocalBuilder nextFrame;
         private readonly LocalBuilder remainingSteps;
         private readonly LocalBuilder remainingQuantum;
-        private readonly LocalBuilder result;
         private readonly LocalBuilder[] edgeCopies;
         private readonly Label loop;
         private readonly Label[] nodes;
@@ -188,7 +195,6 @@ public sealed class CoreCLRResumableKernel
             nextFrame = il.DeclareLocal(typeof(int));
             remainingSteps = il.DeclareLocal(typeof(ulong));
             remainingQuantum = il.DeclareLocal(typeof(int));
-            result = il.DeclareLocal(typeof(uint));
             edgeCopies = Enumerable.Range(0, maximumParallelCopies).Select(_ => il.DeclareLocal(typeof(uint))).ToArray();
             loop = il.DefineLabel();
             nodes = layout.Nodes.Select(_ => il.DefineLabel()).ToArray();
@@ -307,7 +313,8 @@ public sealed class CoreCLRResumableKernel
             StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameFunctionOffset, () => Constant(call.Callee + 1));
             StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameProgramCounterOffset,
                 () => Constant(layout.GetBlockEntry(call.Callee + 1, 0)));
-            StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameReturnValueOffset, () => Constant(call.Result));
+            StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameReturnValueOffset, () => Constant(call.ResultWordCount == 0 ? 0 : call.Result));
+            StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameReturnWordCountOffset, () => Constant(call.ResultWordCount));
             for (int index = 0; index < call.Arguments.Count; index++)
             {
                 int argument = call.Arguments[index];
@@ -340,7 +347,10 @@ public sealed class CoreCLRResumableKernel
                     EmitEdge(node.Function, conditional.WhenZero);
                     break;
                 case WarpReturnTerminator @return:
-                    EmitReturn(@return);
+                    EmitReturn(node, Array.AsReadOnly([@return.Value]));
+                    break;
+                case WarpTupleReturnTerminator tuple:
+                    EmitReturn(node, tuple.Values);
                     break;
                 default:
                     throw new InvalidOperationException("The CoreCLR JIT received an unregistered terminator.");
@@ -370,28 +380,34 @@ public sealed class CoreCLRResumableKernel
             il.Emit(OpCodes.Br, loop);
         }
 
-        private void EmitReturn(WarpReturnTerminator terminator)
+        private void EmitReturn(WarpLogicalMachineNode node, ReadOnlyCollection<int> values)
         {
-            LoadValue(terminator.Value);
-            il.Emit(OpCodes.Stloc, result);
-            Label helperReturn = il.DefineLabel();
-            il.Emit(OpCodes.Ldloc, depth);
-            Constant(1);
-            il.Emit(OpCodes.Bne_Un, helperReturn);
-            StoreState(WarpLogicalMachineLayout.ResultOffset, () => il.Emit(OpCodes.Ldloc, result));
-            StoreState(WarpLogicalMachineLayout.StatusOffset, () => Constant((int)WarpLogicalMachineLayout.Completed));
-            il.Emit(OpCodes.Ret);
-            il.MarkLabel(helperReturn);
-            il.Emit(OpCodes.Ldarg_3);
-            il.Emit(OpCodes.Ldloc, frame);
-            Constant(layout.FrameWords);
-            il.Emit(OpCodes.Sub);
-            Constant(WarpLogicalMachineLayout.FrameHeaderWords);
-            il.Emit(OpCodes.Add);
-            LoadFrame(frame, WarpLogicalMachineLayout.FrameReturnValueOffset);
-            il.Emit(OpCodes.Add);
-            il.Emit(OpCodes.Ldloc, result);
-            il.Emit(OpCodes.Stelem_I4);
+            if (node.Function == 0)
+            {
+                for (int word = 0; word < values.Count; word++)
+                {
+                    StoreRootResult(word, values[word]);
+                }
+
+                StoreState(WarpLogicalMachineLayout.StatusOffset, () => Constant((int)WarpLogicalMachineLayout.Completed));
+                il.Emit(OpCodes.Ret);
+                return;
+            }
+
+            for (int word = 0; word < values.Count; word++)
+            {
+                il.Emit(OpCodes.Ldarg_3);
+                il.Emit(OpCodes.Ldloc, frame);
+                Constant(layout.FrameWords);
+                il.Emit(OpCodes.Sub);
+                Constant(WarpLogicalMachineLayout.FrameHeaderWords + word);
+                il.Emit(OpCodes.Add);
+                LoadFrame(frame, WarpLogicalMachineLayout.FrameReturnValueOffset);
+                il.Emit(OpCodes.Add);
+                LoadValue(values[word]);
+                il.Emit(OpCodes.Stelem_I4);
+            }
+
             StoreState(WarpLogicalMachineLayout.DepthOffset, () =>
             {
                 il.Emit(OpCodes.Ldloc, depth);
@@ -399,6 +415,24 @@ public sealed class CoreCLRResumableKernel
                 il.Emit(OpCodes.Sub);
             });
             il.Emit(OpCodes.Br, loop);
+        }
+
+        private void StoreRootResult(int word, int value)
+        {
+            if (word < 2)
+            {
+                StoreState(WarpLogicalMachineLayout.ResultOffset + word, () => LoadValue(value));
+                return;
+            }
+
+            il.Emit(OpCodes.Ldarg_3);
+            il.Emit(OpCodes.Ldarg_S, (byte)4);
+            Constant(layout.FrameWords);
+            il.Emit(OpCodes.Mul);
+            Constant(WarpLogicalMachineLayout.HeaderWords + word - 2);
+            il.Emit(OpCodes.Add);
+            LoadValue(value);
+            il.Emit(OpCodes.Stelem_I4);
         }
 
         private void EmitFault(WarpLogicalMachineNode node, uint kind)

@@ -51,7 +51,7 @@ public static class WarpIrHash
             {
                 AppendInt32(hash, instruction.Result);
                 AppendInt32(hash, (int)instruction.ResultType);
-                AppendInt32(hash, (int)instruction.OpCode);
+                AppendInt32(hash, instruction.ResultWordCount != 1 ? 0x10014 : (int)instruction.OpCode);
                 AppendInt32(hash, instruction.Left);
                 AppendInt32(hash, instruction.Right);
                 AppendUInt32(hash, instruction.Immediate);
@@ -61,6 +61,11 @@ public static class WarpIrHash
                 foreach (int argument in instruction.Arguments)
                 {
                     AppendInt32(hash, argument);
+                }
+
+                if (instruction.ResultWordCount != 1)
+                {
+                    AppendInt32(hash, instruction.ResultWordCount);
                 }
             }
 
@@ -88,6 +93,15 @@ public static class WarpIrHash
             case WarpReturnTerminator @return:
                 AppendInt32(hash, (int)WarpControlFlowOperation.Return);
                 AppendInt32(hash, @return.Value);
+                break;
+
+            case WarpTupleReturnTerminator tuple:
+                AppendInt32(hash, 0x10003);
+                AppendInt32(hash, tuple.Values.Count);
+                foreach (int value in tuple.Values)
+                {
+                    AppendInt32(hash, value);
+                }
                 break;
 
             default:

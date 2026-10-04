@@ -1,15 +1,14 @@
-using System.Collections.ObjectModel;
 using WarpCLR.IR;
 
 namespace WarpCLR.Compiler;
 
 internal sealed class WarpFloatingPointMapPlan
 {
-    public WarpFloatingPointMapPlan(Type sourceType, int inputValueCount, IEnumerable<WarpLogicalMachineLayout> results)
+    public WarpFloatingPointMapPlan(Type sourceType, int inputValueCount, WarpLogicalMachineLayout layout)
     {
         SourceType = sourceType;
         InputValueCount = inputValueCount;
-        Results = Array.AsReadOnly(results.ToArray());
+        Layout = layout;
     }
 
     public Type SourceType { get; }
@@ -18,5 +17,5 @@ internal sealed class WarpFloatingPointMapPlan
 
     public int StorageWordsPerValue => SourceType == typeof(double) ? 2 : 1;
 
-    public ReadOnlyCollection<WarpLogicalMachineLayout> Results { get; }
+    public WarpLogicalMachineLayout Layout { get; }
 }
