@@ -32,13 +32,29 @@ internal static class WarpNativeCompilationDeadline
         }
         catch (OperationCanceledException error)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                var cancelled = new OperationCanceledException(error.Message, error, cancellationToken);
+                CopyDiagnostics(error, cancelled);
+                throw cancelled;
+            }
+
             if (deadline.IsCancellationRequested || Stopwatch.GetElapsedTime(started) >= timeout)
             {
-                throw new WarpHostException("WRPNATIVE2004", "The native compilation pipeline exceeded its aggregate deadline.", error);
+                var expired = new WarpHostException("WRPNATIVE2004", "The native compilation pipeline exceeded its aggregate deadline. " + error.Message, error);
+                CopyDiagnostics(error, expired);
+                throw expired;
             }
 
             throw;
+        }
+    }
+
+    private static void CopyDiagnostics(Exception source, Exception target)
+    {
+        foreach (System.Collections.DictionaryEntry entry in source.Data)
+        {
+            target.Data[entry.Key] = entry.Value;
         }
     }
 }
