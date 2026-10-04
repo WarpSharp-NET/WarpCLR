@@ -2,9 +2,9 @@ namespace WarpCLR.Compiler;
 
 internal static class WarpPortableHeapLayout
 {
-    public const string Semantics = "warp.heap.words/precise-nonmoving-context/0.1";
+    public const string Semantics = "warp.heap.words/precise-nonmoving-context/root-ownership-v2/0.1";
     public const uint Magic = 0x57524850;
-    public const uint Version = 1;
+    public const uint Version = 2;
     public const uint HeaderWords = 64;
     public const uint Context = 2;
     public const uint Fault = 4;
@@ -73,6 +73,10 @@ internal static class WarpPortableHeapLayout
     public const uint RootInteriorWords = 6;
     public const uint RootInteriorType = 7;
     public const uint RootKind = 8;
+    public const uint RootOwnership = 9;
+    public const uint UnownedRoot = 0;
+    public const uint HostOwnedRoot = 1;
+    public const uint RuntimeOwnedRoot = 2;
     public const uint WorkerWords = 4;
     public const uint BlockWords = 4;
     public const uint BlockSize = 0;

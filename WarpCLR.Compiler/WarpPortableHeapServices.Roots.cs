@@ -22,7 +22,8 @@ internal static partial class WarpPortableHeapServices
             return arena[WarpPortableHeapLayout.Fault];
         }
         uint root = 1;
-        while (root <= arena[WarpPortableHeapLayout.RootCount] && arena[Root(arena, root) + WarpPortableHeapLayout.RootState] != WarpPortableHeapLayout.Free)
+        while (root <= arena[WarpPortableHeapLayout.RootCount] && (arena[Root(arena, root) + WarpPortableHeapLayout.RootState] != WarpPortableHeapLayout.Free ||
+            arena[Root(arena, root) + WarpPortableHeapLayout.RootOwnership] != WarpPortableHeapLayout.UnownedRoot))
         {
             root++;
         }
@@ -32,6 +33,7 @@ internal static partial class WarpPortableHeapServices
         }
         uint entry = Root(arena, root);
         arena[entry + WarpPortableHeapLayout.RootState] = WarpPortableHeapLayout.Allocated;
+        arena[entry + WarpPortableHeapLayout.RootOwnership] = WarpPortableHeapLayout.HostOwnedRoot;
         arena[entry + WarpPortableHeapLayout.RootReference] = context;
         arena[entry + WarpPortableHeapLayout.RootReference + 1] = slot;
         arena[entry + WarpPortableHeapLayout.RootReference + 2] = generation;
@@ -61,6 +63,7 @@ internal static partial class WarpPortableHeapServices
         {
             arena[entry + WarpPortableHeapLayout.RootGeneration]++;
         }
+        arena[entry + WarpPortableHeapLayout.RootOwnership] = generation == 0xFFFFFFFFu ? WarpPortableHeapLayout.HostOwnedRoot : WarpPortableHeapLayout.UnownedRoot;
         arena[WarpPortableHeapLayout.LiveRoots]--;
         return 0;
     }
@@ -95,6 +98,7 @@ internal static partial class WarpPortableHeapServices
         }
         uint entry = Root(arena, root);
         return arena[entry + WarpPortableHeapLayout.RootState] == WarpPortableHeapLayout.Allocated &&
+            arena[entry + WarpPortableHeapLayout.RootOwnership] == WarpPortableHeapLayout.HostOwnedRoot &&
             arena[entry + WarpPortableHeapLayout.RootGeneration] == generation ? 0 :
             Fail(arena, WarpPortableHeapLayout.InvalidReference, root, generation);
     }

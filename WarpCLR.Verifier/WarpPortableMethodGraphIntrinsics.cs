@@ -9,13 +9,16 @@ internal static partial class WarpPortableMethodGraphIntrinsics
 
     public static bool IsLeafType(Type type) =>
         type.IsPrimitive || type.IsArray || type == typeof(void) || type == typeof(object) || type == typeof(string) ||
-        type == typeof(Array) || type == typeof(ValueType) || type == typeof(Enum) || type == typeof(Type) ||
+        type == typeof(Array) || type == typeof(ValueType) || type == typeof(Enum) || type == typeof(Type) || type == typeof(MemberInfo) ||
         type == typeof(RuntimeTypeHandle) || type == typeof(RuntimeFieldHandle) || type == typeof(RuntimeMethodHandle) ||
         type == typeof(Delegate) || type == typeof(MulticastDelegate) || IsDelegate(type) ||
         type == typeof(Math) || type == typeof(MathF) || type == typeof(BitConverter) ||
         type == typeof(Interlocked) || type == typeof(Volatile) || type == typeof(Monitor) ||
         type == typeof(Thread) || type == typeof(RuntimeHelpers) || type == typeof(Activator) ||
         type.Assembly == typeof(object).Assembly && (type.IsEnum || type.IsInterface || typeof(Exception).IsAssignableFrom(type));
+
+    public static bool IsStructuralTuple(Type type) => type.Assembly == typeof(object).Assembly && type.IsValueType &&
+        (type == typeof(ValueTuple) || type.IsGenericType && type.GetGenericTypeDefinition().FullName?.StartsWith("System.ValueTuple`", StringComparison.Ordinal) == true);
 
     public static bool IsDelegate(Type type) => typeof(MulticastDelegate).IsAssignableFrom(type) && type != typeof(MulticastDelegate);
 
@@ -45,7 +48,11 @@ internal static partial class WarpPortableMethodGraphIntrinsics
 
     private static string? ResolveObjectOperation(MethodBase method, Type type, ParameterInfo[] parameters)
     {
-        if (method is ConstructorInfo && type == typeof(object) && parameters.Length == 0)
+        if (method is ConstructorInfo && IsStructuralTuple(type) && parameters.Select(parameter => parameter.ParameterType).SequenceEqual(type.GetGenericArguments()))
+        {
+            return "value-tuple.construct";
+        }
+        else if (method is ConstructorInfo && type == typeof(object) && parameters.Length == 0)
         {
             return "object.base-constructor";
         }

@@ -53,14 +53,8 @@ internal static class Program
         await ValidateAsync(WarpPortableResultKernels.CreateWideCall(), toolchain, reports).ConfigureAwait(false);
         await ValidateAsync(WarpPortableResultKernels.CreateVoidCall(), toolchain, reports).ConfigureAwait(false);
         await ValidateAsync(WarpPortableResultKernels.CreateTupleCall(), toolchain, reports).ConfigureAwait(false);
-        foreach (WarpLogicalMachineLayout layout in WarpPortableIntegerKernels.Create32()
-            .Concat(WarpPortableIntegerKernels.Create64())
-            .Concat(WarpPortableSemanticKernels.CreateComparisons())
-            .Concat(WarpPortableSemanticKernels.CreateConversions())
-            .Concat(WarpPortableMathKernels.CreateBinary32Math())
-            .Concat(WarpPortableMathKernels.CreateBinary64Math())
-            .Concat(WarpPortableIntrinsicKernels.CreateBinary32Intrinsics())
-            .Concat(WarpPortableIntrinsicKernels.CreateBinary64Intrinsics()))
+        await ValidateNumericAsync(toolchain, reports).ConfigureAwait(false);
+        foreach (WarpLogicalMachineLayout layout in WarpManagedAtomicKernels.Create32().Concat(WarpLogicalFrameKernels.Create()))
         {
             await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
         }
@@ -71,10 +65,29 @@ internal static class Program
         return 0;
     }
 
+    private static async Task ValidateNumericAsync(WarpNativeToolchain toolchain, List<ValidationRecord> reports)
+    {
+        foreach (WarpLogicalMachineLayout layout in WarpPortableIntegerKernels.Create32()
+            .Concat(WarpPortableIntegerKernels.Create64())
+            .Concat(WarpPortableSemanticKernels.CreateComparisons())
+            .Concat(WarpPortableSemanticKernels.CreateConversions())
+            .Concat(WarpPortableMathKernels.CreateBinary32Math())
+            .Concat(WarpPortableMathKernels.CreateBinary64Math())
+            .Concat(WarpPortableIntrinsicKernels.CreateBinary32Intrinsics())
+            .Concat(WarpPortableIntrinsicKernels.CreateBinary64Intrinsics())
+            .Concat(WarpPortableTranscendentalKernels.CreateBinary32Transcendentals())
+            .Concat(WarpPortableTranscendentalKernels.CreateBinary64Transcendentals())
+            .Concat(WarpPortableTranscendentalKernels.CreateClamp()))
+        {
+            await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
+        }
+    }
+
     private static async Task ValidateHeapAsync(WarpNativeToolchain toolchain, List<ValidationRecord> reports)
     {
         await ValidateAsync(WarpManagedMemoryKernels.CreateWriteReadCount(), toolchain, reports).ConfigureAwait(false);
-        foreach (MethodInfo method in typeof(WarpPortableHeapServices).GetMethods(BindingFlags.Public | BindingFlags.Static))
+        foreach (MethodInfo method in typeof(WarpPortableHeapServices).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Concat(typeof(WarpPortableSchedulerServices).GetMethods(BindingFlags.Public | BindingFlags.Static)))
         {
             if (method.GetParameters().Count(parameter => parameter.ParameterType == typeof(uint[])) == 1)
             {

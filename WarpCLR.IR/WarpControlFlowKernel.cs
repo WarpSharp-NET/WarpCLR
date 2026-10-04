@@ -12,6 +12,13 @@ public sealed class WarpControlFlowKernel
         IEnumerable<WarpBasicBlock> blocks,
         WarpReductionOperation? reduction = null,
         IEnumerable<WarpControlFlowFunction>? functions = null)
+        : this(name, inputBufferCount, scalarArgumentCount, blocks, reduction, functions, execution: null)
+    {
+    }
+
+    internal WarpControlFlowKernel(string name, int inputBufferCount, int scalarArgumentCount,
+        IEnumerable<WarpBasicBlock> blocks, WarpReductionOperation? reduction,
+        IEnumerable<WarpControlFlowFunction>? functions, WarpLogicalExecutionMetadata? execution)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         WarpCompilationAdmission.Require("<IR-entry>", WarpCompilationResourceKind.IdentityCharacters, name.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
@@ -51,7 +58,14 @@ public sealed class WarpControlFlowKernel
         }
 
         ValidateFunctionBodies(functionArray);
-        ValidateAcyclicCallGraph(blockArray, functionArray);
+        HelperExpansionFactor = execution?.Validate(blockArray, functionArray) ?? 1;
+        if (execution is null && blockArray.Concat(functionArray.SelectMany(function => function.Blocks))
+            .SelectMany(block => block.Instructions).Any(instruction => WarpManagedFrameOpCode.IsPrivate(instruction.OpCode)))
+        {
+            throw new ArgumentException("Private storage requires its admitted logical-frame metadata.", nameof(execution));
+        }
+        ValidateAcyclicCallGraph(blockArray, functionArray, execution?.RecursiveCalls == true);
+        Execution = execution;
 
         Name = name;
         InputBufferCount = inputBufferCount;
@@ -62,6 +76,10 @@ public sealed class WarpControlFlowKernel
         Reduction = reduction;
         Functions = Array.AsReadOnly(functionArray);
     }
+
+    internal WarpLogicalExecutionMetadata? Execution { get; }
+
+    internal int HelperExpansionFactor { get; }
 
     public string Name { get; }
 
@@ -363,19 +381,22 @@ public sealed class WarpControlFlowKernel
         IReadOnlySet<int> available,
         IReadOnlyList<WarpControlFlowFunction> functions)
     {
+        if (WarpManagedFrameOpCode.IsPrivate(instruction.OpCode))
+        {
+            ValidatePrivateInstruction(instruction, available);
+            return;
+        }
         switch (instruction.OpCode)
         {
             case WarpManagedMemoryOpCode.WordCount:
-                RequireNoOperands(instruction);
-                if (instruction.Immediate != 0)
-                {
-                    throw new ArgumentException("An arena size instruction cannot declare an immediate.", nameof(instruction));
-                }
-
+            case WarpManagedAtomicOpCode.Fence:
+                ValidateWordQueryInstruction(instruction);
                 break;
 
             case WarpManagedMemoryOpCode.LoadWord:
             case WarpManagedMemoryOpCode.WordAddress:
+            case WarpManagedAtomicOpCode.LoadSequential:
+            case WarpManagedAtomicOpCode.LoadAcquire:
             case WarpIrOpCode.BitwiseNot:
                 ValidateUnaryInstruction(instruction, available);
                 break;
@@ -395,10 +416,15 @@ public sealed class WarpControlFlowKernel
             case WarpIrOpCode.GreaterThanUnsigned:
             case WarpIrOpCode.GreaterThanOrEqualUnsigned:
             case WarpManagedMemoryOpCode.StoreWord:
+            case WarpManagedAtomicOpCode.StoreSequential:
+            case WarpManagedAtomicOpCode.StoreRelease:
+            case WarpManagedAtomicOpCode.Exchange:
+            case WarpManagedAtomicOpCode.Add:
                 ValidateBinaryInstruction(instruction, available);
                 break;
 
             case WarpIrOpCode.Select:
+            case WarpManagedAtomicOpCode.CompareExchange:
                 ValidateSelectInstruction(instruction, available);
                 break;
 
@@ -411,6 +437,29 @@ public sealed class WarpControlFlowKernel
                     nameof(instruction),
                     instruction.OpCode,
                     "The instruction opcode is not registered.");
+        }
+    }
+
+    private static void ValidateWordQueryInstruction(WarpIrInstruction instruction)
+    {
+        RequireNoOperands(instruction);
+        if (instruction.Immediate != 0)
+        {
+            throw new ArgumentException("A word count or fence cannot declare an immediate.", nameof(instruction));
+        }
+    }
+
+    private static void ValidatePrivateInstruction(WarpIrInstruction instruction, IReadOnlySet<int> available)
+    {
+        if (instruction.OpCode == WarpManagedFrameOpCode.LoadPrivateWord)
+        {
+            RequireNoOperands(instruction);
+            return;
+        }
+        RequireAvailable(instruction.Left, available);
+        if (instruction.Right != -1 || instruction.Third != -1)
+        {
+            throw new ArgumentException("A private store requires one value and a fixed admitted offset.", nameof(instruction));
         }
     }
 
@@ -565,7 +614,7 @@ public sealed class WarpControlFlowKernel
 
     private static void ValidateAcyclicCallGraph(
         IReadOnlyList<WarpBasicBlock> entryBlocks,
-        WarpControlFlowFunction[] functions)
+        WarpControlFlowFunction[] functions, bool recursive)
     {
         var states = new byte[functions.Length];
 
@@ -589,6 +638,7 @@ public sealed class WarpControlFlowKernel
 
             if (states[function] == 1)
             {
+                if (recursive) { return; }
                 throw new ArgumentException(
                     "Recursive call graphs require the portable logical stack and are not in this profile.", nameof(functions));
             }

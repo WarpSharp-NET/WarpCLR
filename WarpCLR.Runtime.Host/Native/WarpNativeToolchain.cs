@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -88,6 +89,13 @@ internal sealed class WarpNativeToolchain
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(target);
+        if (target.Backend == WarpBackendKind.NVPTX &&
+            layout.Kernel.Instructions.Concat(layout.Kernel.Functions.SelectMany(function => function.Instructions))
+                .Any(instruction => WarpManagedAtomicOpCode.IsAtomic(instruction.OpCode)) &&
+            uint.Parse(target.Architecture.AsSpan(3), CultureInfo.InvariantCulture) < 70)
+        {
+            throw new WarpHostException("WRPNATIVE1003", "The portable atomic memory-order contract requires NVPTX sm_70 or later.");
+        }
         return await WarpNativeCompilationDeadline.RunAsync(options.ProcessTimeout, async token =>
         {
             string source = WarpPortableMachineEmitter.Emit(layout, target.Backend, options.MaximumSourceBytes, token);

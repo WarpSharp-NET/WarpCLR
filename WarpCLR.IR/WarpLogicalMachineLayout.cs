@@ -5,7 +5,7 @@ namespace WarpCLR.IR;
 
 public sealed class WarpLogicalMachineLayout
 {
-    public const string Version = "warp.logical-machine/0.3";
+    public const string Version = "warp.logical-machine/0.4";
     public const int HeaderWords = 16;
     public const int FrameHeaderWords = 4;
     public const int StatusOffset = 0;
@@ -17,6 +17,10 @@ public sealed class WarpLogicalMachineLayout
     public const int DepthOffset = 6;
     public const int ResultOffset = 7;
     internal const int ResultHighOffset = 8;
+    internal const int LogicalDepthOffset = 9;
+    internal const int UsedOperationsLowOffset = 10;
+    internal const int UsedOperationsHighOffset = 11;
+    internal const uint OperationalOverflowFault = 5;
     public const int FrameFunctionOffset = 0;
     public const int FrameProgramCounterOffset = 1;
     public const int FrameReturnValueOffset = 2;
@@ -42,19 +46,34 @@ public sealed class WarpLogicalMachineLayout
         MaximumValueCount = Math.Max(kernel.ValueCount, kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ValueCount));
         MaximumArgumentCount = kernel.Functions.Count == 0 ? 0 : kernel.Functions.Max(function => function.ParameterCount);
         ArgumentOffset = checked(FrameHeaderWords + MaximumValueCount);
-        FrameWords = checked((ArgumentOffset + MaximumArgumentCount + 15) / 16 * 16);
+        PrivateOffset = checked(ArgumentOffset + MaximumArgumentCount);
+        MaximumPrivateWords = kernel.Execution?.Bodies.Max(body => body.PrivateWordCount) ?? 0;
+        FrameWords = checked((PrivateOffset + MaximumPrivateWords + 15) / 16 * 16);
         var entries = new Dictionary<(int Function, int Block), int>();
         var nodes = new List<WarpLogicalMachineNode>();
-        AppendBody(0, kernel.Blocks, entries, nodes);
+        AppendBody(0, kernel.Blocks, entries, nodes, kernel.Execution?.Bodies[0]);
         foreach (WarpControlFlowFunction function in kernel.Functions)
         {
-            AppendBody(function.Id + 1, function.Blocks, entries, nodes);
+            AppendBody(function.Id + 1, function.Blocks, entries, nodes, kernel.Execution?.Bodies[function.Id + 1]);
         }
 
         blockEntries = entries.ToFrozenDictionary();
         Nodes = nodes.AsReadOnly();
         MaximumBlockCost = Nodes.Max(node => node.BlockCost);
     }
+
+    internal int PrivateOffset { get; }
+
+    internal int MaximumPrivateWords { get; }
+
+    internal bool HasLogicalAccounting => Kernel.Execution is not null;
+
+    internal bool IsRuntimeHelper(int function) => Kernel.Execution?.Bodies[function].RuntimeHelper == true;
+
+    internal int GetPhysicalFrameCapacity(int logicalCallDepth) => checked(logicalCallDepth * Kernel.HelperExpansionFactor +
+        (Kernel.Execution?.Bodies[0].RuntimeHelper == true ? 1 : 0));
+
+    internal int GetPrivateWordCount(int function) => Kernel.Execution?.Bodies[function].PrivateWordCount ?? 0;
 
     public WarpControlFlowKernel Kernel { get; }
 
@@ -80,7 +99,7 @@ public sealed class WarpLogicalMachineLayout
     {
         ArgumentOutOfRangeException.ThrowIfNegative(word);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(word, ResultWordCount);
-        return word < 2 ? ResultOffset + word : checked(HeaderWords + FrameWords * maximumCallDepth + word - 2);
+        return word < 2 ? ResultOffset + word : checked(HeaderWords + FrameWords * GetPhysicalFrameCapacity(maximumCallDepth) + word - 2);
     }
 
     public int GetBlockEntry(int function, int block) => blockEntries[(function, block)];
@@ -88,7 +107,7 @@ public sealed class WarpLogicalMachineLayout
     public int GetStateWords(int maximumCallDepth)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumCallDepth);
-        return checked(HeaderWords + FrameWords * maximumCallDepth + ResultTailWords);
+        return checked(HeaderWords + FrameWords * GetPhysicalFrameCapacity(maximumCallDepth) + ResultTailWords);
     }
 
     public uint[] CreateInitialState(int maximumCallDepth, long maximumSteps)
@@ -112,10 +131,18 @@ public sealed class WarpLogicalMachineLayout
         state[RemainingStepsLowOffset] = unchecked((uint)maximumSteps);
         state[RemainingStepsHighOffset] = (uint)((ulong)maximumSteps >> 32);
         state[DepthOffset] = 1;
+        if (HasLogicalAccounting)
+        {
+            state[LogicalDepthOffset] = IsRuntimeHelper(0) ? 0u : 1u;
+        }
+        if (MaximumPrivateWords != 0)
+        {
+            state.Slice(HeaderWords + PrivateOffset, MaximumPrivateWords).Clear();
+        }
         state[HeaderWords + FrameProgramCounterOffset] = checked((uint)GetBlockEntry(0, 0));
     }
 
-    private static void AppendBody(int function, IReadOnlyList<WarpBasicBlock> blocks, Dictionary<(int Function, int Block), int> entries, List<WarpLogicalMachineNode> nodes)
+    private static void AppendBody(int function, IReadOnlyList<WarpBasicBlock> blocks, Dictionary<(int Function, int Block), int> entries, List<WarpLogicalMachineNode> nodes, WarpLogicalBodyMetadata? metadata)
     {
         foreach (WarpBasicBlock block in blocks)
         {
@@ -127,7 +154,7 @@ public sealed class WarpLogicalMachineLayout
                 if (instruction.OpCode == WarpIrOpCode.Call)
                 {
                     int pc = nodes.Count;
-                    nodes.Add(new WarpLogicalMachineNode(pc, function, block, startsBlock, instructions, instruction, pc + 1));
+                    nodes.Add(new WarpLogicalMachineNode(pc, function, block, startsBlock, instructions, instruction, pc + 1, metadata?.SourceBlockCosts[block.Id]));
                     instructions.Clear();
                     startsBlock = false;
                 }
@@ -137,7 +164,7 @@ public sealed class WarpLogicalMachineLayout
                 }
             }
 
-            nodes.Add(new WarpLogicalMachineNode(nodes.Count, function, block, startsBlock, instructions, null, -1));
+            nodes.Add(new WarpLogicalMachineNode(nodes.Count, function, block, startsBlock, instructions, null, -1, metadata?.SourceBlockCosts[block.Id]));
         }
     }
 }

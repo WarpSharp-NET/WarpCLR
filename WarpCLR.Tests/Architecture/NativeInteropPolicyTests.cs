@@ -746,6 +746,37 @@ internal sealed class NativeInteropPolicyTests
         new(Target(WarpBackendKind.NVPTX, "sm_80"), WarpNativeImageFormat.Ptx, WarpPortableMachineEmitter.EntryPoint,
             [1], "source", "toolchain", layout.Kernel.InputBufferCount, layout.Kernel.ScalarArgumentCount, layout);
 
+    [TestMethod]
+    public void NativeHelperProgressUsesSeparateMonotonicOperationalCounter()
+    {
+        WarpLogicalMachineLayout layout = WarpLogicalFrameKernels.CreateHelperLoop();
+        using var fixture = new TransferFixture();
+        fixture.OnLaunch = arguments => Marshal.WriteInt32(new IntPtr(unchecked((long)TransferFixture.ReadPointer(arguments, 0))),
+            WarpLogicalMachineLayout.UsedOperationsLowOffset * sizeof(uint), fixture.Launches);
+        using var execution = new WarpNativeMachineExecution(MachineImage(layout), layout.CreateInitialState(1, 1),
+            [new uint[1]], [], 1, 0, 1, fixture.Operations);
+        Assert.AreEqual(1u, execution.Resume(layout.MaximumBlockCost)[WarpLogicalMachineLayout.RemainingStepsLowOffset]);
+        Assert.AreEqual(2u, execution.Resume(layout.MaximumBlockCost)[WarpLogicalMachineLayout.UsedOperationsLowOffset]);
+        Assert.IsFalse(fixture.Quarantined);
+        fixture.OnLaunch = arguments => Marshal.WriteInt32(new IntPtr(unchecked((long)TransferFixture.ReadPointer(arguments, 0))),
+            WarpLogicalMachineLayout.UsedOperationsLowOffset * sizeof(uint), 1);
+        WarpHostException error = Assert.ThrowsExactly<WarpHostException>(() => execution.Resume(layout.MaximumBlockCost));
+        Assert.AreEqual("WRPNATIVE1007", error.Code, StringComparer.Ordinal);
+        Assert.IsTrue(fixture.Quarantined);
+    }
+
+    [TestMethod]
+    public void NativeHelperCannotYieldWithoutSourceOrOperationalProgress()
+    {
+        WarpLogicalMachineLayout layout = WarpLogicalFrameKernels.CreateHelperLoop();
+        using var fixture = new TransferFixture();
+        using var execution = new WarpNativeMachineExecution(MachineImage(layout), layout.CreateInitialState(1, 1),
+            [new uint[1]], [], 1, 0, 1, fixture.Operations);
+        WarpHostException error = Assert.ThrowsExactly<WarpHostException>(() => execution.Resume(layout.MaximumBlockCost));
+        Assert.AreEqual("WRPNATIVE1007", error.Code, StringComparer.Ordinal);
+        Assert.IsTrue(fixture.Quarantined);
+    }
+
     // A host-memory transport fixture tests orchestration only. It is not hardware or native CLR conformance evidence.
     private sealed class TransferFixture : IDisposable
     {

@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# Supervisor lifecycle repository policy
+**/[Aa][Gg][Ee][Nn][Tt].[Mm][Dd]
+**/[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
+
 # User-specific files
 *.rsuser
 *.suo

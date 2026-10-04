@@ -77,8 +77,9 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
             int offset = worker * stride;
             uint status = states[offset + WarpLogicalMachineLayout.StatusOffset];
             uint depth = states[offset + WarpLogicalMachineLayout.DepthOffset];
-            if (status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > maximumCallDepth ||
-                states[offset + WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue)
+            if (status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
+                states[offset + WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue ||
+                layout.HasLogicalAccounting && states[offset + WarpLogicalMachineLayout.LogicalDepthOffset] > maximumCallDepth)
             {
                 throw new WarpHostException("WRPNATIVE1004", "The supplied logical state has an invalid status or stack depth.");
             }
@@ -101,12 +102,15 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
             uint status = states[offset + WarpLogicalMachineLayout.StatusOffset];
             uint depth = states[offset + WarpLogicalMachineLayout.DepthOffset];
             uint faultKind = states[offset + WarpLogicalMachineLayout.FaultKindOffset];
-            if (status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > maximumCallDepth ||
+            if (status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
                 states[offset + WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue ||
+                layout.HasLogicalAccounting && states[offset + WarpLogicalMachineLayout.LogicalDepthOffset] > maximumCallDepth ||
                 (status == WarpLogicalMachineLayout.Completed && depth != 1) ||
                 (status != WarpLogicalMachineLayout.Faulted && faultKind != 0) ||
                 (status == WarpLogicalMachineLayout.Faulted &&
-                    faultKind is not WarpLogicalMachineLayout.StepLimitFault and not WarpLogicalMachineLayout.CallDepthFault))
+                    faultKind is not WarpLogicalMachineLayout.StepLimitFault and not WarpLogicalMachineLayout.CallDepthFault &&
+                    !(layout.HasLogicalAccounting && faultKind == WarpLogicalMachineLayout.OperationalOverflowFault) &&
+                    !(layout.RequiresManagedMemory && faultKind == WarpLogicalMachineLayout.ManagedMemoryBoundsFault)))
             {
                 throw new WarpHostException("WRPNATIVE1007", "The native logical worker returned malformed status, depth, or fault metadata.");
             }
@@ -128,17 +132,19 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
 
     private static void ValidateFrames(WarpLogicalMachineLayout layout, uint[] states, int offset, uint depth, string errorCode)
     {
+        uint sourceDepth = 0;
         for (int frame = 0; frame < depth; frame++)
         {
             int frameOffset = offset + WarpLogicalMachineLayout.HeaderWords + frame * layout.FrameWords;
             uint function = states[frameOffset + WarpLogicalMachineLayout.FrameFunctionOffset];
             uint pc = states[frameOffset + WarpLogicalMachineLayout.FrameProgramCounterOffset];
-            if ((frame == 0 && function != 0) || pc >= layout.Nodes.Count || function > layout.Kernel.Functions.Count ||
+            if ((frame == 0 && function != 0) || (frame != 0 && function == 0) || pc >= layout.Nodes.Count || function > layout.Kernel.Functions.Count ||
                 function != layout.Nodes[(int)pc].Function)
             {
                 throw new WarpHostException(errorCode, "The logical continuation does not reference a verified function/program counter.");
             }
 
+            if (!layout.IsRuntimeHelper(checked((int)function))) { sourceDepth++; }
             if (frame != 0)
             {
                 int callerOffset = frameOffset - layout.FrameWords;
@@ -152,6 +158,10 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
                     throw new WarpHostException(errorCode, "The logical continuation has an invalid caller result tuple destination.");
                 }
             }
+        }
+        if (layout.HasLogicalAccounting && states[offset + WarpLogicalMachineLayout.LogicalDepthOffset] != sourceDepth)
+        {
+            throw new WarpHostException(errorCode, "The source call depth does not match its admitted active frames.");
         }
     }
 }

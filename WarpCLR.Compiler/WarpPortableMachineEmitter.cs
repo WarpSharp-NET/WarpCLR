@@ -3,7 +3,7 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Compiler;
 
-public sealed class WarpPortableMachineEmitter
+public sealed partial class WarpPortableMachineEmitter
 {
     public const string EntryPoint = "warp_resume";
 
@@ -24,7 +24,7 @@ public sealed class WarpPortableMachineEmitter
         return new Emission(layout, backend, maximumSourceBytes, cancellationToken).Emit();
     }
 
-    private sealed class Emission
+    private sealed partial class Emission
     {
         private readonly WarpLogicalMachineLayout layout;
         private readonly WarpBackendKind backend;
@@ -48,15 +48,21 @@ public sealed class WarpPortableMachineEmitter
             AppendHeader();
             AppendParameters();
             AppendEntry();
-            AppendDispatch();
-            foreach (WarpLogicalMachineNode node in layout.Nodes)
+            if (layout.Kernel.Functions.Count == 0)
             {
-                AppendNode(node);
+                AppendDispatch();
+                foreach (WarpLogicalMachineNode node in layout.Nodes) { AppendNode(node); }
             }
+            else { AppendFunctionDispatch(); }
 
             Line("done:");
             Line("  ret void");
             Line("}");
+            if (layout.Kernel.Functions.Count != 0)
+            {
+                for (int function = 0; function <= layout.Kernel.Functions.Count; function++) { AppendFunctionBody(function); }
+                Line("attributes #1 = { noinline nounwind }");
+            }
             AppendReductionPass();
             if (backend == WarpBackendKind.AMDGPU)
             {
@@ -178,8 +184,9 @@ public sealed class WarpPortableMachineEmitter
         private void AppendEntry()
         {
             Line("entry:");
-            Line("  %quantum_ptr = alloca i32, align 4");
-            Line("  store i32 %warp_quantum, ptr %quantum_ptr, align 4");
+            string addressSpace = backend == WarpBackendKind.AMDGPU ? ", addrspace(5)" : string.Empty;
+            Line($"  %quantum_ptr = alloca i32, align 4{addressSpace}");
+            Line($"  store i32 %warp_quantum, {QuantumPointerType} %quantum_ptr, align 4");
             AppendWorkerIndex();
             Line("  %count64 = zext i32 %warp_count to i64");
             Line("  %in_range = icmp ult i64 %worker, %count64");
@@ -187,7 +194,9 @@ public sealed class WarpPortableMachineEmitter
             Line("initialize:");
             Line("  %base64 = zext i32 %warp_base to i64");
             Line("  %input_index = add i64 %base64, %worker");
-            Line("  %max_depth64 = zext i32 %warp_max_depth to i64");
+            Line($"  %depth_scaled = mul i32 %warp_max_depth, {N(layout.Kernel.HelperExpansionFactor)}");
+            Line($"  %physical_max_depth = add i32 %depth_scaled, {N(layout.IsRuntimeHelper(0) ? 1 : 0)}");
+            Line("  %max_depth64 = zext i32 %physical_max_depth to i64");
             Line($"  %frame_area = mul i64 %max_depth64, {N(layout.FrameWords)}");
             Line($"  %stride = add i64 %frame_area, {N(WarpLogicalMachineLayout.HeaderWords + layout.ResultTailWords)}");
             Line("  %state_offset = mul i64 %worker, %stride");
@@ -225,6 +234,14 @@ public sealed class WarpPortableMachineEmitter
         private void AppendDispatch()
         {
             Line("dispatch:");
+            AppendDispatchFrame();
+            string pc = LoadFrame(WarpLogicalMachineLayout.FrameProgramCounterOffset);
+            AppendProgramCounterSwitch(pc, layout.Nodes);
+            AppendInvalidState();
+        }
+
+        private void AppendDispatchFrame()
+        {
             string status = LoadHeader(WarpLogicalMachineLayout.StatusOffset);
             string runnable = Assign($"icmp eq i32 {status}, {N(WarpLogicalMachineLayout.Runnable)}");
             Line($"  br i1 {runnable}, label %dispatch_frame, label %done");
@@ -235,14 +252,21 @@ public sealed class WarpPortableMachineEmitter
             Line($"  %frame_delta = mul i64 %frame_number64, {N(layout.FrameWords)}");
             Line($"  %frame_offset = add i64 %frame_delta, {N(WarpLogicalMachineLayout.HeaderWords)}");
             Line("  %frame = getelementptr i32, ptr addrspace(1) %state, i64 %frame_offset");
-            string pc = LoadFrame(WarpLogicalMachineLayout.FrameProgramCounterOffset);
+        }
+
+        private void AppendProgramCounterSwitch(string pc, IEnumerable<WarpLogicalMachineNode> body)
+        {
             Line($"  switch i32 {pc}, label %invalid_state [");
-            foreach (WarpLogicalMachineNode node in layout.Nodes)
+            foreach (WarpLogicalMachineNode node in body)
             {
                 Line($"    i32 {N(node.ProgramCounter)}, label %node_{N(node.ProgramCounter)}");
             }
 
             Line("  ]");
+        }
+
+        private void AppendInvalidState()
+        {
             Line("invalid_state:");
             StoreHeader(WarpLogicalMachineLayout.FaultKindOffset, "3");
             StoreHeader(WarpLogicalMachineLayout.StatusOffset, N(WarpLogicalMachineLayout.Faulted));
@@ -280,26 +304,36 @@ public sealed class WarpPortableMachineEmitter
             string high = Assign($"zext i32 {LoadHeader(WarpLogicalMachineLayout.RemainingStepsHighOffset)} to i64");
             high = Assign($"shl i64 {high}, 32");
             string remaining = Assign($"or i64 {low}, {high}");
-            string exhausted = Assign($"icmp ult i64 {remaining}, {N(node.BlockCost)}");
+            string exhausted = Assign($"icmp ult i64 {remaining}, {N(node.SourceCost)}");
             string suffix = N(node.ProgramCounter);
             Line($"  br i1 {exhausted}, label %step_fault_{suffix}, label %quantum_check_{suffix}");
             Line($"step_fault_{suffix}:");
             AppendFault(node, WarpLogicalMachineLayout.StepLimitFault);
             Line($"quantum_check_{suffix}:");
-            string quantum = Assign("load i32, ptr %quantum_ptr, align 4");
+            string quantum = Assign($"load i32, {QuantumPointerType} %quantum_ptr, align 4");
             string yield = Assign($"icmp ult i32 {quantum}, {N(node.BlockCost)}");
             Line($"  br i1 {yield}, label %done, label %charged_{suffix}");
             Line($"charged_{suffix}:");
             string newQuantum = Assign($"sub i32 {quantum}, {N(node.BlockCost)}");
-            Line($"  store i32 {newQuantum}, ptr %quantum_ptr, align 4");
-            string newRemaining = Assign($"sub i64 {remaining}, {N(node.BlockCost)}");
+            Line($"  store i32 {newQuantum}, {QuantumPointerType} %quantum_ptr, align 4");
+            string newRemaining = Assign($"sub i64 {remaining}, {N(node.SourceCost)}");
             StoreHeader(WarpLogicalMachineLayout.RemainingStepsLowOffset, Assign($"trunc i64 {newRemaining} to i32"));
             string newHigh = Assign($"lshr i64 {newRemaining}, 32");
             StoreHeader(WarpLogicalMachineLayout.RemainingStepsHighOffset, Assign($"trunc i64 {newHigh} to i32"));
+            AppendOperationalProgress(node);
         }
 
         private string EmitInstruction(WarpIrInstruction instruction)
         {
+            if (WarpManagedFrameOpCode.IsPrivate(instruction.OpCode))
+            {
+                return EmitPrivateInstruction(instruction);
+            }
+            if (WarpManagedAtomicOpCode.IsAtomic(instruction.OpCode))
+            {
+                return EmitManagedAtomic(instruction);
+            }
+
             if (instruction.OpCode == WarpManagedMemoryOpCode.WordCount)
             {
                 return "%warp_heap_words";
@@ -334,16 +368,7 @@ public sealed class WarpPortableMachineEmitter
 
             if (instruction.OpCode is WarpManagedMemoryOpCode.LoadWord or WarpManagedMemoryOpCode.StoreWord)
             {
-                string index = Assign($"zext i32 {left} to i64");
-                string pointer = Assign($"getelementptr i32, ptr addrspace(1) %warp_heap, i64 {index}");
-                if (instruction.OpCode == WarpManagedMemoryOpCode.LoadWord)
-                {
-                    return Assign($"load i32, ptr addrspace(1) {pointer}, align 4");
-                }
-
-                string value = LoadValue(instruction.Right);
-                Line($"  store i32 {value}, ptr addrspace(1) {pointer}, align 4");
-                return value;
+                return EmitManagedWord(instruction, left);
             }
 
             if (instruction.OpCode == WarpIrOpCode.BitwiseNot)
@@ -361,6 +386,20 @@ public sealed class WarpPortableMachineEmitter
             return EmitBinary(instruction.OpCode, left, right);
         }
 
+        private string EmitManagedWord(WarpIrInstruction instruction, string address)
+        {
+            string index = Assign($"zext i32 {address} to i64");
+            string pointer = Assign($"getelementptr i32, ptr addrspace(1) %warp_heap, i64 {index}");
+            if (instruction.OpCode == WarpManagedMemoryOpCode.LoadWord)
+            {
+                return Assign($"load i32, ptr addrspace(1) {pointer}, align 4");
+            }
+
+            string value = LoadValue(instruction.Right);
+            Line($"  store i32 {value}, ptr addrspace(1) {pointer}, align 4");
+            return value;
+        }
+
         private void AppendManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
         {
             if (!WarpManagedMemoryOpCode.RequiresBounds(instruction.OpCode))
@@ -376,6 +415,103 @@ public sealed class WarpPortableMachineEmitter
             AppendFault(node, WarpLogicalMachineLayout.ManagedMemoryBoundsFault);
             Line($"memory_valid_{suffix}:");
         }
+
+        private string EmitManagedAtomic(WarpIrInstruction instruction)
+        {
+            if (backend == WarpBackendKind.NVPTX)
+            {
+                return EmitPtxAtomic(instruction);
+            }
+
+            if (instruction.OpCode == WarpManagedAtomicOpCode.Fence)
+            {
+                Line("  fence seq_cst");
+                return "0";
+            }
+
+            string index = Assign($"zext i32 {LoadValue(instruction.Left)} to i64");
+            string pointer = Assign($"getelementptr i32, ptr addrspace(1) %warp_heap, i64 {index}");
+            if (instruction.OpCode is WarpManagedAtomicOpCode.LoadAcquire or WarpManagedAtomicOpCode.LoadSequential)
+            {
+                if (instruction.OpCode == WarpManagedAtomicOpCode.LoadSequential)
+                {
+                    Line("  fence seq_cst");
+                }
+
+                string loaded = Assign($"load atomic i32, ptr addrspace(1) {pointer} acquire, align 4");
+                if (instruction.OpCode == WarpManagedAtomicOpCode.LoadSequential)
+                {
+                    Line("  fence seq_cst");
+                }
+
+                return loaded;
+            }
+
+            string value = LoadValue(instruction.Right);
+            if (instruction.OpCode == WarpManagedAtomicOpCode.StoreRelease)
+            {
+                Line($"  store atomic i32 {value}, ptr addrspace(1) {pointer} release, align 4");
+                return value;
+            }
+            if (instruction.OpCode == WarpManagedAtomicOpCode.StoreSequential)
+            {
+                _ = Assign($"atomicrmw xchg ptr addrspace(1) {pointer}, i32 {value} seq_cst, align 4");
+                return value;
+            }
+
+            if (instruction.OpCode == WarpManagedAtomicOpCode.CompareExchange)
+            {
+                string pair = Assign($"cmpxchg ptr addrspace(1) {pointer}, i32 {value}, i32 {LoadValue(instruction.Third)} seq_cst seq_cst, align 4");
+                return Assign($"extractvalue {{ i32, i1 }} {pair}, 0");
+            }
+
+            string operation = instruction.OpCode == WarpManagedAtomicOpCode.Add ? "add" : "xchg";
+            string previous = Assign($"atomicrmw {operation} ptr addrspace(1) {pointer}, i32 {value} seq_cst, align 4");
+            return instruction.OpCode == WarpManagedAtomicOpCode.Add ? Assign($"add i32 {previous}, {value}") : previous;
+        }
+
+        private string EmitPtxAtomic(WarpIrInstruction instruction)
+        {
+            if (instruction.OpCode == WarpManagedAtomicOpCode.Fence)
+            {
+                EmitPtxSequentialFence();
+                return "0";
+            }
+
+            string index = Assign($"zext i32 {LoadValue(instruction.Left)} to i64");
+            string pointer = Assign($"getelementptr i32, ptr addrspace(1) %warp_heap, i64 {index}");
+            if (instruction.OpCode is WarpManagedAtomicOpCode.LoadAcquire or WarpManagedAtomicOpCode.LoadSequential)
+            {
+                bool sequential = instruction.OpCode == WarpManagedAtomicOpCode.LoadSequential;
+                if (sequential) { EmitPtxSequentialFence(); }
+                string result = Assign($"call i32 asm sideeffect \"ld.acquire.sys.global.u32 $0, [$1];\", \"=r,l,~{{memory}}\"(ptr addrspace(1) {pointer})");
+                if (sequential) { EmitPtxSequentialFence(); }
+                return result;
+            }
+
+            string value = LoadValue(instruction.Right);
+            if (instruction.OpCode == WarpManagedAtomicOpCode.StoreRelease)
+            {
+                Line($"  call void asm sideeffect \"st.release.sys.global.u32 [$0], $1;\", \"l,r,~{{memory}}\"(ptr addrspace(1) {pointer}, i32 {value})");
+                return value;
+            }
+
+            // NVIDIA's atomic ABI maps SC RMW to fence.sc followed by atom.acquire.
+            // LLVM 19's generic NVPTX atomic selection does not preserve this ordering.
+            EmitPtxSequentialFence();
+            if (instruction.OpCode == WarpManagedAtomicOpCode.CompareExchange)
+            {
+                return Assign($"call i32 asm sideeffect \"atom.acquire.sys.global.cas.b32 $0, [$1], $2, $3;\", \"=r,l,r,r,~{{memory}}\"(ptr addrspace(1) {pointer}, i32 {value}, i32 {LoadValue(instruction.Third)})");
+            }
+
+            bool add = instruction.OpCode == WarpManagedAtomicOpCode.Add;
+            string operation = add ? "add.u32" : "exch.b32";
+            string previous = Assign($"call i32 asm sideeffect \"atom.acquire.sys.global.{operation} $0, [$1], $2;\", \"=r,l,r,~{{memory}}\"(ptr addrspace(1) {pointer}, i32 {value})");
+            return instruction.OpCode == WarpManagedAtomicOpCode.StoreSequential ? value :
+                add ? Assign($"add i32 {previous}, {value}") : previous;
+        }
+
+        private void EmitPtxSequentialFence() => Line("  call void asm sideeffect \"fence.sc.sys;\", \"~{memory}\"()");
 
         private string EmitBinary(WarpIrOpCode opCode, string left, string right)
         {
@@ -417,12 +553,7 @@ public sealed class WarpPortableMachineEmitter
 
         private void AppendCall(WarpLogicalMachineNode node, WarpIrInstruction call)
         {
-            string exhausted = Assign("icmp uge i32 %depth, %warp_max_depth");
-            string suffix = N(node.ProgramCounter);
-            Line($"  br i1 {exhausted}, label %stack_fault_{suffix}, label %call_{suffix}");
-            Line($"stack_fault_{suffix}:");
-            AppendFault(node, WarpLogicalMachineLayout.CallDepthFault);
-            Line($"call_{suffix}:");
+            AppendCallCapacity(node, call);
             string[] arguments = call.Arguments.Select(LoadValue).ToArray();
             StoreFrame(WarpLogicalMachineLayout.FrameProgramCounterOffset, N(node.Continuation));
             string callee = Assign($"getelementptr i32, ptr addrspace(1) %frame, i64 {N(layout.FrameWords)}");
@@ -435,6 +566,11 @@ public sealed class WarpPortableMachineEmitter
                 StoreAt(callee, layout.ArgumentOffset + index, arguments[index]);
             }
 
+            AppendPrivateInitialization(callee, call.Callee + 1);
+            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(call.Callee + 1))
+            {
+                ChangeLogicalDepth(1);
+            }
             StoreHeader(WarpLogicalMachineLayout.DepthOffset, Assign("add i32 %depth, 1"));
             Line("  br label %dispatch");
         }
@@ -505,6 +641,10 @@ public sealed class WarpPortableMachineEmitter
                 Line($"  store i32 {values[word]}, ptr addrspace(1) {pointer}, align 4");
             }
 
+            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(node.Function))
+            {
+                ChangeLogicalDepth(-1);
+            }
             StoreHeader(WarpLogicalMachineLayout.DepthOffset, Assign("sub i32 %depth, 1"));
             Line("  br label %dispatch");
         }

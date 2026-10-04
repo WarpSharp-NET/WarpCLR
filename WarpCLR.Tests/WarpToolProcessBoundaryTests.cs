@@ -91,7 +91,7 @@ internal sealed class WarpToolProcessBoundaryTests
         string exited = Path.Combine(directory, "exited");
         string script = Path.Combine(directory, "child.sh");
         await File.WriteAllTextAsync(script,
-            "printf 'descendant stdout\\n'\nprintf 'descendant stderr\\n' >&2\nprintf '%s' \"$$\" > \"$2\"\n" +
+            "printf 'descendant stdout\\n'\nprintf 'descendant stderr\\n' >&2\nprintf '%s' \"$$\" > \"$2.pending\"\n/bin/mv \"$2.pending\" \"$2\"\n" +
             "while [ ! -f \"$1\" ]; do /bin/sleep 0.01; done\nprintf 'released' > \"$3\"\n").ConfigureAwait(false);
         string[] arguments = ["-c", "printf 'parent stdout\\n'; printf 'parent stderr\\n' >&2; /bin/sh \"$1\" \"$2\" \"$3\" \"$4\" & while [ ! -f \"$3\" ]; do /bin/sleep 0.01; done; exit 0", "probe", script, release, ready, exited];
         Task<WarpToolProcessResult> operation = WarpToolProcess.RunAsync("/bin/sh", arguments, directory, TimeSpan.FromSeconds(1));

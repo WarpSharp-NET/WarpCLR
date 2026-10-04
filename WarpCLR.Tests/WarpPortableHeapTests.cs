@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using WarpCLR.Compiler;
+using WarpCLR.Runtime.Host;
 
 namespace WarpCLR.Tests.Production;
 
@@ -423,28 +424,29 @@ internal sealed class WarpPortableHeapTests
     public void ContextOwnedHeapSurvivesDispatchesAndHandlesProvideExplicitRootLifetime()
     {
         using var context = new WarpPortableHeapContext(Schema(), payloadWords: 256, quotaWords: 256);
-        WarpPortableHeapServiceResult allocated = context.Execute(words => WarpPortableHeapServices.AllocateObject(words, 3));
+        WarpPortableHeapServiceResult allocated = context.Execute(nameof(WarpPortableHeapServices.AllocateObject), 3);
         Assert.AreEqual(0u, allocated.Fault);
         WarpPortableHeapReference reference = allocated.Reference;
         using WarpPortableHeapRootHandle root = context.AcquireRoot(reference);
         Assert.AreEqual(reference, root.Reference);
-        Assert.AreEqual(0u, context.Execute(words => WarpPortableHeapServices.EnterWorker(words, 0)).Fault);
-        Assert.AreEqual(0u, context.Execute(words => WarpPortableHeapServices.WriteWord(words, reference.Context, reference.Slot, reference.Generation, 6, 0x87654321)).Fault);
-        Assert.AreEqual(0u, context.Execute(words => WarpPortableHeapServices.ExitWorker(words, 0)).Fault);
-        Assert.AreEqual(0u, context.Execute(words => WarpPortableHeapServices.EnterWorker(words, 0)).Fault);
-        WarpPortableHeapServiceResult read = context.Execute(words => WarpPortableHeapServices.ReadWord(words, reference.Context, reference.Slot, reference.Generation, 6));
+        Assert.IsGreaterThan(0, context.CompiledServiceCount);
+        Assert.AreEqual(0u, context.Execute(nameof(WarpPortableHeapServices.EnterWorker), 0).Fault);
+        Assert.AreEqual(0u, context.Execute(nameof(WarpPortableHeapServices.WriteWord), reference.Context, reference.Slot, reference.Generation, 6, 0x87654321).Fault);
+        Assert.AreEqual(0u, context.Execute(nameof(WarpPortableHeapServices.ExitWorker), 0).Fault);
+        Assert.AreEqual(0u, context.Execute(nameof(WarpPortableHeapServices.EnterWorker), 0).Fault);
+        WarpPortableHeapServiceResult read = context.Execute(nameof(WarpPortableHeapServices.ReadWord), reference.Context, reference.Slot, reference.Generation, 6);
         Assert.AreEqual(0u, read.Fault);
         Assert.AreEqual(0x87654321u, read.Word0);
-        Assert.AreEqual(0u, context.Execute(words => WarpPortableHeapServices.ExitWorker(words, 0)).Fault);
+        Assert.AreEqual(0u, context.Execute(nameof(WarpPortableHeapServices.ExitWorker), 0).Fault);
         using var other = new WarpPortableHeapContext(Schema(), payloadWords: 256, quotaWords: 256);
-        Assert.AreEqual(WarpPortableHeapLayout.WrongContext, other.Execute(words => WarpPortableHeapServices.GetType(words, reference.Context, reference.Slot, reference.Generation)).Fault);
+        Assert.AreEqual(WarpPortableHeapLayout.WrongContext, other.Execute(nameof(WarpPortableHeapServices.GetType), reference.Context, reference.Slot, reference.Generation).Fault);
         root.Dispose();
         Assert.ThrowsExactly<ObjectDisposedException>(() => _ = root.Reference);
-        Assert.AreEqual(0u, context.Execute(WarpPortableHeapServices.RequestCollection).Fault);
-        Assert.AreEqual(1u, context.Execute(WarpPortableHeapServices.Collect).Word0);
-        Assert.AreEqual(WarpPortableHeapLayout.InvalidReference, context.Execute(words => WarpPortableHeapServices.GetType(words, reference.Context, reference.Slot, reference.Generation)).Fault);
+        Assert.AreEqual(0u, context.Execute(nameof(WarpPortableHeapServices.RequestCollection)).Fault);
+        Assert.AreEqual(1u, context.Execute(nameof(WarpPortableHeapServices.Collect)).Word0);
+        Assert.AreEqual(WarpPortableHeapLayout.InvalidReference, context.Execute(nameof(WarpPortableHeapServices.GetType), reference.Context, reference.Slot, reference.Generation).Fault);
         context.Dispose();
-        Assert.ThrowsExactly<ObjectDisposedException>(() => context.Execute(WarpPortableHeapServices.RequestCollection));
+        Assert.ThrowsExactly<ObjectDisposedException>(() => context.Execute(nameof(WarpPortableHeapServices.RequestCollection)));
     }
 
     [TestMethod]

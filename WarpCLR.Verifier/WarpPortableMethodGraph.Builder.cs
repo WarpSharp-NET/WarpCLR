@@ -107,6 +107,7 @@ internal sealed partial class WarpPortableMethodGraph
                 if (method is MethodInfo function)
                 {
                     AddType(function.ReturnType);
+                    if (function.ReturnType.IsSealed && !function.ReturnType.IsValueType && !function.ReturnType.IsByRef) { AddConcreteType(function.ReturnType); }
                 }
 
                 bool delegateConstructor = method is ConstructorInfo && WarpPortableMethodGraphIntrinsics.IsDelegate(method.DeclaringType!);
@@ -127,7 +128,7 @@ internal sealed partial class WarpPortableMethodGraph
         private string AddType(Type type)
         {
             string identity = WarpPortableMethodGraphIdentity.Type(type);
-            if (!WarpPortableMethodGraphIntrinsics.IsLeafType(type) && !type.HasElementType && !permitted.Contains(type.Assembly))
+            if (!WarpPortableMethodGraphIntrinsics.IsLeafType(type) && !WarpPortableMethodGraphIntrinsics.IsStructuralTuple(type) && !type.HasElementType && !permitted.Contains(type.Assembly))
             {
                 throw Error($"Type '{identity}' belongs to an assembly outside the caller's permitted closure.");
             }
@@ -169,7 +170,7 @@ internal sealed partial class WarpPortableMethodGraph
         {
             string identity = WarpPortableMethodGraphIdentity.Type(type);
             bool leaf = WarpPortableMethodGraphIntrinsics.IsLeafType(type) || type.HasElementType;
-            string? baseType = type.BaseType is null || leaf ? null : AddType(type.BaseType);
+            string? baseType = type.BaseType is null ? null : AddType(type.BaseType);
             ImmutableArray<string> interfaces = leaf && !type.IsInterface ? [] : type.GetInterfaces().Select(AddType).Order(StringComparer.Ordinal).ToImmutableArray();
             var typeFields = ImmutableArray.CreateBuilder<string>();
             string? initializer = null;
@@ -201,7 +202,7 @@ internal sealed partial class WarpPortableMethodGraph
                 return identity;
             }
 
-            if (!permitted.Contains(field.Module.Assembly))
+            if (!permitted.Contains(field.Module.Assembly) && !WarpPortableMethodGraphIntrinsics.IsStructuralTuple(field.DeclaringType!))
             {
                 throw Error($"Field '{identity}' is outside the permitted managed closure.");
             }
@@ -305,6 +306,7 @@ internal sealed partial class WarpPortableMethodGraph
                             _ => throw Error("A metadata token has no portable target.", instruction.Offset),
                         };
                     case OperandType.InlineString:
+                        AddConcreteType(typeof(string));
                         return instruction with { StringLiteral = source.Module.ResolveString(token) };
                     case OperandType.InlineSig:
                         throw Error("Indirect calls and standalone function-pointer signatures are outside the portable profile.", instruction.Offset);
@@ -333,6 +335,7 @@ internal sealed partial class WarpPortableMethodGraph
                 (instruction.OpCode == OpCodes.Callvirt || instruction.OpCode == OpCodes.Ldvirtftn))
             {
                 slots.TryAdd(identity, slot);
+                if (typeof(Exception).IsAssignableFrom(slot.DeclaringType!)) { AddImplicitExceptionTypes(); }
             }
             else if (target.IsAbstract)
             {
@@ -351,6 +354,14 @@ internal sealed partial class WarpPortableMethodGraph
             }
 
             return instruction with { Method = identity };
+        }
+
+        private void AddImplicitExceptionTypes()
+        {
+            Type[] faultTypes = [typeof(NullReferenceException), typeof(IndexOutOfRangeException), typeof(OverflowException),
+                typeof(DivideByZeroException), typeof(InvalidCastException), typeof(ArrayTypeMismatchException),
+                typeof(TypeInitializationException), typeof(OutOfMemoryException), typeof(OperationCanceledException)];
+            foreach (Type type in faultTypes) { AddConcreteType(type); }
         }
 
         private void AddDefaultConstructor(Type type, HashSet<string> dependencies, int offset)
@@ -372,8 +383,10 @@ internal sealed partial class WarpPortableMethodGraph
         {
             Type type = source.Module.ResolveType(unchecked((int)instruction.Operand), typeArguments, methodArguments);
             string identity = AddType(type);
+            if (typeof(Exception).IsAssignableFrom(type) && !type.IsAbstract) { AddConcreteType(type); }
             if (instruction.OpCode == OpCodes.Newarr)
             {
+                if (type.IsByRefLike || type.IsByRef) { throw Error("An array cannot store escaping managed byrefs/byref-like values.", instruction.Offset); }
                 AddConcreteType(type.MakeArrayType());
             }
             else if (instruction.OpCode == OpCodes.Box || instruction.OpCode == OpCodes.Initobj)
@@ -411,6 +424,7 @@ internal sealed partial class WarpPortableMethodGraph
                 }
 
                 string? catchType = clause.Flags == ExceptionHandlingClauseOptions.Clause && clause.CatchType is { } type ? AddType(type) : null;
+                if (clause.Flags == ExceptionHandlingClauseOptions.Clause && clause.CatchType is { IsAbstract: false } concreteCatch) { AddConcreteType(concreteCatch); }
                 regions.Add(new WarpPortableMethodGraphExceptionRegion((int)clause.Flags, clause.TryOffset, clause.TryLength,
                     clause.HandlerOffset, clause.HandlerLength, filter, catchType));
             }
@@ -491,10 +505,6 @@ internal sealed partial class WarpPortableMethodGraph
                 throw Error($"Method '{method.Name}' is outside the permitted assemblies and has no explicit portable intrinsic.");
             }
 
-            if (method is MethodInfo { ReturnType.IsByRef: true } && WarpPortableMethodGraphIntrinsics.Resolve(method) is null)
-            {
-                throw Error("Byref returns require typed lifetime verification and are not admitted by this closure stage.");
-            }
         }
 
         private static void ValidateOperation(MethodBase method, WarpPortableMethodGraphInstruction instruction,

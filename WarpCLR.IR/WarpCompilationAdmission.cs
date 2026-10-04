@@ -29,11 +29,11 @@ public static class WarpCompilationAdmission
         Require(kernel.Name, WarpCompilationResourceKind.Parameters,
             kernel.InputBufferCount + (long)kernel.ScalarArgumentCount, MaximumParametersPerBody);
         var usage = new WarpCompilationUsage(kernel.Name);
-        usage.AddBody(kernel.Blocks, kernel.ValueCount);
+        usage.AddBody(kernel.Blocks, checked(kernel.ValueCount + (kernel.Execution?.Bodies[0].PrivateWordCount ?? 0)));
         foreach (WarpControlFlowFunction function in kernel.Functions)
         {
             Require(kernel.Name, WarpCompilationResourceKind.Parameters, function.ParameterCount, MaximumParametersPerBody);
-            usage.AddBody(function.Blocks, function.ValueCount);
+            usage.AddBody(function.Blocks, checked(function.ValueCount + (kernel.Execution?.Bodies[function.Id + 1].PrivateWordCount ?? 0)));
         }
     }
 

@@ -14,6 +14,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
     private readonly List<ulong> inputPointers = [];
     private readonly int maximumItemCount;
     private readonly ulong[] previousBudgets;
+    private readonly ulong[] previousOperations;
     private int itemCount;
     private int inputBase;
     private readonly int maximumCallDepth;
@@ -38,6 +39,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         this.maximumCallDepth = maximumCallDepth;
         stateSnapshot = (uint[])states.Clone();
         previousBudgets = new ulong[itemCount];
+        previousOperations = new ulong[itemCount];
         CaptureBudgets(stateSnapshot, itemCount);
         this.scalars = scalars.ToArray();
         this.inputs = inputs.ToArray();
@@ -153,7 +155,11 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
     private void CaptureBudgets(uint[] states, int count)
     {
         int stride = image.MachineLayout!.GetStateWords(maximumCallDepth);
-        for (int worker = 0; worker < count; worker++) { previousBudgets[worker] = ReadBudget(states, worker * stride); }
+        for (int worker = 0; worker < count; worker++)
+        {
+            previousBudgets[worker] = ReadBudget(states, worker * stride);
+            previousOperations[worker] = ReadOperations(states, worker * stride);
+        }
     }
 
     private bool ValidateBudgetsAndCheckForFault()
@@ -164,17 +170,26 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         {
             ulong remaining = ReadBudget(stateSnapshot, worker * stride);
             uint status = stateSnapshot[worker * stride + WarpLogicalMachineLayout.StatusOffset];
-            if (remaining > previousBudgets[worker] || (remaining == previousBudgets[worker] && status == WarpLogicalMachineLayout.Runnable))
+            ulong used = ReadOperations(stateSnapshot, worker * stride);
+            bool unchanged = remaining == previousBudgets[worker];
+            bool helperProgress = image.MachineLayout!.HasLogicalAccounting && used > previousOperations[worker];
+            if (remaining > previousBudgets[worker] || used < previousOperations[worker] ||
+                (unchanged && status == WarpLogicalMachineLayout.Runnable && !helperProgress))
             {
                 throw new WarpHostException("WRPNATIVE1007", "A native worker increased its step budget or yielded runnable state without charged progress.");
             }
 
             previousBudgets[worker] = remaining;
+            previousOperations[worker] = used;
             observedFault |= status == WarpLogicalMachineLayout.Faulted;
         }
 
         return observedFault;
     }
+
+    private ulong ReadOperations(uint[] states, int offset) => image.MachineLayout!.HasLogicalAccounting ?
+        states[offset + WarpLogicalMachineLayout.UsedOperationsLowOffset] |
+        ((ulong)states[offset + WarpLogicalMachineLayout.UsedOperationsHighOffset] << 32) : 0;
 
     private static ulong ReadBudget(uint[] states, int offset) =>
         states[offset + WarpLogicalMachineLayout.RemainingStepsLowOffset] |

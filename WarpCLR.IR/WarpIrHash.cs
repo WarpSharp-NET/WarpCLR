@@ -27,6 +27,18 @@ public static class WarpIrHash
             AppendBody(hash, function.Blocks);
         }
 
+        if (kernel.Execution is WarpLogicalExecutionMetadata execution)
+        {
+            AppendString(hash, WarpLogicalExecutionMetadata.Version);
+            AppendInt32(hash, execution.RecursiveCalls ? 1 : 0);
+            foreach (WarpLogicalBodyMetadata body in execution.Bodies)
+            {
+                AppendInt32(hash, body.PrivateWordCount);
+                AppendInt32(hash, body.RuntimeHelper ? 1 : 0);
+                AppendInt32(hash, body.SourceBlockCosts.Count);
+                foreach (int cost in body.SourceBlockCosts) { AppendInt32(hash, cost); }
+            }
+        }
         return Convert.ToHexString(hash.GetHashAndReset());
     }
 

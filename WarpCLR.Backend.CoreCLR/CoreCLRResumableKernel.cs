@@ -6,7 +6,7 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Backend.CoreCLR;
 
-public sealed class CoreCLRResumableKernel
+public sealed partial class CoreCLRResumableKernel
 {
     private static long nextAssemblyId;
     private readonly QuantumEntryPoint entryPoint;
@@ -94,7 +94,7 @@ public sealed class CoreCLRResumableKernel
         catch (InsufficientExecutionStackException)
         {
             throw new CoreCLRResourceLimitException(
-                CoreCLRResourceLimitKind.StackExhausted, 0, depth: checked((int)state[WarpLogicalMachineLayout.DepthOffset]));
+                CoreCLRResourceLimitKind.StackExhausted, 0, depth: checked((int)state[Layout.HasLogicalAccounting ? WarpLogicalMachineLayout.LogicalDepthOffset : WarpLogicalMachineLayout.DepthOffset]));
         }
 
         entryPoint(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum, cancellationToken, managedArena);
@@ -132,33 +132,42 @@ public sealed class CoreCLRResumableKernel
 
         if (state[WarpLogicalMachineLayout.StatusOffset] > WarpLogicalMachineLayout.Faulted ||
             state[WarpLogicalMachineLayout.DepthOffset] == 0 ||
-            state[WarpLogicalMachineLayout.DepthOffset] > (uint)maximumCallDepth ||
+            state[WarpLogicalMachineLayout.DepthOffset] > (uint)Layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
             state[WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue)
         {
             throw new ArgumentException("Logical machine header is invalid.", nameof(state));
         }
 
         ValidateFrames(state);
+        if (Layout.HasLogicalAccounting && state[WarpLogicalMachineLayout.LogicalDepthOffset] > maximumCallDepth)
+        {
+            throw new ArgumentException("The logical source depth exceeds its admitted call limit.", nameof(state));
+        }
     }
 
     private void ValidateFrames(uint[] state)
     {
+        uint logicalDepth = 0;
         for (int depth = 0; depth < state[WarpLogicalMachineLayout.DepthOffset]; depth++)
         {
             int frame = checked(WarpLogicalMachineLayout.HeaderWords + (depth * Layout.FrameWords));
             uint pc = state[frame + WarpLogicalMachineLayout.FrameProgramCounterOffset];
             uint function = state[frame + WarpLogicalMachineLayout.FrameFunctionOffset];
-            if ((depth == 0 && function != 0) || pc >= (uint)Layout.Nodes.Count || function > (uint)Layout.Kernel.Functions.Count ||
+            if ((depth == 0 && function != 0) || (depth != 0 && function == 0) || pc >= (uint)Layout.Nodes.Count || function > (uint)Layout.Kernel.Functions.Count ||
                 function != (uint)Layout.Nodes[checked((int)pc)].Function)
             {
                 throw new ArgumentException("A logical machine frame has an invalid program counter or function.", nameof(state));
             }
 
+            if (!Layout.IsRuntimeHelper(checked((int)function))) { logicalDepth++; }
             if (depth != 0)
             {
                 ValidateReturnLocation(state, frame, function);
-
             }
+        }
+        if (Layout.HasLogicalAccounting && state[WarpLogicalMachineLayout.LogicalDepthOffset] != logicalDepth)
+        {
+            throw new ArgumentException("The logical source depth does not match the active frame metadata.", nameof(state));
         }
     }
 
@@ -187,7 +196,7 @@ public sealed class CoreCLRResumableKernel
         }
     }
 
-    private sealed class QuantumEmitter
+    private sealed partial class QuantumEmitter
     {
         private static readonly MethodInfo CancellationCheck = typeof(CancellationToken)
             .GetMethod(nameof(CancellationToken.ThrowIfCancellationRequested))!;
@@ -198,6 +207,8 @@ public sealed class CoreCLRResumableKernel
         private readonly LocalBuilder nextFrame;
         private readonly LocalBuilder remainingSteps;
         private readonly LocalBuilder remainingQuantum;
+        private readonly LocalBuilder usedOperations;
+        private readonly LocalBuilder nextOperations;
         private readonly LocalBuilder[] edgeCopies;
         private readonly Label loop;
         private readonly Label[] nodes;
@@ -211,6 +222,8 @@ public sealed class CoreCLRResumableKernel
             nextFrame = il.DeclareLocal(typeof(int));
             remainingSteps = il.DeclareLocal(typeof(ulong));
             remainingQuantum = il.DeclareLocal(typeof(int));
+            usedOperations = il.DeclareLocal(typeof(ulong));
+            nextOperations = il.DeclareLocal(typeof(ulong));
             edgeCopies = Enumerable.Range(0, maximumParallelCopies).Select(_ => il.DeclareLocal(typeof(uint))).ToArray();
             loop = il.DefineLabel();
             nodes = layout.Nodes.Select(_ => il.DefineLabel()).ToArray();
@@ -281,7 +294,7 @@ public sealed class CoreCLRResumableKernel
         {
             Label totalAdmitted = il.DefineLabel();
             il.Emit(OpCodes.Ldloc, remainingSteps);
-            Constant(node.BlockCost);
+            Constant(node.SourceCost);
             il.Emit(OpCodes.Conv_U8);
             il.Emit(OpCodes.Bge_Un, totalAdmitted);
             EmitFault(node, WarpLogicalMachineLayout.StepLimitFault);
@@ -293,7 +306,7 @@ public sealed class CoreCLRResumableKernel
             il.Emit(OpCodes.Ret);
             il.MarkLabel(quantumAdmitted);
             il.Emit(OpCodes.Ldloc, remainingSteps);
-            Constant(node.BlockCost);
+            Constant(node.SourceCost);
             il.Emit(OpCodes.Conv_U8);
             il.Emit(OpCodes.Sub);
             il.Emit(OpCodes.Stloc, remainingSteps);
@@ -313,16 +326,12 @@ public sealed class CoreCLRResumableKernel
             Constant(node.BlockCost);
             il.Emit(OpCodes.Sub);
             il.Emit(OpCodes.Stloc, remainingQuantum);
+            EmitOperationalProgress(node);
         }
 
         private void EmitCall(WarpLogicalMachineNode node, WarpIrInstruction call)
         {
-            Label admitted = il.DefineLabel();
-            il.Emit(OpCodes.Ldloc, depth);
-            il.Emit(OpCodes.Ldarg_S, (byte)4);
-            il.Emit(OpCodes.Blt, admitted);
-            EmitFault(node, WarpLogicalMachineLayout.CallDepthFault);
-            il.MarkLabel(admitted);
+            EmitCallCapacity(node, call);
             il.Emit(OpCodes.Ldloc, frame);
             Constant(layout.FrameWords);
             il.Emit(OpCodes.Add);
@@ -338,6 +347,11 @@ public sealed class CoreCLRResumableKernel
                 StoreFrame(nextFrame, layout.ArgumentOffset + index, () => LoadValue(argument));
             }
 
+            EmitClearPrivate(call.Callee + 1);
+            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(call.Callee + 1))
+            {
+                ChangeLogicalDepth(1);
+            }
             StoreFrame(frame, WarpLogicalMachineLayout.FrameProgramCounterOffset, () => Constant(node.Continuation));
             StoreState(WarpLogicalMachineLayout.DepthOffset, () =>
             {
@@ -425,6 +439,10 @@ public sealed class CoreCLRResumableKernel
                 il.Emit(OpCodes.Stelem_I4);
             }
 
+            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(node.Function))
+            {
+                ChangeLogicalDepth(-1);
+            }
             StoreState(WarpLogicalMachineLayout.DepthOffset, () =>
             {
                 il.Emit(OpCodes.Ldloc, depth);
@@ -443,7 +461,7 @@ public sealed class CoreCLRResumableKernel
             }
 
             il.Emit(OpCodes.Ldarg_3);
-            il.Emit(OpCodes.Ldarg_S, (byte)4);
+            LoadPhysicalCapacity();
             Constant(layout.FrameWords);
             il.Emit(OpCodes.Mul);
             Constant(WarpLogicalMachineLayout.HeaderWords + word - 2);
@@ -463,6 +481,11 @@ public sealed class CoreCLRResumableKernel
 
         private void EmitInstruction(WarpIrInstruction instruction)
         {
+            if (WarpManagedFrameOpCode.IsPrivate(instruction.OpCode))
+            {
+                EmitPrivateInstruction(instruction);
+                return;
+            }
             if (WarpManagedMemoryOpCode.RequiresArena(instruction.OpCode))
             {
                 EmitManagedInstruction(instruction);
@@ -513,6 +536,12 @@ public sealed class CoreCLRResumableKernel
 
         private void EmitManagedInstruction(WarpIrInstruction instruction)
         {
+            if (WarpManagedAtomicOpCode.IsAtomic(instruction.OpCode))
+            {
+                EmitManagedAtomic(instruction);
+                return;
+            }
+
             if (instruction.OpCode == WarpManagedMemoryOpCode.WordAddress)
             {
                 LoadValue(instruction.Left);
@@ -557,6 +586,67 @@ public sealed class CoreCLRResumableKernel
         }
 
         private void LoadArena() => il.Emit(OpCodes.Ldarg_S, (byte)7);
+
+        private void EmitManagedAtomic(WarpIrInstruction instruction)
+        {
+            if (instruction.OpCode == WarpManagedAtomicOpCode.Fence)
+            {
+                il.Emit(OpCodes.Call, typeof(Thread).GetMethod(nameof(Thread.MemoryBarrier))!);
+                Constant(0);
+                return;
+            }
+
+            LoadArena();
+            LoadValue(instruction.Left);
+            il.Emit(OpCodes.Ldelema, typeof(uint));
+            if (instruction.OpCode is WarpManagedAtomicOpCode.LoadAcquire or WarpManagedAtomicOpCode.StoreRelease)
+            {
+                EmitVolatile(instruction);
+                return;
+            }
+
+            if (instruction.OpCode == WarpManagedAtomicOpCode.LoadSequential)
+            {
+                il.Emit(OpCodes.Call, typeof(Thread).GetMethod(nameof(Thread.MemoryBarrier))!);
+                il.Emit(OpCodes.Call, typeof(Volatile).GetMethod(nameof(Volatile.Read), [typeof(uint).MakeByRefType()])!);
+                il.Emit(OpCodes.Call, typeof(Thread).GetMethod(nameof(Thread.MemoryBarrier))!);
+                return;
+            }
+
+            LoadValue(instruction.OpCode == WarpManagedAtomicOpCode.CompareExchange ? instruction.Third : instruction.Right);
+            if (instruction.OpCode == WarpManagedAtomicOpCode.CompareExchange)
+            {
+                LoadValue(instruction.Right);
+                il.Emit(OpCodes.Call, AtomicMethod(nameof(Interlocked.CompareExchange), 3));
+            }
+            else
+            {
+                il.Emit(OpCodes.Call, AtomicMethod(instruction.OpCode == WarpManagedAtomicOpCode.Add
+                    ? nameof(Interlocked.Add) : nameof(Interlocked.Exchange), 2));
+                if (instruction.OpCode == WarpManagedAtomicOpCode.StoreSequential)
+                {
+                    il.Emit(OpCodes.Pop);
+                    LoadValue(instruction.Right);
+                }
+            }
+        }
+
+        private void EmitVolatile(WarpIrInstruction instruction)
+        {
+            if (instruction.OpCode == WarpManagedAtomicOpCode.LoadAcquire)
+            {
+                il.Emit(OpCodes.Call, typeof(Volatile).GetMethod(nameof(Volatile.Read), [typeof(uint).MakeByRefType()])!);
+                return;
+            }
+
+            LoadValue(instruction.Right);
+            il.Emit(OpCodes.Call, typeof(Volatile).GetMethod(nameof(Volatile.Write), [typeof(uint).MakeByRefType(), typeof(uint)])!);
+            LoadValue(instruction.Right);
+        }
+
+        private static MethodInfo AtomicMethod(string name, int parameterCount) => typeof(Interlocked).GetMethod(name,
+            parameterCount == 3 ? [typeof(uint).MakeByRefType(), typeof(uint), typeof(uint)] : [typeof(uint).MakeByRefType(), typeof(uint)])
+            ?? throw new InvalidOperationException("The CoreCLR runtime lacks the required UInt32 atomic primitive.");
 
         private void EmitBinaryInstruction(WarpIrInstruction instruction)
         {
