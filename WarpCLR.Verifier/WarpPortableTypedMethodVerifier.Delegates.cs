@@ -35,6 +35,10 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         }
 
         string? intrinsic = target.Intrinsic;
+        if (WarpPortableMethodGraphIntrinsics.ExceptionAccessor(target.SourceMethod) is { } accessor)
+        {
+            step.Effects.Add(accessor == WarpPortableExceptionAccessorKind.HResultStore ? WarpPortableTypedEffect.WriteMemory : WarpPortableTypedEffect.ReadMemory);
+        }
         if (intrinsic?.Contains("memory.atomic.sc.", StringComparison.Ordinal) == true) { step.Effects.Add(WarpPortableTypedEffect.AtomicSequential); }
         if (intrinsic?.Contains("memory.volatile.acquire-release.Read", StringComparison.Ordinal) == true) { step.Effects.Add(WarpPortableTypedEffect.Acquire); }
         if (intrinsic?.Contains("memory.volatile.acquire-release.Write", StringComparison.Ordinal) == true) { step.Effects.Add(WarpPortableTypedEffect.Release); }

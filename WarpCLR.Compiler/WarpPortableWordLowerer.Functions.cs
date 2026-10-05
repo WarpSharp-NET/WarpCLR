@@ -50,9 +50,10 @@ internal static partial class WarpPortableWordLowerer
 
         internal void CheckInitializer(WarpPortableMethodGraphMethod method, int offset)
         {
-            WarpPortableMethodGraphType owner = graph.Types.First(type => type.SourceType == method.SourceMethod.DeclaringType);
-            if (owner.Initializer is not null && !string.Equals(owner.Initializer, method.Identity, StringComparison.Ordinal))
+            WarpPortableTypedInitializerTrigger? trigger = WarpPortableTypeInitialization.ForMethod(graph, method.SourceMethod);
+            if (trigger is not null && !string.Equals(trigger.Initializer, method.Identity, StringComparison.Ordinal))
             {
+                if (binding is WarpPortableClosedInitializerSourceBinding actual && actual.BindsMethod(method.Identity)) { return; }
                 throw Error(method.Identity, "Type initializer execution must be bound to the generated runtime service.", offset);
             }
         }

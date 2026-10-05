@@ -13,4 +13,7 @@ internal sealed record WarpPortableTypedInstruction(
     ImmutableArray<int> UnwindRegions, ImmutableArray<WarpPortableTypedEffect> Effects,
     ImmutableArray<WarpPortableTypedFault> Faults,
     ImmutableArray<WarpPortableTypedRoot> Roots, string? MemoryType, int StorageBits,
-    bool ReadOnlyAccess, string? RequiredIntrinsic);
+    bool ReadOnlyAccess, string? RequiredIntrinsic)
+{
+    public WarpPortableTypedInitializerTrigger? InitializerTrigger { get; init; }
+}

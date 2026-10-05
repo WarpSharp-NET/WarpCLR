@@ -3,20 +3,19 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text.Json;
 using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
 
 internal sealed class WarpPortableCliSizeContract
 {
-    internal const string Semantics = "warp.cli-size/coreclr64-captured-metadata-numeric-size-native-evaluation-separate-portable-owner-layout/0.2";
+    internal const string Semantics = "warp.cli-size/coreclr64-captured-metadata-numeric-size-native-evaluation-separate-portable-owner-layout-raw-utf16-snapshot/0.3";
 
     private WarpPortableCliSizeContract(WarpPortableMethodGraph graph, ImmutableArray<WarpPortableCliTypeSize> sizes)
     {
         GraphHash = graph.GraphHash; Sizes = sizes; NativeEvaluationBits = 64;
         RuntimeProfile = RuntimeInformation.FrameworkDescription + "/" + RuntimeInformation.ProcessArchitecture + "/pointer64";
-        ContractHash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+        ContractHash = Convert.ToHexString(SHA256.HashData(WarpPortableSnapshotIdentity.Serialize(new
         { Semantics, GraphHash, RuntimeProfile, PointerBytes = 8, NativeEvaluationBits, NativeEvaluationSemantics = WarpPortableCliNativeInteger.Semantics, Sizes })));
     }
 

@@ -89,13 +89,7 @@ internal sealed class WarpNativeToolchain
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(target);
-        if (target.Backend == WarpBackendKind.NVPTX &&
-            layout.Kernel.Instructions.Concat(layout.Kernel.Functions.SelectMany(function => function.Instructions))
-                .Any(instruction => WarpManagedAtomicOpCode.IsAtomic(instruction.OpCode)) &&
-            uint.Parse(target.Architecture.AsSpan(3), CultureInfo.InvariantCulture) < 70)
-        {
-            throw new WarpHostException("WRPNATIVE1003", "The portable atomic memory-order contract requires NVPTX sm_70 or later.");
-        }
+        WarpNativeAtomicAdmission.Validate(layout, target);
         return await WarpNativeCompilationDeadline.RunAsync(options.ProcessTimeout, async token =>
         {
             string source = WarpPortableMachineEmitter.Emit(layout, target.Backend, options.MaximumSourceBytes, token);
@@ -163,7 +157,7 @@ internal sealed class WarpNativeToolchain
             {
                 WarpBackendKind.NVPTX => await CompilePtxAsync(target, assembler, bitcode, directory, cancellationToken).ConfigureAwait(false),
                 WarpBackendKind.AMDGPU => await CompileHsacoAsync(target, assembler, bitcode, directory, cancellationToken).ConfigureAwait(false),
-                _ => await CompileSpirVAsync(assembler, bitcode, directory, cancellationToken).ConfigureAwait(false),
+                _ => await CompileSpirVAsync(assembler, bitcode, directory, machineLayout?.RequiresWideAtomics == true, cancellationToken).ConfigureAwait(false),
             };
 
             if (new FileInfo(imagePath).Length > options.MaximumImageBytes)
@@ -220,13 +214,27 @@ internal sealed class WarpNativeToolchain
     }
 
     private async Task<(string ImagePath, string Toolchain, WarpNativeImageFormat Format)> CompileSpirVAsync(
-        string assembler, string bitcode, string directory, CancellationToken cancellationToken)
+        string assembler, string bitcode, string directory, bool wideAtomics, CancellationToken cancellationToken)
     {
         string translator = await VersionAsync(options.SpirVTranslator, cancellationToken).ConfigureAwait(false);
         string validator = await VersionAsync(options.SpirVValidator, cancellationToken).ConfigureAwait(false);
+        if (wideAtomics && !validator.Contains(WarpManagedWideAtomicOpCode.OpenClValidation, StringComparison.Ordinal))
+        {
+            throw new WarpHostException("WRPNATIVE1003", "Wide OpenCL atomics require the explicitly versioned extension-aware validator.");
+        }
         string imagePath = Path.Combine(directory, "module.spv");
         await RunAsync(options.SpirVTranslator, ["--spirv-max-version=1.2", bitcode, "-o", imagePath],
             directory, cancellationToken).ConfigureAwait(false);
+        if (wideAtomics)
+        {
+            if (new FileInfo(imagePath).Length > options.MaximumImageBytes)
+            {
+                throw new WarpHostException("WRPNATIVE1005", "The translated atomic image exceeds compilation admission before allocation.");
+            }
+            byte[] module = await File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
+            byte[] declared = WarpSpirVAtomicRequirements.Declare(module, options.MaximumImageBytes);
+            await File.WriteAllBytesAsync(imagePath, declared, cancellationToken).ConfigureAwait(false);
+        }
         await RunAsync(options.SpirVValidator, ["--target-env", "opencl2.2", imagePath], directory, cancellationToken).ConfigureAwait(false);
         return (imagePath, assembler + "\n" + translator + "\n" + validator, WarpNativeImageFormat.SpirV);
     }
@@ -234,7 +242,15 @@ internal sealed class WarpNativeToolchain
     private async Task<string> VersionAsync(string tool, CancellationToken cancellationToken)
     {
         WarpToolProcessResult result = await RunAsync(tool, ["--version"], null, cancellationToken).ConfigureAwait(false);
-        return tool + "\n" + result.StandardOutput + "\n" + result.StandardError;
+        string identity = tool + "\n" + result.StandardOutput + "\n" + result.StandardError;
+        if (string.Equals(tool, options.SpirVValidator, StringComparison.Ordinal) &&
+            result.StandardOutput.Contains(WarpManagedWideAtomicOpCode.OpenClValidation, StringComparison.Ordinal))
+        {
+            if (!Path.IsPathFullyQualified(tool)) { throw new WarpHostException("WRPNATIVE1003", "The extension-aware validator must bind an exact executable path."); }
+            using FileStream binary = new(tool, FileMode.Open, FileAccess.Read, FileShare.Read);
+            identity += "\nsha256=" + Convert.ToHexString(await SHA256.HashDataAsync(binary, cancellationToken).ConfigureAwait(false));
+        }
+        return identity;
     }
 
     private Task<WarpToolProcessResult> RunAsync(string tool, IReadOnlyList<string> arguments,

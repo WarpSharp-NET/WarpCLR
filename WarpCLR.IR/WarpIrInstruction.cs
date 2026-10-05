@@ -17,6 +17,16 @@ public readonly record struct WarpIrInstruction
         resultWordCountDelta = resultWordCount - 1;
     }
 
+    internal WarpIrInstruction(int result, WarpIrOpCode opCode, int address, IEnumerable<int> operands, int resultWordCount)
+        : this(result, opCode, address, arguments: operands)
+    {
+        if (!WarpManagedWideAtomicOpCode.IsAtomic(opCode) || resultWordCount != 2)
+        {
+            throw new ArgumentException("A wide atomic defines exactly two adjacent UInt32 result words.", nameof(opCode));
+        }
+        resultWordCountDelta = 1;
+    }
+
     internal int ResultWordCount => resultWordCountDelta + 1;
 
     public WarpIrInstruction(

@@ -1,26 +1,27 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
-using System.Text.Json;
 using WarpCLR.Verifier;
 
 namespace WarpCLR.Compiler;
 
 internal sealed partial class WarpPortableSourceHeapSchema
 {
-    internal const string Version = "warp.source-heap/typed-byte-layout-dense-type-dispatch-fault-views-array-shapes/0.3";
+    internal const string Version = "warp.source-heap/typed-byte-layout-dense-type-dispatch-fault-views-array-shapes-exception-data-raw-utf16-snapshot/0.5";
     private readonly WarpPortableHeapSchema runtime;
 
     private WarpPortableSourceHeapSchema(WarpPortableMethodGraph graph, WarpPortableTypedProgram typed,
         ImmutableArray<WarpPortableSourceHeapType> types, ImmutableArray<WarpPortableSourceHeapField> fields,
         ImmutableArray<WarpPortableSourceHeapFault> faults, ImmutableArray<WarpPortableSourceHeapServiceFault> serviceFaults,
-        ImmutableArray<WarpPortableSourceMemoryView> views, ImmutableArray<WarpPortableSourceNullableLayout> nullableLayouts)
+        ImmutableArray<WarpPortableSourceMemoryView> views, ImmutableArray<WarpPortableSourceNullableLayout> nullableLayouts,
+        ImmutableArray<WarpPortableSourceExceptionType> exceptionTypes, ImmutableDictionary<string, Type> sourceTypes)
     {
         GraphHash = graph.GraphHash; VerifiedHash = typed.VerifiedHash; Types = types; Fields = fields; Faults = faults; ServiceFaults = serviceFaults; MemoryViews = views; NullableLayouts = nullableLayouts;
+        ExceptionTypes = exceptionTypes; SourceTypes = sourceTypes;
         runtime = new(types.Select(type => new WarpPortableHeapTypeLayout(type.Id, type.Identity, type.Kind,
             type.PayloadWords, type.AssignableTo, type.References, type.ElementType, type.StaticWords, type.StaticReferences)));
-        SchemaHash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+        SchemaHash = Convert.ToHexString(SHA256.HashData(WarpPortableSnapshotIdentity.Serialize(new
         {
-            Version, GraphHash, VerifiedHash, Types, Fields, Faults, ServiceFaults, MemoryViews, NullableLayouts, graph.Dispatches,
+            Version, GraphHash, VerifiedHash, Types, Fields, Faults, ServiceFaults, MemoryViews, NullableLayouts, ExceptionTypes, graph.Dispatches,
             Heap = WarpPortableHeapLayout.Semantics, Exceptions = WarpPortableSourceExceptionLayout.Semantics,
             Delegates = WarpPortableSourceDelegateLayout.Semantics, TypeObjects = WarpPortableSourceTypeObjectLayout.Semantics,
             ByteViews = WarpPortableSourceMemoryLayout.Semantics,
@@ -37,10 +38,14 @@ internal sealed partial class WarpPortableSourceHeapSchema
     internal ImmutableArray<WarpPortableSourceHeapServiceFault> ServiceFaults { get; }
     internal ImmutableArray<WarpPortableSourceMemoryView> MemoryViews { get; }
     internal ImmutableArray<WarpPortableSourceNullableLayout> NullableLayouts { get; }
+    internal ImmutableArray<WarpPortableSourceExceptionType> ExceptionTypes { get; }
+    // Compile-time captured CLR metadata only; no host object execution or grant.
+    internal ImmutableDictionary<string, Type> SourceTypes { get; }
     internal long MetadataWordCount => checked(WarpPortableHeapLayout.HeaderWords + (long)Types.Length * WarpPortableHeapLayout.TypeWords +
         (long)Types.Length * Types.Length + Types.Sum(type => type.StaticWords + (long)(type.References.Length + type.StaticReferences.Length) * 2) +
         WarpPortableSourceMemoryLayout.HeaderWords + (long)Types.Length * WarpPortableSourceMemoryLayout.TypeWords +
-        (long)MemoryViews.Length * WarpPortableSourceMemoryLayout.ViewWords + (long)NullableLayouts.Length * WarpPortableSourceMemoryLayout.NullableWords);
+        (long)MemoryViews.Length * WarpPortableSourceMemoryLayout.ViewWords + (long)NullableLayouts.Length * WarpPortableSourceMemoryLayout.NullableWords +
+        (long)Types.Length * WarpPortableSourceExceptionLayout.ExceptionTypeWords);
 
     internal uint TypeId(string identity) => Types.First(type => string.Equals(type.Identity, identity, StringComparison.Ordinal)).Id;
 
@@ -95,7 +100,8 @@ internal sealed partial class WarpPortableSourceHeapSchema
             ImmutableArray<WarpPortableSourceMemoryView> views = MemoryViews(types);
             ImmutableArray<WarpPortableSourceNullableLayout> nullableLayouts = NullableLayouts();
             RequireMetadataBudget(types, views.Length, nullableLayouts.Length);
-            return new(graph, program, types, FieldMaps(), FaultMaps(), ServiceFaultMaps(), views, nullableLayouts);
+            return new(graph, program, types, FieldMaps(), FaultMaps(), ServiceFaultMaps(), views, nullableLayouts, ExceptionTypes(),
+                sources.ToImmutableDictionary(StringComparer.Ordinal));
         }
 
         private static bool HeapType(Type source) => source != typeof(void) && !source.IsByRef && !source.IsPointer &&

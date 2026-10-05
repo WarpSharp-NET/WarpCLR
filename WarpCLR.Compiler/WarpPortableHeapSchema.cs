@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
-using System.Text;
+using WarpCLR.Verifier;
 
 namespace WarpCLR.Compiler;
 
@@ -189,11 +189,12 @@ internal sealed class WarpPortableHeapSchema
         }
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(bytes);
-        hash.AppendData(Encoding.UTF8.GetBytes(WarpPortableHeapLayout.Semantics));
+        hash.AppendData(WarpPortableSnapshotIdentity.RawUtf16Bytes(WarpPortableHeapLayout.Semantics));
+        hash.AppendData(WarpPortableSnapshotIdentity.RawUtf16Bytes(WarpPortableSnapshotIdentity.Semantics));
         byte[] length = new byte[sizeof(uint)];
         foreach (WarpPortableHeapTypeLayout type in types)
         {
-            byte[] identity = Encoding.UTF8.GetBytes(type.Identity);
+            byte[] identity = WarpPortableSnapshotIdentity.RawUtf16Bytes(type.Identity);
             BinaryPrimitives.WriteUInt32LittleEndian(length, (uint)identity.Length);
             hash.AppendData(length);
             hash.AppendData(identity);

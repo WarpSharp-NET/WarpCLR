@@ -39,18 +39,23 @@ internal sealed partial class WarpPortableTypedProgram
 
             ImmutableArray<WarpPortableTypedMethod> result = verified.MoveToImmutable();
             ImmutableArray<WarpPortableTypedType> snapshot = types.Snapshot();
-            string hash = Hash(graph.GraphHash, snapshot, result, cliSizes);
-            return new(graph.GraphHash, hash, snapshot, result, cliSizes);
+            WarpPortableTypedInitializerTrigger? entry = WarpPortableTypeInitialization.ForMethod(graph,
+                graph.Methods.First(method => string.Equals(method.Identity, graph.EntryIdentity, StringComparison.Ordinal)).SourceMethod);
+            string hash = Hash(graph.GraphHash, snapshot, result, cliSizes, entry);
+            return new(graph.GraphHash, hash, snapshot, result, cliSizes, entry);
         }
 
         private static string Hash(string graphHash, ImmutableArray<WarpPortableTypedType> types, ImmutableArray<WarpPortableTypedMethod> methods,
-            WarpPortableCliSizeContract? cliSizes)
+            WarpPortableCliSizeContract? cliSizes, WarpPortableTypedInitializerTrigger? entryInitializerTrigger = null)
         {
             using var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
             {
-                writer.Write(Version);
-                writer.Write(graphHash);
+                WarpPortableSnapshotIdentity.Write(writer, Version);
+                WarpPortableSnapshotIdentity.Write(writer, WarpPortableSnapshotIdentity.Semantics);
+                WarpPortableSnapshotIdentity.Write(writer, graphHash);
+                WarpPortableSnapshotIdentity.Write(writer, WarpPortableTypeInitialization.Semantics);
+                WriteInitializer(writer, entryInitializerTrigger);
                 foreach (WarpPortableTypedType type in types)
                 {
                     WriteType(writer, type);
@@ -60,7 +65,7 @@ internal sealed partial class WarpPortableTypedProgram
                 {
                     WriteMethod(writer, method);
                 }
-                if (cliSizes is not null) { writer.Write(WarpPortableCliSizeContract.Semantics); writer.Write(cliSizes.ContractHash); }
+                if (cliSizes is not null) { WarpPortableSnapshotIdentity.Write(writer, WarpPortableCliSizeContract.Semantics); WarpPortableSnapshotIdentity.Write(writer, cliSizes.ContractHash); }
             }
 
             return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
@@ -68,13 +73,13 @@ internal sealed partial class WarpPortableTypedProgram
 
         private static void WriteType(BinaryWriter writer, WarpPortableTypedType type)
         {
-            writer.Write(type.Identity); writer.Write((int)type.Category); writer.Write(type.StorageBits);
+            WarpPortableSnapshotIdentity.Write(writer, type.Identity); writer.Write((int)type.Category); writer.Write(type.StorageBits);
             writer.Write(type.IsSigned); writer.Write(type.ByteSize); writer.Write(type.Alignment);
-            writer.Write(type.WordCount); writer.Write(type.InstanceByteSize); writer.Write(type.ElementType ?? string.Empty);
+            writer.Write(type.WordCount); writer.Write(type.InstanceByteSize); WarpPortableSnapshotIdentity.Write(writer, type.ElementType ?? string.Empty);
             writer.Write(type.Fields.Length);
             foreach (WarpPortableTypedField field in type.Fields)
             {
-                writer.Write(field.Identity); writer.Write(field.TypeIdentity); writer.Write(field.ByteOffset);
+                WarpPortableSnapshotIdentity.Write(writer, field.Identity); WarpPortableSnapshotIdentity.Write(writer, field.TypeIdentity); writer.Write(field.ByteOffset);
                 writer.Write(field.ByteSize); writer.Write(field.IsStatic); writer.Write(field.IsReadOnly);
             }
 
@@ -83,9 +88,9 @@ internal sealed partial class WarpPortableTypedProgram
 
         private static void WriteMethod(BinaryWriter writer, WarpPortableTypedMethod method)
         {
-            writer.Write(method.Identity); WriteStrings(writer, method.ArgumentTypes); WriteStrings(writer, method.LocalTypes);
-            writer.Write(method.ReturnType); writer.Write(method.MaximumStackWords); writer.Write(method.PrivateStorageWords);
-            writer.Write(method.Intrinsic ?? string.Empty); WriteProvenance(writer, method.ReturnSummary.Origins);
+            WarpPortableSnapshotIdentity.Write(writer, method.Identity); WriteStrings(writer, method.ArgumentTypes); WriteStrings(writer, method.LocalTypes);
+            WarpPortableSnapshotIdentity.Write(writer, method.ReturnType); writer.Write(method.MaximumStackWords); writer.Write(method.PrivateStorageWords);
+            WarpPortableSnapshotIdentity.Write(writer, method.Intrinsic ?? string.Empty); WriteProvenance(writer, method.ReturnSummary.Origins);
             writer.Write(method.ReturnSummary.ReadOnly); writer.Write(method.Instructions.Length);
             foreach (WarpPortableTypedInstruction instruction in method.Instructions)
             {
@@ -113,8 +118,18 @@ internal sealed partial class WarpPortableTypedProgram
             }
 
             WriteRoots(writer, instruction.Roots);
-            writer.Write(instruction.MemoryType ?? string.Empty); writer.Write(instruction.StorageBits);
-            writer.Write(instruction.ReadOnlyAccess); writer.Write(instruction.RequiredIntrinsic ?? string.Empty);
+            WarpPortableSnapshotIdentity.Write(writer, instruction.MemoryType ?? string.Empty); writer.Write(instruction.StorageBits);
+            writer.Write(instruction.ReadOnlyAccess); WarpPortableSnapshotIdentity.Write(writer, instruction.RequiredIntrinsic ?? string.Empty);
+            WriteInitializer(writer, instruction.InitializerTrigger);
+        }
+
+        private static void WriteInitializer(BinaryWriter writer, WarpPortableTypedInitializerTrigger? trigger)
+        {
+            writer.Write(trigger is not null);
+            if (trigger is null) { return; }
+            WarpPortableSnapshotIdentity.Write(writer, trigger.DeclaringType);
+            WarpPortableSnapshotIdentity.Write(writer, trigger.Initializer);
+            writer.Write((int)trigger.Kind); writer.Write(trigger.BeforeFieldInit);
         }
 
         private static void WriteValues(BinaryWriter writer, ImmutableArray<WarpPortableTypedValue> values)
@@ -122,9 +137,9 @@ internal sealed partial class WarpPortableTypedProgram
             writer.Write(values.Length);
             foreach (WarpPortableTypedValue value in values)
             {
-                writer.Write(value.TypeIdentity); writer.Write((int)value.Category); writer.Write(value.WordCount);
+                WarpPortableSnapshotIdentity.Write(writer, value.TypeIdentity); writer.Write((int)value.Category); writer.Write(value.WordCount);
                 writer.Write(value.IsReadOnly); writer.Write(value.ControlledMutability); writer.Write(value.IsUninitializedThis); writer.Write(value.IsNull);
-                writer.Write(value.MethodTarget ?? string.Empty); writer.Write(value.SourceStorageType ?? string.Empty); WriteProvenance(writer, value.Provenance);
+                WarpPortableSnapshotIdentity.Write(writer, value.MethodTarget ?? string.Empty); WarpPortableSnapshotIdentity.Write(writer, value.SourceStorageType ?? string.Empty); WriteProvenance(writer, value.Provenance);
             }
         }
 
@@ -143,7 +158,7 @@ internal sealed partial class WarpPortableTypedProgram
             writer.Write(roots.Length);
             foreach (WarpPortableTypedRoot root in roots)
             {
-                writer.Write(root.Storage); writer.Write(root.Slot); writer.Write(root.WordOffset);
+                WarpPortableSnapshotIdentity.Write(writer, root.Storage); writer.Write(root.Slot); writer.Write(root.WordOffset);
                 writer.Write(root.IsInteriorOwner); WriteProvenance(writer, root.Provenance);
             }
         }
@@ -153,15 +168,15 @@ internal sealed partial class WarpPortableTypedProgram
             writer.Write(provenance.Length);
             foreach (WarpPortableTypedProvenance origin in provenance)
             {
-                writer.Write((int)origin.Kind); writer.Write(origin.OwnerMethod); writer.Write(origin.OwnerIndex);
-                writer.Write(origin.OwnerType); writer.Write(origin.ByteOffset); writer.Write(origin.ByteLength);
+                writer.Write((int)origin.Kind); WarpPortableSnapshotIdentity.Write(writer, origin.OwnerMethod); writer.Write(origin.OwnerIndex);
+                WarpPortableSnapshotIdentity.Write(writer, origin.OwnerType); writer.Write(origin.ByteOffset); writer.Write(origin.ByteLength);
             }
         }
 
         private static void WriteStrings(BinaryWriter writer, ImmutableArray<string> values)
         {
             writer.Write(values.Length);
-            foreach (string value in values) { writer.Write(value); }
+            foreach (string value in values) { WarpPortableSnapshotIdentity.Write(writer, value); }
         }
 
         private static void WriteIntegers(BinaryWriter writer, ImmutableArray<int> values)

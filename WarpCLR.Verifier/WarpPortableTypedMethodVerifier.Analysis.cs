@@ -72,7 +72,8 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         instructions[index] = new(source.Offset, source.NextOffset, source.OpCode.Value, true,
             before.Stack.ToImmutableArray(), after.Stack.ToImmutableArray(), before.ArgumentSnapshot(), before.LocalSnapshot(),
             memberships[index], successors[index].Select(successor => method.Instructions[successor].Offset).ToImmutableArray(), exceptional.ToImmutable(),
-            unwind[index], step.Effects.ToImmutableArray(), Faults(source, step), Roots(before), step.MemoryType, step.StorageBits, step.Prefix.ReadOnly, step.Intrinsic);
+            unwind[index], step.Effects.ToImmutableArray(), Faults(source, step), Roots(before), step.MemoryType, step.StorageBits, step.Prefix.ReadOnly, step.Intrinsic)
+            { InitializerTrigger = step.InitializerTrigger };
     }
 
     private void Enqueue(int index, WarpPortableTypedFlowState incoming)
@@ -122,5 +123,6 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         public string? MemoryType { get; set; }
         public int StorageBits { get; set; }
         public string? Intrinsic { get; set; }
+        public WarpPortableTypedInitializerTrigger? InitializerTrigger { get; set; }
     }
 }

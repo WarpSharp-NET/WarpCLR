@@ -1,6 +1,4 @@
-using System.Globalization;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
 using WarpCLR.IR;
 
@@ -16,7 +14,8 @@ internal sealed record WarpNativeTarget
         uint maxWorkgroupSize,
         uint maxGridX,
         ulong globalMemoryBytes,
-        uint maximumKernelArgumentBytes = 4096)
+        uint maximumKernelArgumentBytes = 4096,
+        bool supportsInt64Atomics = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(architecture);
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceIdentity);
@@ -54,12 +53,8 @@ internal sealed record WarpNativeTarget
         MaxGridX = maxGridX;
         GlobalMemoryBytes = globalMemoryBytes;
         MaximumKernelArgumentBytes = maximumKernelArgumentBytes;
-        CacheIdentity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            string.Join('\n', backend, architecture, deviceIdentity, runtimeIdentity,
-                maxWorkgroupSize.ToString(CultureInfo.InvariantCulture),
-                maxGridX.ToString(CultureInfo.InvariantCulture),
-                globalMemoryBytes.ToString(CultureInfo.InvariantCulture),
-                maximumKernelArgumentBytes.ToString(CultureInfo.InvariantCulture)))));
+        SupportsInt64Atomics = supportsInt64Atomics;
+        CacheIdentity = ComputeCacheIdentity();
     }
 
     public WarpBackendKind Backend { get; }
@@ -71,4 +66,24 @@ internal sealed record WarpNativeTarget
     public ulong GlobalMemoryBytes { get; }
     public uint MaximumKernelArgumentBytes { get; }
     public string CacheIdentity { get; }
+    internal bool SupportsInt64Atomics { get; }
+
+    private string ComputeCacheIdentity()
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            WarpRawIdentity.WriteString(writer, "warp.native-target/raw-utf16-length-delimited/0.2");
+            writer.Write((int)Backend);
+            WarpRawIdentity.WriteString(writer, Architecture);
+            WarpRawIdentity.WriteString(writer, DeviceIdentity);
+            WarpRawIdentity.WriteString(writer, RuntimeIdentity);
+            writer.Write(MaxWorkgroupSize);
+            writer.Write(MaxGridX);
+            writer.Write(GlobalMemoryBytes);
+            writer.Write(MaximumKernelArgumentBytes);
+            writer.Write(SupportsInt64Atomics);
+        }
+        return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
+    }
 }

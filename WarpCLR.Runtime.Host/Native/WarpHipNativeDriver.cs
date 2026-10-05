@@ -47,7 +47,9 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
             uint maxGrid = checked((uint)Marshal.ReadInt32(properties.Pointer, HipDevicePropertiesR0600.MaxGridSize));
             ulong memory = unchecked((ulong)Marshal.ReadInt64(properties.Pointer, HipDevicePropertiesR0600.TotalGlobalMemory));
             Target = new WarpNativeTarget(WarpBackendKind.AMDGPU, architecture, bus + "/" + name,
-                "hip-runtime/" + runtimeVersion, maxThreads, maxGrid, memory);
+                "hip-runtime/" + runtimeVersion, maxThreads, maxGrid, memory,
+                supportsInt64Atomics: (unchecked((uint)Marshal.ReadInt32(properties.Pointer, HipDevicePropertiesR0600.ArchitectureFlags)) &
+                    HipDevicePropertiesR0600.GlobalInt64AtomicMask) != 0);
         }
         catch
         {

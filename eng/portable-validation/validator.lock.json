@@ -1,0 +1,33 @@
+{
+  "identity": "warpclr.opencl-int64-atomic-extensions/0.1",
+  "executable": "warpclr-spirv-val-int64-0.1",
+  "upstream": "KhronosGroup/SPIRV-Tools v2025.1",
+  "headersRevision": "09913f088a1197aba4aefd300a876b2ebbaa3391",
+  "archives": [
+    {
+      "name": "tools-v2025.1.tar.gz",
+      "url": "https://codeload.github.com/KhronosGroup/SPIRV-Tools/tar.gz/refs/tags/v2025.1",
+      "sha256": "6a9313fa68e061d463f616357cd24cdf1c3a27d906ea791d7ba67dd1b6666a40"
+    },
+    {
+      "name": "headers-09913f088a1197aba4aefd300a876b2ebbaa3391.tar.gz",
+      "url": "https://codeload.github.com/KhronosGroup/SPIRV-Headers/tar.gz/09913f088a1197aba4aefd300a876b2ebbaa3391",
+      "sha256": "6d4aad5a86d7d5af144747aee1d616f624897d64d842f282aca7777f84244318"
+    }
+  ],
+  "depsSha256": "b8d9ab9795de9f85c71c3f7d6eb5d483d7f1843c9bf376c80f05ed562860938c",
+  "patchSha256": "605e686c1ff4eeff32bfcc12c098c3cebdc10d528aa10211ccce57f4abffb320",
+  "files": [
+    {
+      "path": "source/val/validate_capability.cpp",
+      "baselineSha256": "a7bab9c9d5641eedeb4152ced79586ff8f5fc3ae7fe60e15d5d7b87a8e82ba8d",
+      "sha256": "923a4c23273475b9173b2883c6fe857ec44e9787bc86f497fb69fd038ea9a5ff"
+    },
+    {
+      "path": "tools/val/val.cpp",
+      "baselineSha256": "889c66f35f7d3124cdc8196fc088395c1f477ccaa92356cfe0cfbef037bae3c4",
+      "sha256": "30d6f03ec91417086961dfeea13ccfff2452336ee397db6084b8257dbfa70823"
+    }
+  ],
+  "validatedLocalBinarySha256": "b7f612b5ee85311b747a44ce2fa0f601118aa8816f82a3ad36ce5cc9496cb636"
+}

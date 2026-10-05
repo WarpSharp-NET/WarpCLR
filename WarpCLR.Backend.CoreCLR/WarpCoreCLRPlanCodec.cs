@@ -12,9 +12,10 @@ public static class WarpCoreCLRPlanCodec
     public static byte[] Serialize(WarpControlFlowKernel kernel)
     {
         ArgumentNullException.ThrowIfNull(kernel);
-        if (kernel.Execution is not null)
+        if (kernel.Execution is not null || kernel.Instructions.Concat(kernel.Functions.SelectMany(function => function.Instructions))
+            .Any(instruction => instruction.ResultWordCount != 1 || WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode)))
         {
-            throw new NotSupportedException("The legacy integer plan cannot discard logical-source-frame metadata.");
+            throw new NotSupportedException("The legacy integer plan cannot discard logical-source-frame or pair-result metadata.");
         }
 
         var plan = new StringBuilder();

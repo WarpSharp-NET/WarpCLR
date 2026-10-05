@@ -8,7 +8,7 @@ namespace WarpCLR.Compiler;
 
 internal static class WarpPortableSourceServiceBanks
 {
-    internal const string Semantics = "warp.source-runtime-banks/closed-module-exact-frame-state-arena-eh-service-signatures/0.2";
+    internal const string Semantics = "warp.source-runtime-banks/closed-module-exact-eh-alias-owner-logical-trace-original-constructor-retirement-private-fault-ticket-and-source-initializer-exact-signatures/0.9";
 
     internal static ImmutableDictionary<MethodInfo, IReadOnlyList<WarpRuntimeWordBank>> Capture(MethodInfo entry)
     {
@@ -40,16 +40,21 @@ internal static class WarpPortableSourceServiceBanks
     {
         ParameterInfo[] parameters = method.GetParameters();
         int count = parameters.Count(parameter => parameter.ParameterType == typeof(uint[]));
+        if (method.DeclaringType == typeof(WarpPortableSourceFaultServices) || method.DeclaringType == typeof(WarpPortableExceptionServices))
+        {
+            ImmutableDictionary<MethodInfo, IReadOnlyList<WarpRuntimeWordBank>> exact = method.DeclaringType == typeof(WarpPortableSourceFaultServices) ?
+                WarpPortableSourceFaultServices.BankBindings() : WarpPortableExceptionServices.BankBindings();
+            return exact.TryGetValue(method, out IReadOnlyList<WarpRuntimeWordBank>? banks) ? banks.ToImmutableArray() :
+                throw new ArgumentException("A fault/EH service requires its exact immutable per-MethodInfo bank binding.", nameof(method));
+        }
         if (count == 0) { return Enumerable.Repeat(WarpRuntimeWordBank.Word, parameters.Length).ToImmutableArray(); }
         bool state = method.DeclaringType == typeof(WarpPortableFrameServices) ||
             method.DeclaringType == typeof(WarpPortableHeapServices) && method.Name is "SourceStateReadByte" or "SourceStateWriteByte";
         bool mixed = method.DeclaringType == typeof(WarpPortableHeapServices) && method.Name is
-            nameof(WarpPortableHeapServices.ReadSourceFrameValue) or nameof(WarpPortableHeapServices.WriteSourceFrameValue) or "ValidateSourceFrameOwner";
-        bool exceptions = string.Equals(method.DeclaringType?.FullName, "WarpCLR.Compiler.WarpPortableExceptionServices", StringComparison.Ordinal);
-        mixed |= exceptions && method.Name is "CaptureFrames" or "ValidateCapture" or "CopyFrames" or "PruneCaught" or
-            "ApplyAction" or "ValidateTransfer" or "AcknowledgeTransfer";
+            nameof(WarpPortableHeapServices.ReadSourceFrameValue) or nameof(WarpPortableHeapServices.WriteSourceFrameValue) or "ValidateSourceFrameOwner" or
+            nameof(WarpPortableHeapServices.BeginSourceTypeInitialization) or nameof(WarpPortableHeapServices.CompleteSourceTypeInitialization) or "RequireSourceInitializerState";
         if (state ? count != 1 : mixed ? count != 2 || parameters[0].ParameterType != typeof(uint[]) || parameters[1].ParameterType != typeof(uint[]) :
-            method.DeclaringType != typeof(WarpPortableHeapServices) && !exceptions || count != 1)
+            method.DeclaringType != typeof(WarpPortableHeapServices) || count != 1)
         {
             throw new ArgumentException("Every generated runtime array requires its explicit captured State/Arena catalog binding.", nameof(method));
         }

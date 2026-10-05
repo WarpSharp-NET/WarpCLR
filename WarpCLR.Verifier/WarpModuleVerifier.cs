@@ -6,7 +6,6 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
-using System.Text;
 using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
@@ -50,7 +49,7 @@ public sealed class WarpModuleVerifier
         MetadataReader metadata = peReader.GetMetadataReader();
         WarpInitializationAdmission.RequireModule(metadata);
         string manifestJson = ReadEmbeddedManifest(metadata);
-        WarpManifestData manifest = WarpManifestParser.Parse(Encoding.UTF8.GetBytes(manifestJson));
+        WarpManifestData manifest = WarpManifestParser.Parse(WarpManifestUtf8Text.Bytes(manifestJson));
         ValidateCapabilities(manifest);
 
         var admission = new WarpModuleCompilationAdmission();
@@ -102,7 +101,7 @@ public sealed class WarpModuleVerifier
             }
 
             string manifestJson = ReadEmbeddedManifest(metadata);
-            byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
+            byte[] manifestBytes = WarpManifestUtf8Text.Bytes(manifestJson);
             WarpManifestData manifest = WarpManifestParser.Parse(manifestBytes);
             ValidateCapabilities(manifest);
 
@@ -572,7 +571,7 @@ public sealed class WarpModuleVerifier
             manifest = value
                 ?? throw Error("WRPCIL2000", "The WarpCIL manifest value cannot be null.");
             WarpCompilationAdmission.Require("<manifest>", WarpCompilationResourceKind.ManifestBytes,
-                Encoding.UTF8.GetByteCount(manifest), WarpCompilationAdmission.MaximumManifestBytes);
+                WarpManifestUtf8Text.ByteCount(manifest), WarpCompilationAdmission.MaximumManifestBytes);
         }
 
         return manifest
@@ -623,13 +622,14 @@ public sealed class WarpModuleVerifier
     private static string ComputeGraphHash(IReadOnlyList<MetadataMethodNode> methods)
     {
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendField(hash, Encoding.UTF8.GetBytes("warp.method-graph/0.2"));
+        AppendField(hash, WarpPortableSnapshotIdentity.RawUtf16Bytes("warp.method-graph/raw-utf16-metadata/0.3"));
+        AppendField(hash, WarpPortableSnapshotIdentity.RawUtf16Bytes(WarpPortableSnapshotIdentity.Semantics));
         Span<byte> count = stackalloc byte[sizeof(int)];
         BinaryPrimitives.WriteInt32LittleEndian(count, methods.Count);
         hash.AppendData(count);
         foreach (MetadataMethodNode method in methods)
         {
-            AppendField(hash, Encoding.UTF8.GetBytes(method.Identity));
+            AppendField(hash, WarpPortableSnapshotIdentity.RawUtf16Bytes(method.Identity));
             AppendInt32(hash, method.MaxStack);
             AppendInt32(hash, method.LocalCount);
             AppendInt32(hash, method.LocalsInitialized ? 1 : 0);

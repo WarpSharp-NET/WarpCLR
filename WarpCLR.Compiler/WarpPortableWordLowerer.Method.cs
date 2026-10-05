@@ -33,9 +33,12 @@ internal static partial class WarpPortableWordLowerer
                 .ToDictionary(pair => pair.Offset, pair => pair.Block);
             blocks = Enumerable.Repeat<WarpBasicBlock?>(null, sourceBlocks.Count + 1).ToList();
             charges = [0, .. Enumerable.Repeat(1, sourceBlocks.Count)];
+            int privateWords = checked(stackOffset + method.MaximumStackWords + (directUnsignedSingles.Count == 0 ? 0 : 2));
+            temporaries = ConstructorTemporaries(ref privateWords);
             Body = new(function + 1, method.Identity, arguments, locals, stackOffset, method.MaximumStackWords,
-                checked(stackOffset + method.MaximumStackWords + (directUnsignedSingles.Count == 0 ? 0 : 2)), method.Instructions.Where(instruction => instruction.Reachable)
-                    .Select(instruction => new WarpPortableWordSourceBlock(sourceBlocks[instruction.Offset], instruction, ProjectRoots(instruction), [], [sourceBlocks[instruction.Offset]], SourceOperation(instruction))).ToImmutableArray());
+                privateWords, method.Instructions.Where(instruction => instruction.Reachable)
+                    .Select(instruction => new WarpPortableWordSourceBlock(sourceBlocks[instruction.Offset], instruction, ProjectRoots(instruction), [], [sourceBlocks[instruction.Offset]], SourceOperation(instruction))).ToImmutableArray())
+                { PrivateTemporaries = temporaries };
             Metadata = new(Body.PrivateWordCount, false, charges);
         }
 

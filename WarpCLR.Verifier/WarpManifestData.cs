@@ -1,6 +1,4 @@
 using System.Buffers;
-using System.Text;
-using System.Text.Json;
 using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;

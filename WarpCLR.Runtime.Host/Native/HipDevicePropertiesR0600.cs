@@ -8,4 +8,6 @@ internal static class HipDevicePropertiesR0600
     public const int MaxThreadsPerBlock = 320;
     public const int MaxGridSize = 336;
     public const int GcnArchitecture = 1160;
+    public const int ArchitectureFlags = 1428;
+    public const uint GlobalInt64AtomicMask = 1u << 5;
 }

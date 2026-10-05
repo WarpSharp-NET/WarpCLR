@@ -3,7 +3,7 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Runtime.Host;
 
-public sealed class WarpRuntimeContext : IAsyncDisposable
+public sealed partial class WarpRuntimeContext : IAsyncDisposable
 {
     private readonly Lock sync = new();
     private readonly WarpRuntimeModule module;
@@ -239,8 +239,9 @@ public sealed class WarpRuntimeContext : IAsyncDisposable
     {
         if (nativeProvider is null)
         {
-            CoreCLRResumableKernel compiled = await jitCache.GetOrCompileAsync(module, entry, cancellationToken).ConfigureAwait(false);
-            return await Task.Run(() => Execute(entry, compiled, inputs, scalars, count, cancellationToken), cancellationToken).ConfigureAwait(false);
+            WarpCoreCLRWorkerLease compiled = await jitCache.GetOrCompileAsync(module, entry, cancellationToken).ConfigureAwait(false);
+            await using var lease = compiled.ConfigureAwait(false);
+            return await ExecuteIsolatedAsync(entry, compiled, inputs, scalars, count, cancellationToken).ConfigureAwait(false);
         }
 
         Native.IWarpNativeModule native = await nativeProvider.GetOrCompileAsync(entry, cancellationToken).ConfigureAwait(false);

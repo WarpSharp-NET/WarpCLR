@@ -1,0 +1,47 @@
+--- a/source/val/validate_capability.cpp
++++ b/source/val/validate_capability.cpp
+@@ -245,6 +245,26 @@
+   return _.HasAnyOfExtensions(operand_exts);
+ }
+ 
++// WarpCLR normative OpenCL extension profile: warpclr.opencl-int64-atomic-extensions/0.1.
++// OpenCL SPIR-V Environment section 5.2.8 permits Int64Atomics when the
++// consuming environment supports the base/extended atomic extensions.
++// The runtime independently authenticates both device extension tokens.
++// This validator profile requires both exact module declarations and does
++// not grant any other capability or skip any subsequent validation pass.
++bool IsEnabledByDeclaredInt64AtomicExtensionsOpenCL_2_2(
++    ValidationState_t& _, uint32_t capability) {
++  if (spv::Capability(capability) != spv::Capability::Int64Atomics) return false;
++  bool base = false;
++  bool extended = false;
++  for (const auto& instruction : _.ordered_instructions()) {
++    if (instruction.opcode() != spv::Op::OpExtension) continue;
++    const auto name = instruction.GetOperandAs<std::string>(0);
++    base |= name == "cl_khr_int64_base_atomics";
++    extended |= name == "cl_khr_int64_extended_atomics";
++  }
++  return base && extended;
++}
++
+ bool IsEnabledByCapabilityOpenCL_1_2(ValidationState_t& _,
+                                      uint32_t capability) {
+   if (_.HasCapability(spv::Capability::ImageBasic)) {
+@@ -366,6 +386,7 @@
+   } else if (env == SPV_ENV_OPENCL_2_2 || env == SPV_ENV_OPENCL_EMBEDDED_2_2) {
+     if (!IsSupportGuaranteedOpenCL_2_2(capability, opencl_embedded) &&
+         !IsSupportOptionalOpenCL_1_2(capability) &&
++        !IsEnabledByDeclaredInt64AtomicExtensionsOpenCL_2_2(_, capability) &&
+         !IsEnabledByExtension(_, capability) &&
+         !IsEnabledByCapabilityOpenCL_2_0(_, capability)) {
+       return _.diag(SPV_ERROR_INVALID_CAPABILITY, inst)
+--- a/tools/val/val.cpp
++++ b/tools/val/val.cpp
+@@ -113,6 +113,7 @@
+         }
+       } else if (0 == strcmp(cur_arg, "--version")) {
+         printf("%s\n", spvSoftwareVersionDetailsString());
++        printf("warpclr.opencl-int64-atomic-extensions/0.1; requires both declared OpenCL64 atomic extensions\n");
+         printf(
+             "Targets:\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  "
+             "%s\n  %s\n  %s\n  %s %s\n",

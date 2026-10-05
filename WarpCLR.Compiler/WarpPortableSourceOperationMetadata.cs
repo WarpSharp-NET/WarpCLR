@@ -7,5 +7,5 @@ internal sealed record WarpPortableSourceOperationMetadata(bool WritesOwnerRefer
     bool MayTargetCallerFrame, ImmutableArray<int> MemoryOwnerByteOffsets,
     ImmutableArray<WarpPortableTypedProvenance> DestinationProvenance)
 {
-    internal const string Version = "warp.source-effects/typed-owner-write-lease-source-completion/0.1";
+    internal const string Version = "warp.source-effects/typed-owner-write-constructor-private-lease-source-completion/0.2";
 }

@@ -54,6 +54,7 @@ internal static partial class WarpPortableWordLowerer
             var declared = result.ToDictionary(root => root.PrivateWordOffset);
             AddDeclaredRoots(declared, arguments, instruction.EntryArguments, "argument");
             AddDeclaredRoots(declared, locals, instruction.EntryLocals, "local");
+            AddTemporaryRoots(declared);
             return declared.Values.OrderBy(root => root.PrivateWordOffset).ThenBy(root => root.Source.Storage, StringComparer.Ordinal).ToImmutableArray();
         }
 

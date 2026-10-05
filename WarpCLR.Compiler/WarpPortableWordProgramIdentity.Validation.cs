@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
 
@@ -40,9 +38,9 @@ internal sealed partial class WarpPortableWordProgramIdentity
         if (!string.Equals(maps, program.MapsHash, StringComparison.Ordinal)) { throw Invalid("The source maps differ from their canonical identity."); }
         string[] services = program.RequiredServices.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         if (!services.SequenceEqual(program.RequiredServices, StringComparer.Ordinal)) { throw Invalid("Required services are not the exact ordered immutable catalog."); }
-        string serviceHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', services))));
+        string serviceHash = WarpPortableSnapshotIdentity.Hash(services);
         string name = WarpPortableWordLowerer.Version + "/" + program.VerifiedHash + "/" + serviceHash + "/" + maps;
-        string loweredHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(WarpPortableWordLowerer.Version + "\n" + program.VerifiedHash + "\n" + WarpIrHash.Compute(program.Kernel))));
+        string loweredHash = WarpPortableSnapshotIdentity.Hash(new { Version = WarpPortableWordLowerer.Version, program.VerifiedHash, IrHash = WarpIrHash.Compute(program.Kernel) });
         if (!string.Equals(name, program.Kernel.Name, StringComparison.Ordinal) || !string.Equals(loweredHash, program.LoweredHash, StringComparison.Ordinal))
         {
             throw Invalid("The final kernel or lowered hash differs from the exact compiler catalog and maps.");
@@ -53,6 +51,12 @@ internal sealed partial class WarpPortableWordProgramIdentity
     private static void RequireExecutionBindings(WarpPortableWordLoweredProgram program, string[] services)
     {
         if (program.Kernel.Execution is null) { throw Invalid("The source program requires exact immutable logical frame metadata."); }
+        bool privateController = program.Kernel.Execution.PrivateControllerProjection is not null;
+        if (program.Kernel.ScalarArgumentCount != (privateController ? 1 : 0) || privateController &&
+            (program.ExecutionBindingHash is null || !services.Contains(WarpPrivateControllerOpCode.Version, StringComparer.Ordinal)))
+        {
+            throw Invalid("A source program's physical controller scalar is separate from its original guest arguments and requires its sealed binding.");
+        }
         if ((program.ExecutionBindingHash is null) != (program.ExecutionPlanHash is null)) { throw Invalid("The source binding and completed execution plan must appear together."); }
         if (program.ExecutionPlanHash is { } plan)
         {

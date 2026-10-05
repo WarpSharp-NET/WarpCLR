@@ -52,7 +52,7 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
             Target = new WarpNativeTarget(WarpBackendKind.SPIRV, "opencl2.2-spirv1.2",
                 vendor + "/" + name + "/ordinal=" + deviceOrdinal, runtime,
                 checked((uint)Math.Min(maxWorkgroup, uint.MaxValue)), uint.MaxValue, Query64(0x101f),
-                checked((uint)Math.Min(Query64(0x1017), uint.MaxValue)));
+                checked((uint)Math.Min(Query64(0x1017), uint.MaxValue)), supportsInt64Atomics: HasInt64AtomicExtensions());
             using var deviceList = new WarpNativeBlock(IntPtr.Size);
             Marshal.WriteIntPtr(deviceList.Pointer, device);
             context = api.CreateContext(IntPtr.Zero, 1, deviceList.Pointer, IntPtr.Zero, IntPtr.Zero, out int error);
@@ -72,6 +72,13 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
     }
 
     public WarpNativeTarget Target { get; }
+
+    private bool HasInt64AtomicExtensions()
+    {
+        string[] extensions = QueryString(0x1030).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return extensions.Contains("cl_khr_int64_base_atomics", StringComparer.Ordinal) &&
+            extensions.Contains("cl_khr_int64_extended_atomics", StringComparer.Ordinal);
+    }
     public static WarpOpenClNativeDriver Open(int deviceOrdinal = 0, string? libraryPath = null) => new(deviceOrdinal, libraryPath);
 
     private ulong QueryWorkgroupLimit()

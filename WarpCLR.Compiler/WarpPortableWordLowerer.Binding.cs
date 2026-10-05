@@ -12,6 +12,7 @@ internal static partial class WarpPortableWordLowerer
         private ImmutableArray<WarpPortableWordBody> plannedBodies = [];
         private WarpPortableGeneratedServiceImporter? runtimeImporter;
         private int bindingPhase;
+        private WarpPortableExceptionPlan? exceptionPlan;
         internal ImmutableArray<WarpPortableWordBody> PlannedBodies => plannedBodies;
         internal WarpPortableGeneratedServiceImporter RuntimeImporter => runtimeImporter ?? throw new InvalidOperationException("No runtime source binding was prepared.");
 
@@ -41,17 +42,48 @@ internal static partial class WarpPortableWordLowerer
         private string? CompleteBinding(WarpControlFlowKernel kernel, string mapsHash, WarpPortableWordEntryProjection entry)
         {
             if (binding is null) { return null; }
-            string planHash = binding.Complete(new(graph, program, kernel, bodies.ToImmutableArray(), runtimeImporter!.Imports, entry, mapsHash));
+            var context = new CompletionContext(this, kernel, mapsHash, entry);
+            string planHash;
+            try { planHash = binding.Complete(context); }
+            finally { context.Close(); }
             WarpPortableWordExecutionBinding.RequireHash(planHash);
             bindingPhase = 4;
             return planHash;
+        }
+
+        private sealed class CompletionContext(Builder owner, WarpControlFlowKernel kernel, string mapsHash,
+            WarpPortableWordEntryProjection entry) : WarpPortableWordBindingCompletion
+        {
+            private bool active = true;
+            internal override WarpCLR.Verifier.WarpPortableMethodGraph Graph { get { Check(); return owner.graph; } }
+            internal override WarpCLR.Verifier.WarpPortableTypedProgram Program { get { Check(); return owner.program; } }
+            internal override WarpControlFlowKernel StructuralKernel { get { Check(); return kernel; } }
+            internal override ImmutableArray<WarpPortableWordBody> Bodies { get { Check(); return owner.bodies.ToImmutableArray(); } }
+            internal override ImmutableArray<WarpPortableGeneratedServiceImport> Imports { get { Check(); return owner.runtimeImporter!.Imports; } }
+            internal override WarpPortableWordEntryProjection EntryProjection { get { Check(); return entry; } }
+            internal override string MapsHash { get { Check(); return mapsHash; } }
+            internal override void AttachExceptionPlan(WarpPortableExceptionPlan plan)
+            {
+                Check(); ArgumentNullException.ThrowIfNull(plan);
+                if (owner.exceptionPlan is not null) { throw WarpPortableWordProgramIdentity.Invalid("A concrete EH plan attaches exactly once during compiler completion."); }
+                WarpPortableSourceHeapSchema schema = WarpPortableSourceHeapSchema.Create(owner.graph, owner.program);
+                RequireExceptionProjection(plan, owner.graph, owner.program, schema, kernel, Bodies, entry, mapsHash);
+                owner.exceptionPlan = plan;
+            }
+            internal void Close() => active = false;
+            private void Check()
+            {
+                if (!active || owner.bindingPhase != 3) { throw new InvalidOperationException("The source binding completion capability is closed."); }
+            }
         }
 
         private WarpLogicalExecutionMetadata Execution(WarpLogicalBodyMetadata[] described)
         {
             WarpPortableWordExecutionCapabilities? flags = binding?.Capabilities;
             return new(described, frameOwners: flags?.FrameOwners == true, runtimeStateAccess: flags?.RuntimeStateAccess == true,
-                nonlocalStateDispatch: flags?.NonlocalStateDispatch == true, managedExceptionTermination: flags?.ManagedExceptionTermination == true);
+                nonlocalStateDispatch: flags?.NonlocalStateDispatch == true, managedExceptionTermination: flags?.ManagedExceptionTermination == true,
+                logicalWorkerAccess: flags?.LogicalWorkerAccess == true,
+                privateControllerProjection: flags?.PrivateController == true ? CapturePrivateControllerProjection() : null);
         }
 
         private int ReserveRuntimeFunction(string identity)

@@ -46,6 +46,7 @@ public sealed partial class WarpPortableMachineEmitter
         public string Emit()
         {
             AppendHeader();
+            AppendWideAtomicRequirements();
             AppendParameters();
             AppendEntry();
             if (layout.Kernel.Functions.Count == 0)
@@ -299,6 +300,11 @@ public sealed partial class WarpPortableMachineEmitter
             foreach (WarpIrInstruction instruction in node.Instructions)
             {
                 AppendManagedBoundsCheck(instruction, node);
+                if (WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode))
+                {
+                    AppendWideAtomic(instruction);
+                    continue;
+                }
                 string value = EmitInstruction(instruction);
                 StoreValue(instruction.Result, value);
             }
@@ -357,7 +363,7 @@ public sealed partial class WarpPortableMachineEmitter
                 return N(instruction.Immediate);
             }
 
-            if (instruction.OpCode == WarpIrOpCode.LoadScalar)
+            if (instruction.OpCode is WarpIrOpCode.LoadScalar or WarpPrivateControllerOpCode.LoadController)
             {
                 return $"%warp_scalar_{N(instruction.Immediate)}";
             }
@@ -417,6 +423,11 @@ public sealed partial class WarpPortableMachineEmitter
 
         private void AppendManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
         {
+            if (WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode))
+            {
+                AppendWideAtomicBoundsCheck(instruction, node);
+                return;
+            }
             if (WarpManagedStateOpCode.RequiresBounds(instruction.OpCode))
             {
                 AppendStateBoundsCheck(instruction, node);

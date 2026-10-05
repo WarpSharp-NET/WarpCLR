@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Text;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
 
@@ -9,7 +8,7 @@ namespace WarpCLR.Compiler;
 
 internal sealed class WarpPortableGeneratedServiceImporter
 {
-    internal const string Semantics = "warp.source-services/verified-word-ir-explicit-bank-schema-binding-zero-source-charge/0.1";
+    internal const string Semantics = "warp.source-services/verified-word-ir-explicit-bank-schema-binding-zero-source-charge-raw-utf16-snapshot/0.2";
     private readonly string schemaHash;
     private readonly Func<string, int> reserve;
     private readonly Action<WarpControlFlowFunction, WarpLogicalBodyMetadata> store;
@@ -94,8 +93,7 @@ internal sealed class WarpPortableGeneratedServiceImporter
 
     private static string Signature(MethodInfo method, WarpPortableGeneratedServiceKind kind)
     {
-        string signature = WarpPortableMethodGraphIdentity.Method(method) + "/banks=" + kind.ToString();
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(signature)));
+        return WarpPortableSnapshotIdentity.Hash(new { Semantics, Method = WarpPortableMethodGraphIdentity.Method(method), BankKind = (int)kind });
     }
 
     private void Store(int id, string identity, int parameters, IReadOnlyList<WarpBasicBlock> blocks, Dictionary<int, int> remap, bool entry)

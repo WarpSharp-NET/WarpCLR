@@ -142,9 +142,11 @@ internal sealed partial class WarpPortableMethodGraph
             using var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
             {
-                writer.Write(Version);
-                writer.Write(WarpPortableMethodGraphIntrinsics.MathContract);
-                writer.Write(entryIdentity);
+                WarpPortableSnapshotIdentity.Write(writer, Version);
+                WarpPortableSnapshotIdentity.Write(writer, WarpPortableSnapshotIdentity.Semantics);
+                WarpPortableSnapshotIdentity.Write(writer, WarpPortableMethodGraphIntrinsics.MathContract);
+                WarpPortableSnapshotIdentity.Write(writer, WarpPortableMethodGraphIntrinsics.ExceptionAccessorContract);
+                WarpPortableSnapshotIdentity.Write(writer, entryIdentity);
                 WriteModuleHashes(writer);
                 writer.Write(methodNodes.Length);
                 foreach (WarpPortableMethodGraphMethod method in methodNodes)
@@ -167,8 +169,8 @@ internal sealed partial class WarpPortableMethodGraph
             foreach ((Module module, ImmutableArray<byte> image) in moduleImages.OrderBy(pair =>
                 pair.Key.Assembly.FullName + "/" + pair.Key.Name + "/" + pair.Key.ModuleVersionId, StringComparer.Ordinal))
             {
-                writer.Write(module.Assembly.FullName ?? string.Empty);
-                writer.Write(module.Name);
+                WarpPortableSnapshotIdentity.Write(writer, module.Assembly.FullName ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, module.Name);
                 writer.Write(module.ModuleVersionId.ToByteArray());
                 writer.Write(image.Length);
                 if (!image.IsEmpty)
@@ -180,13 +182,13 @@ internal sealed partial class WarpPortableMethodGraph
 
         private static void WriteMethod(BinaryWriter writer, WarpPortableMethodGraphMethod method)
         {
-            writer.Write(method.Identity);
+            WarpPortableSnapshotIdentity.Write(writer, method.Identity);
             writer.Write(method.SourceMethod.Module.ModuleVersionId.ToByteArray());
             writer.Write(method.SourceMethod.MetadataToken);
             writer.Write((int)method.SourceMethod.Attributes);
             writer.Write((int)method.SourceMethod.GetMethodImplementationFlags());
             writer.Write((int)method.SourceMethod.CallingConvention);
-            writer.Write(method.ReturnType);
+            WarpPortableSnapshotIdentity.Write(writer, method.ReturnType);
             WriteStrings(writer, method.ParameterTypes);
             foreach (ParameterInfo parameter in method.SourceMethod.GetParameters())
             {
@@ -204,7 +206,7 @@ internal sealed partial class WarpPortableMethodGraph
             writer.Write(method.InitializeLocals);
             writer.Write(method.Cil.Length);
             writer.Write(method.Cil.AsSpan());
-            writer.Write(method.Intrinsic ?? string.Empty);
+            WarpPortableSnapshotIdentity.Write(writer, method.Intrinsic ?? string.Empty);
             WriteStrings(writer, method.Dependencies);
             writer.Write(method.ExceptionRegions.Length);
             foreach (WarpPortableMethodGraphExceptionRegion region in method.ExceptionRegions)
@@ -215,7 +217,7 @@ internal sealed partial class WarpPortableMethodGraph
                 writer.Write(region.HandlerOffset);
                 writer.Write(region.HandlerLength);
                 writer.Write(region.FilterOffset);
-                writer.Write(region.CatchType ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, region.CatchType ?? string.Empty);
             }
 
             WriteInstructions(writer, method.Instructions);
@@ -230,10 +232,10 @@ internal sealed partial class WarpPortableMethodGraph
                 writer.Write(instruction.NextOffset);
                 writer.Write(instruction.OpCode.Value);
                 writer.Write(instruction.Operand);
-                writer.Write(instruction.Method ?? string.Empty);
-                writer.Write(instruction.Type ?? string.Empty);
-                writer.Write(instruction.Field ?? string.Empty);
-                writer.Write(instruction.StringLiteral ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, instruction.Method ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, instruction.Type ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, instruction.Field ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, instruction.StringLiteral ?? string.Empty);
                 writer.Write(instruction.BranchTargets.Length);
                 foreach (int target in instruction.BranchTargets)
                 {
@@ -247,20 +249,20 @@ internal sealed partial class WarpPortableMethodGraph
             writer.Write(types.Length);
             foreach (WarpPortableMethodGraphType type in types)
             {
-                writer.Write(type.Identity);
+                WarpPortableSnapshotIdentity.Write(writer, type.Identity);
                 writer.Write(type.SourceType.Module.ModuleVersionId.ToByteArray());
                 writer.Write((int)type.SourceType.Attributes);
-                writer.Write(type.BaseType ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, type.BaseType ?? string.Empty);
                 WriteStrings(writer, type.Interfaces);
                 WriteStrings(writer, type.Fields);
-                writer.Write(type.Initializer ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, type.Initializer ?? string.Empty);
                 writer.Write(type.Instantiated);
                 writer.Write(type.LayoutKind);
                 writer.Write(type.PackingSize);
                 writer.Write(type.DeclaredSize);
-                writer.Write(type.ElementType ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, type.ElementType ?? string.Empty);
                 writer.Write(type.ArrayRank);
-                writer.Write(type.EnumUnderlyingType ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, type.EnumUnderlyingType ?? string.Empty);
             }
         }
 
@@ -269,16 +271,16 @@ internal sealed partial class WarpPortableMethodGraph
             writer.Write(fields.Length);
             foreach (WarpPortableMethodGraphField field in fields)
             {
-                writer.Write(field.Identity);
-                writer.Write(field.DeclaringType);
-                writer.Write(field.FieldType);
+                WarpPortableSnapshotIdentity.Write(writer, field.Identity);
+                WarpPortableSnapshotIdentity.Write(writer, field.DeclaringType);
+                WarpPortableSnapshotIdentity.Write(writer, field.FieldType);
                 writer.Write((int)field.SourceField.Attributes);
                 WriteModifiers(writer, field.SourceField.GetRequiredCustomModifiers(), field.SourceField.GetOptionalCustomModifiers());
                 writer.Write(field.IsStatic);
                 writer.Write(field.IsReadOnly);
                 writer.Write(field.IsLiteral);
                 writer.Write(field.DeclaredOffset ?? -1);
-                writer.Write(field.LiteralBits ?? string.Empty);
+                WarpPortableSnapshotIdentity.Write(writer, field.LiteralBits ?? string.Empty);
                 writer.Write(field.InitializedData.Length);
                 writer.Write(field.InitializedData.AsSpan());
             }
@@ -289,9 +291,9 @@ internal sealed partial class WarpPortableMethodGraph
             writer.Write(dispatches.Length);
             foreach (WarpPortableMethodGraphDispatch dispatch in dispatches)
             {
-                writer.Write(dispatch.Slot);
-                writer.Write(dispatch.ConcreteType);
-                writer.Write(dispatch.Target);
+                WarpPortableSnapshotIdentity.Write(writer, dispatch.Slot);
+                WarpPortableSnapshotIdentity.Write(writer, dispatch.ConcreteType);
+                WarpPortableSnapshotIdentity.Write(writer, dispatch.Target);
             }
         }
 
@@ -300,7 +302,7 @@ internal sealed partial class WarpPortableMethodGraph
             writer.Write(values.Length);
             foreach (string value in values)
             {
-                writer.Write(value);
+                WarpPortableSnapshotIdentity.Write(writer, value);
             }
         }
 

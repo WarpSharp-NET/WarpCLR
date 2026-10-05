@@ -10,9 +10,9 @@ using WarpCLR.Runtime.Host.Native;
 
 namespace WarpCLR.Runtime.Host;
 
-public sealed class WarpJitCache : IAsyncDisposable
+public sealed partial class WarpJitCache : IAsyncDisposable
 {
-    private const string CacheSchema = "warp.jit-cache/0.2";
+    private const string CacheSchema = "warp.jit-cache/raw-utf16-length-delimited/0.3";
     private static readonly SearchValues<char> CacheIdentityCharacters = SearchValues.Create("0123456789ABCDEF");
     private readonly Lock sync = new();
     private readonly Dictionary<string, CacheEntry> entries = new(StringComparer.Ordinal);
@@ -47,10 +47,26 @@ public sealed class WarpJitCache : IAsyncDisposable
         }
     }
 
-    internal Task<CoreCLRResumableKernel> GetOrCompileAsync(WarpRuntimeModule module, WarpRuntimeEntry entry, CancellationToken cancellationToken)
+    internal async Task<WarpCoreCLRWorkerLease> GetOrCompileAsync(WarpRuntimeModule module, WarpRuntimeEntry entry, CancellationToken cancellationToken)
     {
         string key = GetKey(module, entry);
-        return GetOrCompileAsync(key, token => Task.FromResult(CompileCoreCLR(key, entry, token)), cancellationToken);
+        for (;;)
+        {
+            WarpCoreCLRWorkerKernel kernel = await GetOrCompileAsync(key,
+                token => CompileCoreCLRAsync(key, entry, token), cancellationToken).ConfigureAwait(false);
+            lock (sync)
+            {
+                ObjectDisposedException.ThrowIf(shutdownRequested, this);
+                if (entries.TryGetValue(key, out CacheEntry? current) && current.Compilation.IsCompletedSuccessfully &&
+                    coreByKey.TryGetValue(key, out WarpCoreCLRWorkerKernel? actual) && ReferenceEquals(actual, kernel))
+                {
+                    WarpCoreCLRWorkerLease? lease = kernel.TryAcquireLease();
+                    if (lease is not null) { return lease; }
+                    entries.Remove(key); recency.Remove(current.Recency);
+                    coreByKey.Remove(key); RecordRetirement(kernel);
+                }
+            }
+        }
     }
 
     internal Task<WarpNativeImage> GetOrCompileNativeAsync(
@@ -73,60 +89,68 @@ public sealed class WarpJitCache : IAsyncDisposable
         lock (sync) { memoryHitCount++; }
     }
 
-    public ValueTask DisposeAsync() => ShutdownOwnedAsync();
+    public async ValueTask DisposeAsync()
+    {
+        try { await ShutdownOwnedAsync().ConfigureAwait(false); }
+        finally { compilationLifetime.Dispose(); }
+    }
 
     internal void RequireReady()
     {
         lock (sync) { ObjectDisposedException.ThrowIf(shutdownRequested, this); }
     }
 
+    internal const string ShutdownSemantics = "warp.coreclr-cache-shutdown/first-snapshot-bounded-complete-fault-aggregate-child-stop/0.3";
+
     internal ValueTask ShutdownOwnedAsync()
     {
         lock (sync)
         {
-            shutdown ??= ShutdownCoreAsync();
+            if (shutdown is null)
+            {
+                shutdownRequested = true;
+                Task[] pending = entries.Values.Select(value => value.Compilation).ToArray();
+                var deadline = new CancellationTokenSource(options.CoreCLR.CleanupTimeout);
+                Task cancellation = compilationLifetime.CancelAsync();
+                Task[] disposals = coreWorkers.Select(worker => worker.DisposeAsync().AsTask()).Concat(retirements).ToArray();
+                shutdown = ShutdownCoreAsync(Task.WhenAll(pending.Concat(disposals).Append(cancellation)), deadline);
+            }
             return new ValueTask(shutdown);
         }
     }
 
-    private async Task ShutdownCoreAsync()
+    private async Task ShutdownCoreAsync(Task completion, CancellationTokenSource deadline)
     {
-        Task[] pending;
-        lock (sync)
+        using (deadline)
         {
-            shutdownRequested = true;
-            pending = entries.Values.Select(value => value.Compilation).ToArray();
-        }
-
-        Task drain = Task.WhenAll(pending);
-        try
-        {
-            await compilationLifetime.CancelAsync().ConfigureAwait(false);
-            await drain.ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is WarpHostException or OperationCanceledException or IOException or
-            ObjectDisposedException or PlatformNotSupportedException or CoreCLRCompilationResourceException or WarpCompilationResourceException)
-        {
-            if (drain.Exception is { } faults && faults.InnerExceptions.Any(exception => exception is not WarpHostException and
-                not OperationCanceledException and not IOException and not ObjectDisposedException and not PlatformNotSupportedException and
-                not CoreCLRCompilationResourceException and not WarpCompilationResourceException))
+            try { await completion.WaitAsync(deadline.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException error) when (deadline.IsCancellationRequested)
             {
-                throw faults;
+                throw new WarpHostException("WRPCORECLR3003", "JIT cache shutdown exhausted its separate cleanup quota; remaining work is quarantined.", error);
             }
-        }
-        finally
-        {
-            lock (sync)
+            catch (Exception) when (completion.Exception is { } failures && failures.Flatten().InnerExceptions.Count > 1 &&
+                !failures.Flatten().InnerExceptions.All(ExpectedShutdownFailure))
             {
-                entries.Clear();
-                recency.Clear();
+                // Await selects one fault. Preserve the complete captured aggregate
+                // when an expected fault could otherwise mask a compiler bug.
+                throw failures.Flatten();
             }
-
-            pending = [];
-            drain = Task.CompletedTask;
-            compilationLifetime.Dispose();
+            catch (Exception error) when (ExpectedShutdownFailure(error) &&
+                (completion.Exception is null || completion.Exception.Flatten().InnerExceptions.All(ExpectedShutdownFailure)))
+            {
+                // Every captured fault is an admitted resource/cancellation outcome.
+                // Unexpected compiler faults remain part of the shared first result.
+            }
+            finally
+            {
+                lock (sync) { entries.Clear(); recency.Clear(); coreWorkers.Clear(); coreByKey.Clear(); retirements.Clear(); }
+                compilationLifetime.Dispose();
+            }
         }
     }
+
+    private static bool ExpectedShutdownFailure(Exception error) => error is WarpHostException or OperationCanceledException or IOException or
+        ObjectDisposedException or PlatformNotSupportedException or CoreCLRCompilationResourceException or WarpCompilationResourceException;
 
     private async Task<T> GetOrCompileAsync<T>(string key, Func<CancellationToken, Task<T>> compile, CancellationToken cancellationToken)
         where T : class
@@ -147,6 +171,7 @@ public sealed class WarpJitCache : IAsyncDisposable
             else
             {
                 EvictCompletedEntries();
+                if (typeof(T) == typeof(WarpCoreCLRWorkerKernel)) { AdmitCoreWorker(); }
                 int compiling = entries.Values.Count(value => !value.Compilation.IsCompleted);
                 if (compiling >= options.MaximumConcurrentCompilations)
                 {
@@ -158,6 +183,8 @@ public sealed class WarpJitCache : IAsyncDisposable
                 {
                     compilationToken.ThrowIfCancellationRequested();
                     T result = await compile(compilationToken).ConfigureAwait(false);
+                    if (compilationToken.IsCancellationRequested && result is WarpCoreCLRWorkerKernel worker)
+                    { await worker.DisposeAsync().ConfigureAwait(false); }
                     compilationToken.ThrowIfCancellationRequested();
                     return (object)result;
                 }, compilationToken);
@@ -187,17 +214,30 @@ public sealed class WarpJitCache : IAsyncDisposable
         }
     }
 
-    private static string GetKey(WarpRuntimeModule module, WarpRuntimeEntry entry)
+    private string GetKey(WarpRuntimeModule module, WarpRuntimeEntry entry)
     {
         using var stream = new MemoryStream();
         using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
         {
             WriteKeyPrefix(writer, module, entry);
-            writer.Write("coreclr.resumable-native/0.1");
-            writer.Write(nameof(WarpBackendKind.CoreCLR));
-            writer.Write(RuntimeInformation.FrameworkDescription);
-            writer.Write(RuntimeInformation.ProcessArchitecture.ToString());
-            writer.Write(typeof(CoreCLRResumableKernel).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
+            WarpRawIdentity.WriteString(writer, WarpCoreCLRWorkerProtocol.Version);
+            WarpRawIdentity.WriteString(writer, WarpCoreCLRWorkerCleanupAttempt.SemanticId);
+            WarpRawIdentity.WriteString(writer, WarpCoreCLRWorkerContainment.SemanticId);
+            WarpRawIdentity.WriteString(writer, WarpCoreCLRBinaryPlanCodec.Version);
+            WarpRawIdentity.WriteString(writer, WarpCoreCLRControllerAdmission.Version);
+            WarpRawIdentity.WriteString(writer, WarpCoreCLRRecoveryCatalog.Version);
+            WarpRawIdentity.WriteString(writer, ShutdownSemantics);
+            WarpRawIdentity.WriteString(writer, nameof(WarpBackendKind.CoreCLR));
+            WarpRawIdentity.WriteString(writer, RuntimeInformation.FrameworkDescription);
+            WarpRawIdentity.WriteString(writer, RuntimeInformation.ProcessArchitecture.ToString());
+            WarpRawIdentity.WriteString(writer, typeof(CoreCLRResumableKernel).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
+            WarpRawIdentity.WriteString(writer, typeof(WarpJitCache).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
+            string worker = options.CoreCLR.WorkerAssemblyPath ?? Path.Combine(AppContext.BaseDirectory, "WarpCLR.CoreCLR.Worker.dll");
+            writer.Write(WarpCoreCLRWorkerIdentity.DeploymentDigest(Path.GetDirectoryName(worker)!));
+            string host = WarpCoreCLRWorkerProcess.GetDotnetHost(options.CoreCLR);
+            WarpRawIdentity.WriteString(writer, host);
+            using var hostFile = new FileStream(host, FileMode.Open, FileAccess.Read, FileShare.Read);
+            writer.Write(SHA256.HashData(hostFile));
         }
 
         return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
@@ -209,15 +249,15 @@ public sealed class WarpJitCache : IAsyncDisposable
         using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
         {
             WriteKeyPrefix(writer, module, entry);
-            writer.Write("gpu.resumable-native/0.1");
-            writer.Write(target.Backend.ToString());
-            writer.Write(target.CacheIdentity);
-            writer.Write(target.Architecture);
-            writer.Write(target.DeviceIdentity);
-            writer.Write(target.RuntimeIdentity);
-            writer.Write(toolchainIdentity);
-            writer.Write(typeof(WarpPortableMachineEmitter).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
-            writer.Write(typeof(WarpNativeToolchain).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
+            WarpRawIdentity.WriteString(writer, "gpu.resumable-native/0.1");
+            WarpRawIdentity.WriteString(writer, target.Backend.ToString());
+            WarpRawIdentity.WriteString(writer, target.CacheIdentity);
+            WarpRawIdentity.WriteString(writer, target.Architecture);
+            WarpRawIdentity.WriteString(writer, target.DeviceIdentity);
+            WarpRawIdentity.WriteString(writer, target.RuntimeIdentity);
+            WarpRawIdentity.WriteString(writer, toolchainIdentity);
+            WarpRawIdentity.WriteString(writer, typeof(WarpPortableMachineEmitter).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
+            WarpRawIdentity.WriteString(writer, typeof(WarpNativeToolchain).Assembly.ManifestModule.ModuleVersionId.ToString("D", CultureInfo.InvariantCulture));
         }
 
         return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
@@ -227,32 +267,16 @@ public sealed class WarpJitCache : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(module);
         ArgumentNullException.ThrowIfNull(entry);
-        writer.Write(CacheSchema);
-        writer.Write(module.AssemblyHash);
-        writer.Write(module.ManifestHash);
-        writer.Write(entry.Identity);
-        writer.Write(entry.GraphHash);
-        writer.Write(entry.IrHash);
-        writer.Write(module.ProfileId);
-        writer.Write(WarpRuntimeAbi.Version);
-        writer.Write(WarpRuntimeAbi.SafepointPolicy);
-        writer.Write(WarpLogicalMachineLayout.Version);
-    }
-
-    private CoreCLRResumableKernel CompileCoreCLR(string key, WarpRuntimeEntry entry, CancellationToken compilationToken)
-    {
-        compilationToken.ThrowIfCancellationRequested();
-        byte[] canonicalPlan = WarpCoreCLRPlanCodec.Serialize(entry.Kernel);
-        ValidateDiskPlan(key, canonicalPlan);
-        CoreCLRResumableKernel compiled = CoreCLRResumableKernel.Compile(entry.Layout);
-        compilationToken.ThrowIfCancellationRequested();
-        lock (sync)
-        {
-            compilationCount++;
-        }
-
-        PersistPlan(key, canonicalPlan);
-        return compiled;
+        WarpRawIdentity.WriteString(writer, CacheSchema);
+        WarpRawIdentity.WriteString(writer, module.AssemblyHash);
+        WarpRawIdentity.WriteString(writer, module.ManifestHash);
+        WarpRawIdentity.WriteString(writer, entry.Identity);
+        WarpRawIdentity.WriteString(writer, entry.GraphHash);
+        WarpRawIdentity.WriteString(writer, entry.IrHash);
+        WarpRawIdentity.WriteString(writer, module.ProfileId);
+        WarpRawIdentity.WriteString(writer, WarpRuntimeAbi.Version);
+        WarpRawIdentity.WriteString(writer, WarpRuntimeAbi.SafepointPolicy);
+        WarpRawIdentity.WriteString(writer, WarpLogicalMachineLayout.Version);
     }
 
     private async Task<WarpNativeImage> CompileNativeAsync(string key, WarpRuntimeEntry entry,
@@ -260,7 +284,7 @@ public sealed class WarpJitCache : IAsyncDisposable
         CancellationToken compilationToken)
     {
         compilationToken.ThrowIfCancellationRequested();
-        byte[] canonicalPlan = WarpCoreCLRPlanCodec.Serialize(entry.Kernel);
+        byte[] canonicalPlan = WarpCoreCLRBinaryPlanCodec.Serialize(entry.Kernel);
         ValidateDiskPlan(key, canonicalPlan);
         // Cache lifetime is independent of each context/dispatch waiter. Caller-supplied caches are not shut down by contexts.
         WarpNativeImage image = await compile(compilationToken).ConfigureAwait(false);
@@ -298,6 +322,8 @@ public sealed class WarpJitCache : IAsyncDisposable
                 throw new WarpHostException("WRPRUNTIME1002", "The JIT cache is full of active compilations.");
             }
 
+            if (coreByKey.TryGetValue(node.Value, out WarpCoreCLRWorkerKernel? worker))
+            { coreByKey.Remove(node.Value); RecordRetirement(worker); }
             entries.Remove(node.Value);
             recency.Remove(node);
         }
@@ -311,6 +337,8 @@ public sealed class WarpJitCache : IAsyncDisposable
         {
             CacheEntry entry = entries[key];
             _ = entry.Compilation.Exception;
+            if (coreByKey.TryGetValue(key, out WarpCoreCLRWorkerKernel? worker))
+            { coreByKey.Remove(key); RecordRetirement(worker); }
             entries.Remove(key);
             recency.Remove(entry.Recency);
         }

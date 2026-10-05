@@ -37,6 +37,7 @@ internal static partial class WarpPortableWordLowerer
                 StoreStorage(slot, items); input += items.Length;
             }
             blocks[0] = new(0, [], instructions, Branch(method.Instructions.First(instruction => instruction.Reachable).Offset));
+            InitializeRootInvocation();
         }
 
         private int[] LoadStorage(WarpPortableWordStorageSlot slot)

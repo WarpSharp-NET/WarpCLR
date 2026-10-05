@@ -1,6 +1,4 @@
 using System.Collections.Immutable;
-using System.Security.Cryptography;
-using System.Text;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
 
@@ -8,7 +6,7 @@ namespace WarpCLR.Compiler;
 
 internal static partial class WarpPortableWordLowerer
 {
-    internal const string Version = "warp.portable-typed-word-cil/0.1";
+    internal const string Version = "warp.portable-typed-word-cil-source-initializer-invocation-raw-utf16-snapshot/0.3";
 
     internal static WarpPortableWordLoweredProgram Lower(WarpPortableMethodGraph graph, WarpPortableTypedProgram program)
     {
@@ -54,6 +52,7 @@ internal static partial class WarpPortableWordLowerer
         internal Dictionary<string, int> FunctionIds => functionIds;
         internal HashSet<string> Services => services;
         internal WarpPortableWordExecutionBinding? Binding => binding;
+        private int PhysicalScalarArgumentCount => binding?.Capabilities.PrivateController == true ? 1 : 0;
 
         internal Builder(WarpPortableMethodGraph graph, WarpPortableTypedProgram program, WarpPortableWordExecutionBinding? binding = null)
         {
@@ -67,6 +66,7 @@ internal static partial class WarpPortableWordLowerer
         {
             services.Add(WarpPortableWordMapHash.Version);
             services.Add(WarpPortableSourceOperationMetadata.Version);
+            services.Add(WarpPortableWordPrivateTemporary.Semantics);
             if (program.CliSizes is { } cliSizes)
             {
                 services.Add(WarpPortableCliSizeContract.Semantics + "/" + cliSizes.ContractHash);
@@ -88,23 +88,31 @@ internal static partial class WarpPortableWordLowerer
             WarpControlFlowFunction[] closed = functions.Select(function => function ?? throw new InvalidOperationException("A lowered function is missing.")).ToArray();
             WarpLogicalBodyMetadata[] described = [new(0, true, [0]), .. metadata.Select(body => body ?? throw new InvalidOperationException("A lowered body map is missing."))];
             int inputs = Math.Max(1, methods[graph.EntryIdentity].ArgumentTypes.Sum(identity => types[identity].WordCount));
-            string serviceIdentity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', services.Order(StringComparer.Ordinal)))));
+            string serviceIdentity = WarpPortableSnapshotIdentity.Hash(services.Order(StringComparer.Ordinal).ToArray());
             WarpPortableWordEntryProjection entryProjection = EntryProjection();
             string mapsHash = WarpPortableWordMapHash.Compute(bodies, entryProjection);
             WarpLogicalExecutionMetadata execution = Execution(described);
-            var kernel = new WarpControlFlowKernel(Version + "/" + program.VerifiedHash + "/" + serviceIdentity + "/" + mapsHash, inputs, 0,
+            var kernel = new WarpControlFlowKernel(Version + "/" + program.VerifiedHash + "/" + serviceIdentity + "/" + mapsHash, inputs, PhysicalScalarArgumentCount,
                 [entry], null, closed, execution);
             string? planHash = CompleteBinding(kernel, mapsHash, entryProjection);
             if (planHash is not null)
             {
                 services.Add(WarpPortableWordExecutionBinding.Version + "/plan/" + planHash);
-                serviceIdentity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', services.Order(StringComparer.Ordinal)))));
-                kernel = new(Version + "/" + program.VerifiedHash + "/" + serviceIdentity + "/" + mapsHash, inputs, 0, [entry], null, closed, execution);
+                serviceIdentity = WarpPortableSnapshotIdentity.Hash(services.Order(StringComparer.Ordinal).ToArray());
+                kernel = new(Version + "/" + program.VerifiedHash + "/" + serviceIdentity + "/" + mapsHash, inputs, PhysicalScalarArgumentCount, [entry], null, closed, execution);
             }
-            string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Version + "\n" + program.VerifiedHash + "\n" + WarpIrHash.Compute(kernel))));
-            return new WarpPortableWordLoweredProgram(program, hash, mapsHash, kernel, bodies.ToImmutableArray(), services.Order(StringComparer.Ordinal).ToImmutableArray(), entryProjection)
-                { ExecutionBindingHash = binding?.BindingHash, ExecutionPlanHash = planHash }
-                .SealCompilerIdentity(graph, WarpPortableSourceHeapSchema.Create(graph, program));
+            string hash = WarpPortableSnapshotIdentity.Hash(new { Version, program.VerifiedHash, IrHash = WarpIrHash.Compute(kernel) });
+            var lowered = new WarpPortableWordLoweredProgram(program, hash, mapsHash, kernel, bodies.ToImmutableArray(), services.Order(StringComparer.Ordinal).ToImmutableArray(), entryProjection)
+                { ExecutionBindingHash = binding?.BindingHash, ExecutionPlanHash = planHash };
+            WarpPortableSourceHeapSchema schema = WarpPortableSourceHeapSchema.Create(graph, program);
+            ExceptionAttachment? attachment = null;
+            if (exceptionPlan is not null)
+            {
+                AttachmentRegistrations.Add(lowered, new(graph, schema, exceptionPlan));
+                try { attachment = ExceptionAttachment.CaptureBoundProgram(lowered); }
+                finally { AttachmentRegistrations.Remove(lowered); }
+            }
+            return lowered.SealCompilerIdentity(graph, schema, attachment);
         }
 
         internal static WarpVerificationException Error(string method, string message, int offset) => new("WRPCLR2300", method + ": " + message, offset);

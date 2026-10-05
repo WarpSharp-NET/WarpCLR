@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
-using System.Text.Json;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
 
@@ -8,14 +7,14 @@ namespace WarpCLR.Compiler;
 
 internal sealed class WarpPortableSourceFrameSchema
 {
-    internal const string Semantics = "warp.source-frame-views/exact-body-argument-local-original-alias-prefix-separate-tail/0.2";
+    internal const string Semantics = "warp.source-frame-views/exact-body-argument-local-constructor-storage-original-alias-prefix-separate-tail-raw-utf16-snapshot/0.4";
 
     private WarpPortableSourceFrameSchema(WarpPortableSourceHeapSchema schema, WarpPortableWordLoweredProgram program,
         ImmutableArray<WarpPortableSourceFrameBody> bodies)
     {
         TypeSchemaHash = schema.SchemaHash; GraphHash = program.GraphHash; VerifiedHash = program.VerifiedHash;
         MapsHash = program.MapsHash; LoweredHash = program.LoweredHash; Bodies = bodies;
-        FrameSchemaHash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+        FrameSchemaHash = Convert.ToHexString(SHA256.HashData(WarpPortableSnapshotIdentity.Serialize(new
         { Semantics, TypeSchemaHash, GraphHash, VerifiedHash, MapsHash, LoweredHash, Bodies })));
     }
 
@@ -26,6 +25,26 @@ internal sealed class WarpPortableSourceFrameSchema
     internal string LoweredHash { get; }
     internal string FrameSchemaHash { get; }
     internal ImmutableArray<WarpPortableSourceFrameBody> Bodies { get; }
+
+    internal static WarpPortableSourceFrameBody DescribePlannedBody(WarpPortableSourceHeapSchema schema,
+        WarpPortableTypedProgram program, WarpPortableWordBody body)
+    {
+        ArgumentNullException.ThrowIfNull(schema); ArgumentNullException.ThrowIfNull(program); ArgumentNullException.ThrowIfNull(body);
+        if (!string.Equals(schema.GraphHash, program.GraphHash, StringComparison.Ordinal) ||
+            !string.Equals(schema.VerifiedHash, program.VerifiedHash, StringComparison.Ordinal) || body.Function <= 0 ||
+            body.AliasOwnerFunction != -1 || body.AliasPrefixWords != 0)
+        {
+            throw new WarpVerificationException("WRPCLR2400", "Planned frame views need the exact original source body, excluding aliases.", 0);
+        }
+        var types = program.Types.ToDictionary(type => type.Identity, StringComparer.Ordinal);
+        var views = new HashSet<WarpPortableSourceFrameView>();
+        AddSlots(schema, types, views, body.Arguments, "argument", body.PrivateWordCount);
+        AddSlots(schema, types, views, body.Locals, "local", body.PrivateWordCount);
+        AddSlots(schema, types, views, body.PrivateTemporaries.Select(temporary =>
+            new WarpPortableWordStorageSlot(temporary.Index, temporary.WordOffset, temporary.Type)).ToImmutableArray(), "temporary", body.PrivateWordCount);
+        return new((uint)body.Function, (uint)body.PrivateWordCount, views.OrderBy(view => view.ByteOffset).ThenBy(view => view.ByteSpan)
+            .ThenBy(view => view.ElementType).ThenBy(view => view.Storage, StringComparer.Ordinal).ThenBy(view => view.Slot).ToImmutableArray());
+    }
 
     internal static WarpPortableSourceFrameSchema Create(WarpPortableSourceHeapSchema schema, WarpPortableWordLoweredProgram program)
     {
@@ -56,6 +75,8 @@ internal sealed class WarpPortableSourceFrameSchema
             {
                 AddSlots(schema, types, views, body.Arguments, "argument", body.PrivateWordCount);
                 AddSlots(schema, types, views, body.Locals, "local", body.PrivateWordCount);
+                AddSlots(schema, types, views, body.PrivateTemporaries.Select(temporary =>
+                    new WarpPortableWordStorageSlot(temporary.Index, temporary.WordOffset, temporary.Type)).ToImmutableArray(), "temporary", body.PrivateWordCount);
             }
             else if (description.AliasPrefixWords != body.StoragePrefixWords)
             {

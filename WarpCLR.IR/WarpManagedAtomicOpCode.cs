@@ -12,5 +12,5 @@ internal static class WarpManagedAtomicOpCode
     internal const WarpIrOpCode Fence = (WarpIrOpCode)0x117;
 
     internal static bool IsAtomic(WarpIrOpCode opCode) => opCode is LoadSequential or StoreSequential or
-        CompareExchange or Exchange or Add or LoadAcquire or StoreRelease or Fence;
+        CompareExchange or Exchange or Add or LoadAcquire or StoreRelease or Fence || WarpManagedWideAtomicOpCode.IsAtomic(opCode);
 }

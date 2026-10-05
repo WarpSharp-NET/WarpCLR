@@ -225,7 +225,7 @@ internal sealed class NativeCachePolicyTests
     {
         WarpRuntimeModule module = LoadModule();
         WarpRuntimeEntry entry = module.Entries[ManifestAssemblyFixture.MapEntryIdentity];
-        byte[] canonical = WarpCoreCLRPlanCodec.Serialize(entry.Kernel);
+        byte[] canonical = WarpCoreCLRBinaryPlanCodec.Serialize(entry.Kernel);
         string directory = Directory.CreateTempSubdirectory("warpclr-native-cache-policy-").FullName;
         try
         {
@@ -321,7 +321,7 @@ internal sealed class NativeCachePolicyTests
     {
         WarpRuntimeModule module = LoadModule();
         WarpRuntimeEntry entry = module.Entries[ManifestAssemblyFixture.MapEntryIdentity];
-        byte[] canonical = WarpCoreCLRPlanCodec.Serialize(entry.Kernel);
+        byte[] canonical = WarpCoreCLRBinaryPlanCodec.Serialize(entry.Kernel);
         string directory = Directory.CreateTempSubdirectory("warpclr-native-cache-snapshot-").FullName;
         try
         {

@@ -71,8 +71,17 @@ internal static partial class WarpPortableHeapServices
             viewCount * WarpPortableSourceMemoryLayout.ViewWords > end - viewStart || nullableCount > typeCount ||
             nullableStart < viewStart + viewCount * WarpPortableSourceMemoryLayout.ViewWords || nullableStart > end ||
             nullableCount * WarpPortableSourceMemoryLayout.NullableWords > end - nullableStart) { return 0; }
-        if (SourceFrameTables(arena, descriptor, end, nullableStart + nullableCount * WarpPortableSourceMemoryLayout.NullableWords) == 0) { return 0; }
+        uint exceptionEnd = SourceExceptionTablesEnd(arena, descriptor, end, nullableStart + nullableCount * WarpPortableSourceMemoryLayout.NullableWords);
+        if (exceptionEnd == 0 || SourceFrameTables(arena, descriptor, end, exceptionEnd) == 0) { return 0; }
         return SourceShapeTables(arena, descriptor, end) != 0 ? descriptor : 0;
+    }
+
+    private static uint SourceExceptionTablesEnd(uint[] arena, uint descriptor, uint end, uint minimum)
+    {
+        uint start = arena[descriptor + WarpPortableSourceMemoryLayout.ExceptionTypeStart];
+        uint types = arena[WarpPortableHeapLayout.TypeCount]; uint slots = arena[WarpPortableHeapLayout.SlotCount];
+        uint words = types * WarpPortableSourceExceptionLayout.ExceptionTypeWords + slots * WarpPortableSourceExceptionLayout.DataStateWords;
+        return slots <= 15420 && start >= minimum && start <= end && words <= end - start ? start + words : 0;
     }
 
     private static uint SourceShapeTables(uint[] arena, uint descriptor, uint end)

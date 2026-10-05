@@ -14,10 +14,11 @@ internal sealed record WarpPortableWordLoweredProgram(WarpPortableTypedProgram V
     internal string? ExecutionPlanHash { get; init; }
     internal WarpPortableWordProgramIdentity? CompilerIdentity { get; private set; }
 
-    internal WarpPortableWordLoweredProgram SealCompilerIdentity(WarpPortableMethodGraph graph, WarpPortableSourceHeapSchema schema)
+    internal WarpPortableWordLoweredProgram SealCompilerIdentity(WarpPortableMethodGraph graph, WarpPortableSourceHeapSchema schema,
+        WarpPortableWordLowerer.ExceptionAttachment? attachment = null)
     {
         if (CompilerIdentity is not null) { throw new InvalidOperationException("A compiler program identity is sealed exactly once."); }
-        CompilerIdentity = WarpPortableWordProgramIdentity.Capture(graph, schema, this);
+        CompilerIdentity = WarpPortableWordProgramIdentity.Capture(graph, schema, this, attachment);
         return this;
     }
 }

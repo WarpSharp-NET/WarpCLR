@@ -218,13 +218,13 @@ internal sealed class WarpOperationalReadinessTests
     }
 
     [TestMethod]
-    public async Task LongRunningLoopCancellationReturnsAdmissionAndContextRemainsReusable()
+    public async Task LongRunningLoopCancellationReturnsAdmissionAndQuarantinesStartedExecution()
     {
         using var fixture = new WarpBooleanProofFixture();
         WarpRuntimeModule module = Load(fixture.Bytes);
         string identity = WarpBooleanProofFixture.Identity("Loop");
         Func<uint, uint, uint> original = fixture.Method("Loop").CreateDelegate<Func<uint, uint, uint>>();
-        var context = new WarpRuntimeContext(module, WarpBackendKind.CoreCLR, new WarpRuntimeOptions
+        var runtimeOptions = new WarpRuntimeOptions
         {
             MaximumConcurrentDispatches = 1,
             MaximumStepsPerWorker = long.MaxValue,
@@ -233,7 +233,8 @@ internal sealed class WarpOperationalReadinessTests
             MaximumParallelWorkers = 1,
             MaximumAdmittedDispatches = 1,
             ExecutionQuantum = module.Entries[identity].Layout.MaximumBlockCost,
-        });
+        };
+        var context = new WarpRuntimeContext(module, WarpBackendKind.CoreCLR, runtimeOptions);
         await using var contextLease = context.ConfigureAwait(false);
         uint[] input = Input(7, 0);
         uint[] expected = input.Select(value => original(value, 17)).ToArray();
@@ -250,13 +251,21 @@ internal sealed class WarpOperationalReadinessTests
             await Assert.ThrowsAsync<OperationCanceledException>(async () =>
                 await running.WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false)).ConfigureAwait(false);
             Assert.IsTrue(running.IsCanceled);
-            AssertDrained(context, 1);
+            AssertDrained(context, 1, allowFaulted: true);
+            if (context.State == WarpRuntimeContextState.Faulted)
+            {
+                await Assert.ThrowsAsync<WarpHostException>(() => context.DispatchIntegerMapAsync(identity, [input], [17])).ConfigureAwait(false);
+                break;
+            }
             CollectionAssert.AreEqual(expected, await context.DispatchIntegerMapAsync(identity, [input], [17]).ConfigureAwait(false));
             Assert.AreEqual(1L, context.JitStatistics.CompilationCount);
         }
 
-        TestContext.WriteLine($"Cancellation/reuse soak: {rounds} admitted long-loop cancellations and original-CLR differential reuses, {clock.Elapsed}. " +
-            "The delay is a scheduling opportunity, not an assertion of a specific worker's physical execution or an SLA.");
+        var fresh = new WarpRuntimeContext(module, WarpBackendKind.CoreCLR, runtimeOptions);
+        await using var freshOwner = fresh.ConfigureAwait(false);
+        CollectionAssert.AreEqual(expected, await fresh.DispatchIntegerMapAsync(identity, [input], [17]).ConfigureAwait(false));
+        TestContext.WriteLine($"Cancellation gate: pre-start cancellations may reuse admission, started execution permanently faults its context; fresh ownership recovers in {clock.Elapsed}. " +
+            "The delay is a scheduling opportunity; the exact stopped-child tests prove native transaction ownership independently.");
     }
 
     [TestMethod]
@@ -264,7 +273,7 @@ internal sealed class WarpOperationalReadinessTests
     {
         WarpRuntimeModule module = RuntimeLifecycleTests.LoadModule();
         var contexts = new List<WarpRuntimeContext>();
-        var assemblies = new List<WeakReference>();
+        var processes = new List<int>();
         int rounds = Rounds;
         var clock = Stopwatch.StartNew();
         for (int round = 0; round < rounds; round++)
@@ -276,7 +285,7 @@ internal sealed class WarpOperationalReadinessTests
             uint[] input = Input(129, round);
             CollectionAssert.AreEqual(input.Select(value => TestKernels.ManifestMap(value, (uint)round)).ToArray(),
                 await context.DispatchIntegerMapAsync(ManifestAssemblyFixture.MapEntryIdentity, [input], [(uint)round]).ConfigureAwait(false));
-            assemblies.Add(await WarpCacheLifetimeProbe.CaptureCompiledAssemblyAsync(context, module).ConfigureAwait(false));
+            processes.Add(await WarpCacheLifetimeProbe.CaptureCompiledProcessAsync(context, module).ConfigureAwait(false));
             await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => context.DisposeAsync().AsTask())).ConfigureAwait(false);
             Assert.AreEqual(WarpRuntimeContextState.Disposed, context.State);
             Assert.AreEqual(0, context.JitStatistics.MemoryEntryCount);
@@ -284,17 +293,14 @@ internal sealed class WarpOperationalReadinessTests
             Assert.AreEqual(0L, Field<long>(context, "admittedBytes"));
         }
 
-        for (int attempt = 0; attempt < 20 && assemblies.Any(assembly => assembly.IsAlive); attempt++)
+        foreach (ref readonly int processId in System.Runtime.InteropServices.CollectionsMarshal.AsSpan(processes))
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            await Task.Delay(TimeSpan.FromMilliseconds(10)).ConfigureAwait(false);
+            try { using Process child = Process.GetProcessById(processId); Assert.IsTrue(child.HasExited); }
+            catch (ArgumentException) { }
         }
 
-        Assert.IsTrue(assemblies.All(assembly => !assembly.IsAlive), "Disposed contexts must not retain any of the generated collectible assemblies.");
         GC.KeepAlive(contexts);
-        TestContext.WriteLine($"Owned-cache churn: {rounds} separately compiled/disposed contexts retained, all {rounds} generated assemblies collected, {clock.Elapsed}.");
+        TestContext.WriteLine($"Owned-cache churn: {rounds} separately compiled/disposed contexts retained, all {rounds} generated worker processes terminated, {clock.Elapsed}.");
     }
 
     private static int Rounds
@@ -325,9 +331,9 @@ internal sealed class WarpOperationalReadinessTests
     private static T Field<T>(WarpRuntimeContext context, string name) =>
         (T)typeof(WarpRuntimeContext).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(context)!;
 
-    private static void AssertDrained(WarpRuntimeContext context, int slots)
+    private static void AssertDrained(WarpRuntimeContext context, int slots, bool allowFaulted = false)
     {
-        Assert.AreEqual(WarpRuntimeContextState.Ready, context.State);
+        Assert.IsTrue(context.State == WarpRuntimeContextState.Ready || allowFaulted && context.State == WarpRuntimeContextState.Faulted);
         Assert.AreEqual(0, Field<int>(context, "activeDispatches"));
         Assert.AreEqual(0L, Field<long>(context, "admittedBytes"));
         Assert.AreEqual(slots, Field<SemaphoreSlim>(context, "dispatchSlots").CurrentCount);

@@ -10,7 +10,9 @@ internal sealed partial class WarpPortableSourceHeapSchema
         uint typeStart = checked(start + WarpPortableSourceMemoryLayout.HeaderWords);
         uint viewStart = checked(typeStart + (uint)Types.Length * WarpPortableSourceMemoryLayout.TypeWords);
         uint nullableStart = checked(viewStart + (uint)MemoryViews.Length * WarpPortableSourceMemoryLayout.ViewWords);
-        uint frameStart = checked(nullableStart + (uint)NullableLayouts.Length * WarpPortableSourceMemoryLayout.NullableWords);
+        uint exceptionStart = checked(nullableStart + (uint)NullableLayouts.Length * WarpPortableSourceMemoryLayout.NullableWords);
+        uint exceptionStateStart = checked(exceptionStart + (uint)Types.Length * WarpPortableSourceExceptionLayout.ExceptionTypeWords);
+        uint frameStart = checked(exceptionStateStart + arena[WarpPortableHeapLayout.SlotCount] * WarpPortableSourceExceptionLayout.DataStateWords);
         uint frameViewStart = checked(frameStart + (uint)(frames?.Bodies.Length ?? 0) * WarpPortableSourceMemoryLayout.FrameWords);
         uint frameViews = checked((uint)(frames?.Bodies.Sum(body => body.Views.Length) ?? 0));
         uint shapeStart = checked(frameViewStart + frameViews * WarpPortableSourceMemoryLayout.FrameViewWords);
@@ -22,13 +24,7 @@ internal sealed partial class WarpPortableSourceHeapSchema
         arena.AsSpan(0, (int)start).CopyTo(attached); arena.AsSpan((int)start).CopyTo(attached.AsSpan((int)end));
         attached[3] = (uint)attached.Length; attached[WarpPortableHeapLayout.DataStart] = end;
         attached[WarpPortableSourceMemoryLayout.Descriptor] = start;
-        attached[start] = WarpPortableSourceMemoryLayout.Magic; attached[start + 1] = WarpPortableSourceMemoryLayout.Version;
-        attached[start + WarpPortableSourceMemoryLayout.TypeCount] = (uint)Types.Length;
-        attached[start + WarpPortableSourceMemoryLayout.TypeStart] = typeStart;
-        attached[start + WarpPortableSourceMemoryLayout.ViewCount] = (uint)MemoryViews.Length;
-        attached[start + WarpPortableSourceMemoryLayout.ViewStart] = viewStart;
-        attached[start + WarpPortableSourceMemoryLayout.NullableCount] = (uint)NullableLayouts.Length;
-        attached[start + WarpPortableSourceMemoryLayout.NullableStart] = nullableStart;
+        WriteSourceMemoryHeader(attached, start, typeStart, viewStart, nullableStart, exceptionStart);
         attached[start + WarpPortableSourceMemoryLayout.FrameCount] = (uint)(frames?.Bodies.Length ?? 0);
         attached[start + WarpPortableSourceMemoryLayout.FrameStart] = frameStart;
         attached[start + WarpPortableSourceMemoryLayout.FrameViewCount] = frameViews;
@@ -40,8 +36,21 @@ internal sealed partial class WarpPortableSourceHeapSchema
             attached[start + WarpPortableSourceMemoryLayout.Hash + (uint)word] = BinaryPrimitives.ReadUInt32LittleEndian(hash.AsSpan(word * 4));
         }
         WriteMemoryTypes(attached, typeStart); WriteMemoryViews(attached, viewStart); WriteNullableLayouts(attached, nullableStart);
+        WriteExceptionTypes(attached, exceptionStart);
         if (frames is not null) { WriteFrameViews(attached, start, frameStart, frameViewStart, frames); }
         return attached;
+    }
+
+    private void WriteSourceMemoryHeader(uint[] arena, uint descriptor, uint typeStart, uint viewStart, uint nullableStart, uint exceptionStart)
+    {
+        arena[descriptor] = WarpPortableSourceMemoryLayout.Magic; arena[descriptor + 1] = WarpPortableSourceMemoryLayout.Version;
+        arena[descriptor + WarpPortableSourceMemoryLayout.TypeCount] = (uint)Types.Length;
+        arena[descriptor + WarpPortableSourceMemoryLayout.TypeStart] = typeStart;
+        arena[descriptor + WarpPortableSourceMemoryLayout.ViewCount] = (uint)MemoryViews.Length;
+        arena[descriptor + WarpPortableSourceMemoryLayout.ViewStart] = viewStart;
+        arena[descriptor + WarpPortableSourceMemoryLayout.NullableCount] = (uint)NullableLayouts.Length;
+        arena[descriptor + WarpPortableSourceMemoryLayout.NullableStart] = nullableStart;
+        arena[descriptor + WarpPortableSourceMemoryLayout.ExceptionTypeStart] = exceptionStart;
     }
 
     private void WriteMemoryTypes(uint[] arena, uint start)
@@ -85,6 +94,16 @@ internal sealed partial class WarpPortableSourceHeapSchema
             uint row = checked(start + (uint)index * WarpPortableSourceMemoryLayout.NullableWords);
             arena[row] = layout.Type; arena[row + 1] = layout.ElementType;
             arena[row + 2] = layout.HasValueByteOffset; arena[row + 3] = layout.ValueByteOffset;
+        }
+    }
+
+    private void WriteExceptionTypes(uint[] arena, uint start)
+    {
+        foreach (WarpPortableSourceExceptionType type in ExceptionTypes)
+        {
+            uint row = checked(start + (type.Type - 1) * WarpPortableSourceExceptionLayout.ExceptionTypeWords);
+            arena[row + WarpPortableSourceExceptionLayout.ExceptionTypeKind] = type.Kind;
+            arena[row + WarpPortableSourceExceptionLayout.ExceptionTypeHResult] = type.DefaultHResult;
         }
     }
 

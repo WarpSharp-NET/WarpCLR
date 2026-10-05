@@ -119,6 +119,7 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
                     !(layout.HasLogicalAccounting && faultKind == WarpLogicalMachineLayout.PhysicalFrameCapacityFault) &&
                     !(layout.HasManagedExceptionTermination && faultKind == WarpLogicalMachineLayout.ManagedExceptionFault) &&
                     !(layout.HasFrameOwners && faultKind == WarpLogicalMachineLayout.ActivationExhaustionFault) &&
+                    !(layout.RequiresWideAtomics && faultKind == WarpLogicalMachineLayout.AtomicAlignmentFault) &&
                     !((layout.RequiresManagedMemory || layout.Kernel.Execution?.RuntimeStateAccess == true) &&
                         faultKind == WarpLogicalMachineLayout.ManagedMemoryBoundsFault)))
             {

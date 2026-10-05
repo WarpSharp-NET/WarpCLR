@@ -5,10 +5,12 @@ namespace WarpCLR.IR;
 internal sealed class WarpLogicalExecutionMetadata
 {
     internal const string Version = "warp.logical-source-frames/0.6";
+    internal const string PrivateControllerVersion = "warp.logical-source-frames/private-controller-service-projection/0.7";
 
     internal WarpLogicalExecutionMetadata(IEnumerable<WarpLogicalBodyMetadata> bodies, bool recursiveCalls = true,
         bool frameOwners = false, bool runtimeStateAccess = false, bool nonlocalStateDispatch = false,
-        bool managedExceptionTermination = false, bool logicalWorkerAccess = false)
+        bool managedExceptionTermination = false, bool logicalWorkerAccess = false,
+        WarpPrivateControllerProjection? privateControllerProjection = null)
     {
         ArgumentNullException.ThrowIfNull(bodies);
         Bodies = Array.AsReadOnly(WarpCompilationAdmission.Materialize(bodies, "<logical-frame-metadata>",
@@ -31,6 +33,11 @@ internal sealed class WarpLogicalExecutionMetadata
         }
         ManagedExceptionTermination = managedExceptionTermination;
         LogicalWorkerAccess = logicalWorkerAccess;
+        if (privateControllerProjection is not null && (!runtimeStateAccess || !frameOwners))
+        {
+            throw new ArgumentException("A private controller projection requires exact state and frame ownership capabilities.", nameof(privateControllerProjection));
+        }
+        PrivateControllerProjection = privateControllerProjection;
     }
 
     internal ReadOnlyCollection<WarpLogicalBodyMetadata> Bodies { get; }
@@ -40,6 +47,8 @@ internal sealed class WarpLogicalExecutionMetadata
     internal bool NonlocalStateDispatch { get; }
     internal bool ManagedExceptionTermination { get; }
     internal bool LogicalWorkerAccess { get; }
+    internal WarpPrivateControllerProjection? PrivateControllerProjection { get; }
+    internal string IdentityVersion => PrivateControllerProjection is null ? Version : PrivateControllerVersion;
 
     internal int Validate(IReadOnlyList<WarpBasicBlock> blocks, IReadOnlyList<WarpControlFlowFunction> functions)
     {
@@ -53,6 +62,7 @@ internal sealed class WarpLogicalExecutionMetadata
         {
             ValidateBody(functions[index].Blocks, Bodies[index + 1]);
         }
+        PrivateControllerProjection?.Validate(blocks, functions, Bodies);
         return GetHelperExpansion(blocks, functions);
     }
 

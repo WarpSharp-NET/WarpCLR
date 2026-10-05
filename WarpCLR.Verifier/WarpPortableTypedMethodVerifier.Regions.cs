@@ -40,6 +40,31 @@ internal sealed partial class WarpPortableTypedMethodVerifier
                 }
             }
         }
+
+        ValidateFilterEnclosures();
+    }
+
+    private void ValidateFilterEnclosures()
+    {
+        // ECMA-335 I.12.4.2.7: a nested EH entry's enclosing region must not be
+        // a filter. EH in a method called by a filter has a distinct frame and
+        // remains valid; rejecting that call would change source semantics.
+        for (int outer = 0; outer < method.ExceptionRegions.Length; outer++)
+        {
+            WarpPortableMethodGraphExceptionRegion filter = method.ExceptionRegions[outer];
+            if (filter.FilterOffset < 0) { continue; }
+            for (int inner = 0; inner < method.ExceptionRegions.Length; inner++)
+            {
+                if (inner == outer) { continue; }
+                WarpPortableMethodGraphExceptionRegion nested = method.ExceptionRegions[inner];
+                int length = filter.HandlerOffset - filter.FilterOffset;
+                if (Inside(nested.TryOffset, filter.FilterOffset, length) || Inside(nested.HandlerOffset, filter.FilterOffset, length) ||
+                    nested.FilterOffset >= 0 && Inside(nested.FilterOffset, filter.FilterOffset, length))
+                {
+                    throw Error("An exception clause is lexically enclosed by a filter in the same method.", nested.TryOffset);
+                }
+            }
+        }
     }
 
     private void PreparePrefixes()

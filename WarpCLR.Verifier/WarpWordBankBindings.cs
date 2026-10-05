@@ -1,7 +1,5 @@
 using System.Collections.Immutable;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using WarpCLR.IR;
 
 namespace WarpCLR.Verifier;
@@ -28,7 +26,7 @@ internal sealed class WarpWordBankBindings
         string[] identities = methods.Select(pair => pair.Key.Module.ModuleVersionId.ToString("D") + "/" +
             pair.Key.MetadataToken.ToString("X8", System.Globalization.CultureInfo.InvariantCulture) + "/" +
             string.Join(',', pair.Value.Select(bank => bank.ToString()))).Order(StringComparer.Ordinal).ToArray();
-        Identity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', identities))));
+        Identity = WarpPortableSnapshotIdentity.Hash(new { Banks = identities });
     }
 
     internal string Identity { get; }

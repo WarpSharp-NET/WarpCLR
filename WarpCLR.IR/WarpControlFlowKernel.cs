@@ -24,6 +24,10 @@ public sealed class WarpControlFlowKernel
         WarpCompilationAdmission.Require("<IR-entry>", WarpCompilationResourceKind.IdentityCharacters, name.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
         ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, execution?.LogicalWorkerAccess == true ? 0 : 1);
         ArgumentOutOfRangeException.ThrowIfNegative(scalarArgumentCount);
+        if (execution?.PrivateControllerProjection is not null && scalarArgumentCount != 1)
+        {
+            throw new ArgumentException("A private controller projection owns exactly one physical scalar channel.", nameof(scalarArgumentCount));
+        }
         ArgumentNullException.ThrowIfNull(blocks);
         if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
         {
@@ -81,6 +85,12 @@ public sealed class WarpControlFlowKernel
     private static void ValidateRuntimeCapabilities(WarpBasicBlock[] blocks, WarpControlFlowFunction[] functions, WarpLogicalExecutionMetadata? execution)
     {
         WarpBasicBlock[] bodies = blocks.Concat(functions.SelectMany(function => function.Blocks)).ToArray();
+        if (bodies.SelectMany(block => block.Instructions).Any(instruction =>
+            execution?.PrivateControllerProjection is null && instruction.OpCode == WarpPrivateControllerOpCode.LoadController ||
+            execution?.PrivateControllerProjection is not null && instruction.OpCode == WarpIrOpCode.LoadScalar))
+        {
+            throw new ArgumentException("Private controller words require their exact metadata and separate opcode.", nameof(execution));
+        }
         if (execution?.LogicalWorkerAccess != true && bodies.SelectMany(block => block.Instructions)
             .Any(instruction => instruction.OpCode == WarpManagedInvocationOpCode.LoadLogicalWorker))
         {
@@ -338,6 +348,11 @@ public sealed class WarpControlFlowKernel
             throw new ArgumentException("The current profile only defines UInt32 SSA values.", nameof(instruction));
         }
 
+        if (WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode))
+        {
+            ValidateWideAtomicInstruction(instruction, available);
+            return;
+        }
         if (instruction.OpCode != WarpIrOpCode.Call)
         {
             RequireNoCallMetadata(instruction);
@@ -360,6 +375,18 @@ public sealed class WarpControlFlowKernel
         {
             ValidateOperationInstruction(instruction, available, functions);
         }
+    }
+
+    private static void ValidateWideAtomicInstruction(WarpIrInstruction instruction, IReadOnlySet<int> available)
+    {
+        int operands = WarpManagedWideAtomicOpCode.OperandWords(instruction.OpCode);
+        if (instruction.ResultWordCount != 2 || instruction.Callee != -1 || instruction.Right != -1 ||
+            instruction.Third != -1 || instruction.Immediate != 0 || instruction.Arguments.Count != operands)
+        {
+            throw new ArgumentException("A wide atomic requires its exact pair-result and word-operand signature.", nameof(instruction));
+        }
+        RequireAvailable(instruction.Left, available);
+        foreach (int argument in instruction.Arguments) { RequireAvailable(argument, available); }
     }
 
     private static void ValidateSourceInstruction(
@@ -418,6 +445,7 @@ public sealed class WarpControlFlowKernel
             case WarpManagedMemoryOpCode.WordCount:
             case WarpManagedAtomicOpCode.Fence:
             case WarpManagedInvocationOpCode.LoadLogicalWorker:
+            case WarpPrivateControllerOpCode.LoadController:
                 ValidateWordQueryInstruction(instruction);
                 break;
 

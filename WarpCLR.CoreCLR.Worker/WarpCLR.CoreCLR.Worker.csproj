@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><IsPackable>false</IsPackable><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../WarpCLR.Backend.CoreCLR/WarpCLR.Backend.CoreCLR.csproj" /></ItemGroup>
+</Project>

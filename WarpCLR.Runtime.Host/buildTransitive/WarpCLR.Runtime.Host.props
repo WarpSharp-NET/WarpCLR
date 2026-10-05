@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../tools/coreclr-worker/WarpCLR.CoreCLR.Worker.dll" Link="WarpCLR.CoreCLR.Worker.dll" TargetPath="WarpCLR.CoreCLR.Worker.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../tools/coreclr-worker/WarpCLR.CoreCLR.Worker.deps.json" Link="WarpCLR.CoreCLR.Worker.deps.json" TargetPath="WarpCLR.CoreCLR.Worker.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../tools/coreclr-worker/WarpCLR.CoreCLR.Worker.runtimeconfig.json" Link="WarpCLR.CoreCLR.Worker.runtimeconfig.json" TargetPath="WarpCLR.CoreCLR.Worker.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+</Project>

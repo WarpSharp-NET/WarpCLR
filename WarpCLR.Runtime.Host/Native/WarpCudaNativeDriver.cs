@@ -47,7 +47,7 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
             Check(api.DeviceGetPciBusId(bus, bus.Capacity, device), "cuDeviceGetPCIBusId");
             Target = new WarpNativeTarget(WarpBackendKind.NVPTX, $"sm_{major}{minor}",
                 bus + "/" + name, "cuda-driver/" + version, checked((uint)maxThreads),
-                checked((uint)maxGrid), (ulong)memory);
+                checked((uint)maxGrid), (ulong)memory, supportsInt64Atomics: major >= 7);
             // An owned context avoids resetting or destroying another client's primary context.
             Check(api.ContextCreate(out context, 0, device), "cuCtxCreate");
             Check(api.ContextPopCurrent(out _), "cuCtxPopCurrent");

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 using WarpCLR.IR;
 using WarpCLR.Runtime.Host;
 
@@ -89,32 +90,22 @@ internal sealed class JitCacheTests
     }
 
     [TestMethod]
-    public async Task DefaultContextDisposalUnrootsCollectibleCodeWhileTheContextRemainsReachable()
+    public async Task DefaultContextDisposalTerminatesCollectibleCodeProcessWhileTheContextRemainsReachable()
     {
         WarpRuntimeModule module = RuntimeLifecycleTests.LoadModule();
         var context = new WarpRuntimeContext(module, WarpBackendKind.CoreCLR);
         await using var contextLease = context.ConfigureAwait(false);
         await context.DispatchIntegerMapAsync(
             ManifestAssemblyFixture.MapEntryIdentity, [new uint[] { 3 }], [7]).ConfigureAwait(false);
-        WeakReference assembly = await WarpCacheLifetimeProbe.CaptureCompiledAssemblyAsync(context, module).ConfigureAwait(false);
-        Assert.IsTrue(assembly.IsAlive);
+        int processId = await WarpCacheLifetimeProbe.CaptureCompiledProcessAsync(context, module).ConfigureAwait(false);
+        using Process child = Process.GetProcessById(processId);
+        Assert.IsFalse(child.HasExited);
         Assert.AreEqual(1, context.JitStatistics.MemoryEntryCount);
 
         await context.DisposeAsync().ConfigureAwait(false);
 
         Assert.AreEqual(0, context.JitStatistics.MemoryEntryCount);
-        for (int attempt = 0; attempt < 20 && assembly.IsAlive; attempt++)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            if (assembly.IsAlive)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(10)).ConfigureAwait(false);
-            }
-        }
-
-        Assert.IsFalse(assembly.IsAlive, "A reachable disposed context must not retain its generated collectible assembly.");
+        Assert.IsTrue(child.HasExited, "A reachable disposed context must not retain its compiled child process.");
         GC.KeepAlive(context);
     }
 

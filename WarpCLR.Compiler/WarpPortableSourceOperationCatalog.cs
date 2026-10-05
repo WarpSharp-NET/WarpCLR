@@ -11,6 +11,9 @@ internal static class WarpPortableSourceOperationCatalog
         bool write = instruction.Effects.Contains(WarpPortableTypedEffect.WriteMemory);
         bool read = instruction.Effects.Contains(WarpPortableTypedEffect.ReadMemory);
         ImmutableArray<int> ownerOffsets = (write || read) && instruction.MemoryType is { } memory ? types[memory].ManagedRootByteOffsets : [];
+        bool construction = operation is "newobj" && !instruction.ExitStack.IsEmpty &&
+            instruction.RequiredIntrinsic?.Contains("value-tuple.construct", StringComparison.Ordinal) != true;
+        if (construction) { ownerOffsets = types[instruction.ExitStack[^1].TypeIdentity].ManagedRootByteOffsets; }
         ImmutableArray<WarpPortableTypedProvenance> provenance = Destination(operation, instruction);
         bool privateStore = operation.StartsWith("stloc", StringComparison.Ordinal) || operation.StartsWith("starg", StringComparison.Ordinal);
         bool privateOwnerCopy = privateStore && !instruction.EntryStack.IsEmpty &&
@@ -18,7 +21,7 @@ internal static class WarpPortableSourceOperationCatalog
         bool caller = provenance.Any(origin => origin.Kind == WarpPortableProvenanceKind.Argument ||
             origin.Kind is WarpPortableProvenanceKind.FrameArgument or WarpPortableProvenanceKind.FrameLocal && !string.Equals(origin.OwnerMethod, methodIdentity, StringComparison.Ordinal));
         bool inlineValue = operation is "ldfld" && instruction.EntryStack[^1].Category == WarpPortableStackCategory.Value;
-        return new(write && !ownerOffsets.IsEmpty || privateOwnerCopy, read && !ownerOffsets.IsEmpty,
+        return new((write || construction) && !ownerOffsets.IsEmpty || privateOwnerCopy, read && !ownerOffsets.IsEmpty,
             !ownerOffsets.IsEmpty && !inlineValue, caller, ownerOffsets, provenance);
     }
 

@@ -48,6 +48,9 @@ internal sealed partial class WarpPortableSourceHeapSchema
                 roots.Add(new(WarpPortableSourceExceptionLayout.MessageWord, Id(typeof(string))));
                 roots.Add(new(WarpPortableSourceExceptionLayout.InnerExceptionWord, Id(typeof(Exception))));
                 roots.Add(new(WarpPortableSourceExceptionLayout.TraceReferenceWord, Id(typeof(uint[]))));
+                roots.Add(new(WarpPortableSourceExceptionLayout.ParamNameWord, Id(typeof(string))));
+                roots.Add(new(WarpPortableSourceExceptionLayout.ActualValueWord, Id(typeof(object))));
+                roots.Add(new(WarpPortableSourceExceptionLayout.TypeNameWord, Id(typeof(string))));
             }
             if (typeof(Delegate).IsAssignableFrom(source))
             {
@@ -67,7 +70,8 @@ internal sealed partial class WarpPortableSourceHeapSchema
             long words = checked(WarpPortableHeapLayout.HeaderWords + (long)types.Length * WarpPortableHeapLayout.TypeWords + (long)types.Length * types.Length +
                 types.Sum(type => type.StaticWords + (long)(type.References.Length + type.StaticReferences.Length) * 2) +
                 WarpPortableSourceMemoryLayout.HeaderWords + (long)types.Length * WarpPortableSourceMemoryLayout.TypeWords +
-                (long)viewCount * WarpPortableSourceMemoryLayout.ViewWords + (long)nullableCount * WarpPortableSourceMemoryLayout.NullableWords);
+                (long)viewCount * WarpPortableSourceMemoryLayout.ViewWords + (long)nullableCount * WarpPortableSourceMemoryLayout.NullableWords +
+                (long)types.Length * WarpPortableSourceExceptionLayout.ExceptionTypeWords);
             WarpCompilationAdmission.Require(graph.EntryIdentity, WarpCompilationResourceKind.VerifierWorkspaceSlots, words,
                 WarpCompilationAdmission.MaximumVerifierWorkspaceSlotsPerEntry);
         }

@@ -4,6 +4,7 @@
   <Project Path="WarpCLR.Backend.SPIRV/WarpCLR.Backend.SPIRV.csproj" />
   <Project Path="WarpCLR.Backend.NVPTX/WarpCLR.Backend.NVPTX.csproj" />
   <Project Path="WarpCLR.Compiler/WarpCLR.Compiler.csproj" />
+  <Project Path="WarpCLR.CoreCLR.Worker/WarpCLR.CoreCLR.Worker.csproj" />
   <Project Path="WarpCLR.IR/WarpCLR.IR.csproj" />
   <Project Path="WarpCLR.NativeValidation/WarpCLR.NativeValidation.csproj" />
   <Project Path="WarpCLR.Runtime.Host/WarpCLR.Runtime.Host.csproj" />

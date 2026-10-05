@@ -44,14 +44,18 @@ internal static class WarpPortableWordExecutionBindingCases
         WarpPortableWordLoweredProgram lowered = WarpPortableWordLowerer.Lower(fixture.Graph, fixture.Typed, fixture.Schema, binding);
         Assert.AreEqual(Projection(lowered.Kernel), lowered.ExecutionPlanHash, StringComparer.Ordinal);
         Assert.AreEqual(binding.BindingHash, lowered.ExecutionBindingHash, StringComparer.Ordinal);
-        Assert.IsNotNull(binding.Completed); Assert.AreEqual(lowered.MapsHash, binding.Completed.MapsHash, StringComparer.Ordinal);
-        Assert.AreNotEqual(WarpIrHash.Compute(binding.Completed.StructuralKernel), WarpIrHash.Compute(lowered.Kernel), StringComparer.Ordinal);
-        Assert.AreEqual(Projection(binding.Completed.StructuralKernel), Projection(lowered.Kernel), StringComparer.Ordinal);
+        Assert.IsNotNull(binding.Completed); Assert.IsNotNull(binding.CompletedKernel);
+        Assert.AreEqual(lowered.MapsHash, binding.CompletedMapsHash, StringComparer.Ordinal);
+        Assert.AreNotEqual(WarpIrHash.Compute(binding.CompletedKernel), WarpIrHash.Compute(lowered.Kernel), StringComparer.Ordinal);
+        Assert.AreEqual(Projection(binding.CompletedKernel), Projection(lowered.Kernel), StringComparer.Ordinal);
+        Assert.ThrowsExactly<InvalidOperationException>(() => _ = binding.Completed.MapsHash);
+        Assert.ThrowsExactly<InvalidOperationException>(() => _ = binding.Completed.StructuralKernel);
         Assert.AreNotEqual(WarpPortableWordLowerer.Lower(fixture.Graph, fixture.Typed).LoweredHash, lowered.LoweredHash, StringComparer.Ordinal);
         WarpPortableWordProgramIdentity identity = WarpPortableWordProgramIdentity.Validate(fixture.Graph, fixture.Schema, lowered);
         Assert.AreEqual(binding.BindingHash, identity.ExecutionBindingHash, StringComparer.Ordinal);
         Assert.AreEqual(lowered.ExecutionPlanHash, identity.ExecutionPlanHash, StringComparer.Ordinal);
-        Assert.AreEqual(WarpPortableWordProgramIdentity.ComputeLayoutProjection(binding.Completed.StructuralKernel), identity.StructuralLayoutHash, StringComparer.Ordinal);
+        Assert.AreEqual(WarpPortableWordProgramIdentity.ComputeLayoutProjection(binding.CompletedKernel), identity.StructuralLayoutHash, StringComparer.Ordinal);
+        Assert.IsNull(identity.ExceptionAttachment);
         Assert.AreEqual(WarpIrHash.Compute(lowered.Kernel), identity.KernelIrHash, StringComparer.Ordinal);
     }
 
@@ -147,6 +151,8 @@ internal static class WarpPortableWordExecutionBindingCases
         internal WarpPortableWordInstructionContext? LastInstruction { get; private set; }
         internal WarpPortableWordBindingPreparation? Prepared { get; private set; }
         internal WarpPortableWordBindingCompletion? Completed { get; private set; }
+        internal WarpControlFlowKernel? CompletedKernel { get; private set; }
+        internal string? CompletedMapsHash { get; private set; }
         internal override void Prepare(WarpPortableWordBindingPreparation context)
         {
             Prepared = context;
@@ -164,7 +170,8 @@ internal static class WarpPortableWordExecutionBindingCases
         }
         internal override string Complete(WarpPortableWordBindingCompletion context)
         {
-            Completed = context; return Projection(context.StructuralKernel);
+            Completed = context; CompletedKernel = context.StructuralKernel; CompletedMapsHash = context.MapsHash;
+            return Projection(context.StructuralKernel);
         }
     }
 

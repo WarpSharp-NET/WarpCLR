@@ -67,11 +67,7 @@ internal static partial class WarpPortableMethodGraphIntrinsics
             return "array.empty";
         }
 
-        if (type.Assembly == typeof(object).Assembly && typeof(Exception).IsAssignableFrom(type) &&
-            !method.IsStatic && parameters.Length == 0 && method.Name is "get_Message" or "get_InnerException" or "get_StackTrace" or nameof(Exception.GetBaseException))
-        {
-            return "exception." + method.Name;
-        }
+        if (ResolveExceptionOperation(method) is { } exception) { return exception; }
 
         if (type == typeof(Type) && method.IsStatic && parameters.Length == 2 &&
             parameters.All(parameter => parameter.ParameterType == typeof(Type)) && method.Name is "op_Equality" or "op_Inequality")

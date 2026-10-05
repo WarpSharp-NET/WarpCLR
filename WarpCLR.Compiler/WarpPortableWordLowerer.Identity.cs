@@ -1,4 +1,3 @@
-using System.Text.Json;
 using WarpCLR.IR;
 using WarpCLR.Verifier;
 
@@ -29,7 +28,7 @@ internal static partial class WarpPortableWordLowerer
                     throw WarpPortableWordProgramIdentity.Invalid("A filter alias has no exact original argument/local prefix owner.");
                 }
             }
-            RequireSourceBlocks(program.Kernel, body, planned.Body);
+            RequireSourceBlocks(graph, program, body, planned.Body);
         }
         WarpPortableWordEntryProjection expected = planner.IdentityEntryProjection(program.Bodies);
         if (!Same(expected, program.EntryProjection)) { throw WarpPortableWordProgramIdentity.Invalid("The wrapper/result root maps differ from the exact source entry signature."); }
@@ -38,14 +37,17 @@ internal static partial class WarpPortableWordLowerer
     private static void RequireStorageMaps(WarpPortableWordBody body, WarpPortableWordBody planned)
     {
         if (!Same(body.Arguments, planned.Arguments) || !Same(body.Locals, planned.Locals) || body.EvaluationWordOffset != planned.EvaluationWordOffset ||
-            body.MaximumStackWords != planned.MaximumStackWords || body.PrivateWordCount != planned.PrivateWordCount)
+            body.MaximumStackWords != planned.MaximumStackWords || body.PrivateWordCount != planned.PrivateWordCount ||
+            !Same(body.PrivateTemporaries, planned.PrivateTemporaries))
         {
             throw WarpPortableWordProgramIdentity.Invalid("A source body's argument/local/evaluation/private word layout differs from its exact typed storage.");
         }
     }
 
-    private static void RequireSourceBlocks(WarpControlFlowKernel kernel, WarpPortableWordBody body, WarpPortableWordBody planned)
+    private static void RequireSourceBlocks(WarpPortableMethodGraph graph, WarpPortableWordLoweredProgram program,
+        WarpPortableWordBody body, WarpPortableWordBody planned)
     {
+        WarpControlFlowKernel kernel = program.Kernel;
         WarpLogicalBodyMetadata metadata = kernel.Execution!.Bodies[body.Function];
         WarpControlFlowFunction function = kernel.Functions[body.Function - 1];
         if (metadata.RuntimeHelper || metadata.PrivateWordCount != body.PrivateWordCount || metadata.AliasOwnerFunction != body.AliasOwnerFunction ||
@@ -69,6 +71,7 @@ internal static partial class WarpPortableWordLowerer
             RequireBlockMembership(source, metadata, function.Blocks.Count, membership);
             RequireReturnedRootRanges(source, function);
         }
+        RequireInvocationPrelude(graph, program, body, planned, membership);
         if (membership.Count != function.Blocks.Count - 1 || metadata.SourceBlockCosts[0] != 0)
         {
             throw WarpPortableWordProgramIdentity.Invalid("A source body has unbound generated blocks or an incorrect prologue charge.");
@@ -105,7 +108,7 @@ internal static partial class WarpPortableWordLowerer
         }
     }
 
-    private static bool Same<T>(T first, T second) => JsonSerializer.SerializeToUtf8Bytes(first).AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(second));
+    private static bool Same<T>(T first, T second) => WarpPortableSnapshotIdentity.Serialize(first).AsSpan().SequenceEqual(WarpPortableSnapshotIdentity.Serialize(second));
 
     private sealed partial class Builder
     {

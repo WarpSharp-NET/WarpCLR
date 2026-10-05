@@ -22,7 +22,8 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         WarpPortableTypedValue pointer;
         if (metadata.IsStatic)
         {
-            step.Effects.Add(WarpPortableTypedEffect.TypeInitialize);
+            step.InitializerTrigger = WarpPortableTypeInitialization.ForField(graph, metadata);
+            if (step.InitializerTrigger is not null) { step.Effects.Add(WarpPortableTypedEffect.TypeInitialize); }
             pointer = Borrow(field.TypeIdentity, new(WarpPortableProvenanceKind.StaticStorage, string.Empty, metadata.Id,
                 metadata.DeclaringType, field.ByteOffset, field.ByteSize), field.IsReadOnly && !initializer);
         }

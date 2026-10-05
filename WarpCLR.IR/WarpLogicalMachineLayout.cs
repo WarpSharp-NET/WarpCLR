@@ -51,6 +51,7 @@ public sealed class WarpLogicalMachineLayout
     public const uint StepLimitFault = 1;
     public const uint CallDepthFault = 2;
     internal const uint ManagedMemoryBoundsFault = 4;
+    internal const uint AtomicAlignmentFault = 9;
 
     private readonly FrozenDictionary<(int Function, int Block), int> blockEntries;
 
@@ -61,6 +62,8 @@ public sealed class WarpLogicalMachineLayout
         Kernel = kernel;
         RequiresManagedMemory = kernel.Execution?.ManagedExceptionTermination == true || kernel.Instructions.Concat(kernel.Functions.SelectMany(function => function.Instructions))
             .Any(instruction => WarpManagedMemoryOpCode.RequiresArena(instruction.OpCode));
+        RequiresWideAtomics = kernel.Instructions.Concat(kernel.Functions.SelectMany(function => function.Instructions))
+            .Any(instruction => WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode));
         ResultWordCount = kernel.Blocks.Select(block => block.Terminator switch
         {
             WarpTupleReturnTerminator tuple => tuple.Values.Count,
@@ -123,6 +126,8 @@ public sealed class WarpLogicalMachineLayout
     internal int ResultWordCount { get; }
 
     internal bool RequiresManagedMemory { get; }
+
+    internal bool RequiresWideAtomics { get; }
 
     internal int ResultTailWords => Math.Max(0, ResultWordCount - 2);
 

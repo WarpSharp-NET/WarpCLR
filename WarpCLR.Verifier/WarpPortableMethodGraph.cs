@@ -7,7 +7,7 @@ namespace WarpCLR.Verifier;
 // verifier and runtime must implement every required intrinsic before admitting it.
 internal sealed partial class WarpPortableMethodGraph
 {
-    public const string Version = "warp.portable-method-type-closure/vector-mdarray-identity-typed-native-evaluation/0.4";
+    public const string Version = "warp.portable-method-type-closure/exact-exception-accessors-cli64-raw-utf16-snapshot/0.6";
 
     private WarpPortableMethodGraph(string entryIdentity, string graphHash,
         ImmutableArray<WarpPortableMethodGraphMethod> methods,

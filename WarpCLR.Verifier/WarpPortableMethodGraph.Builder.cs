@@ -504,7 +504,7 @@ internal sealed partial class WarpPortableMethodGraph
 
             if (!permitted.Contains(method.Module.Assembly) && WarpPortableMethodGraphIntrinsics.Resolve(method) is null && !method.IsAbstract)
             {
-                throw Error($"Method '{method.Name}' is outside the permitted assemblies and has no explicit portable intrinsic.");
+                throw Error($"Method '{method.DeclaringType?.FullName}::{method.Name}' is outside the permitted assemblies and has no explicit portable intrinsic.");
             }
 
         }

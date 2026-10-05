@@ -44,7 +44,8 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             ValidateDelegate(target, arguments, step.Offset);
         }
 
-        if (target.SourceMethod.IsStatic || construction) { step.Effects.Add(WarpPortableTypedEffect.TypeInitialize); }
+        step.InitializerTrigger = WarpPortableTypeInitialization.ForMethod(graph, target.SourceMethod);
+        if (step.InitializerTrigger is not null) { step.Effects.Add(WarpPortableTypedEffect.TypeInitialize); }
         step.Intrinsic = target.Intrinsic;
         CallEffects(target, step, construction);
         foreach (WarpPortableTypedValue argument in arguments.Where(argument => argument.Category == WarpPortableStackCategory.ManagedByref && !argument.IsReadOnly))

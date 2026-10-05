@@ -34,6 +34,7 @@ internal sealed class WarpNativeImage
         InputBufferCount = inputBufferCount;
         ScalarArgumentCount = scalarArgumentCount;
         MachineLayout = machineLayout;
+        if (machineLayout is not null) { WarpNativeAtomicAdmission.Validate(machineLayout, target); }
         ConformanceStatus = WarpConformanceStatus.DevelopmentNonconforming;
     }
 

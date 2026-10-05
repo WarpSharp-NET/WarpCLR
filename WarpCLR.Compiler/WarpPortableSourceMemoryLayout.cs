@@ -2,10 +2,10 @@ namespace WarpCLR.Compiler;
 
 internal static class WarpPortableSourceMemoryLayout
 {
-    internal const string Semantics = "warp.source-byref/exact-byte-views-static-owner-readonly-covariance-nullable-copy-frame-array-shapes/0.4";
+    internal const string Semantics = "warp.source-byref/exact-byte-views-static-owner-readonly-covariance-nullable-copy-frame-array-shapes-exception-data/0.5";
     public const uint Descriptor = 56;
     public const uint Magic = 0x57525356;
-    public const uint Version = 4;
+    public const uint Version = 5;
     public const uint HeaderWords = 32;
     public const uint TypeCount = 2;
     public const uint TypeStart = 3;
@@ -18,6 +18,7 @@ internal static class WarpPortableSourceMemoryLayout
     public const uint FrameStart = 17;
     public const uint FrameViewCount = 18;
     public const uint FrameViewStart = 19;
+    public const uint ExceptionTypeStart = 23;
     public const uint FrameHash = 24;
     public const uint FrameWords = 4;
     public const uint FrameFunction = 0;

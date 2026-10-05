@@ -2,6 +2,8 @@ namespace WarpCLR.Runtime.Host;
 
 public sealed record WarpJitCacheOptions
 {
+    public WarpCoreCLRWorkerOptions CoreCLR { get; init; } = new();
+
     public int MaximumMemoryEntries { get; init; } = 128;
 
     public int MaximumConcurrentCompilations { get; init; } = 2;
@@ -15,6 +17,7 @@ public sealed record WarpJitCacheOptions
     internal static void Validate(WarpJitCacheOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        WarpCoreCLRWorkerOptions.Validate(options.CoreCLR);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumMemoryEntries, nameof(options));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumConcurrentCompilations, nameof(options));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaximumDiskBytes, nameof(options));

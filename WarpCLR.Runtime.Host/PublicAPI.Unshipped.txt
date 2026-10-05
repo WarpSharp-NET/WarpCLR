@@ -164,3 +164,27 @@ static WarpCLR.Runtime.Host.WarpRuntimeOptions.operator !=(WarpCLR.Runtime.Host.
 static WarpCLR.Runtime.Host.WarpRuntimeOptions.operator ==(WarpCLR.Runtime.Host.WarpRuntimeOptions? left, WarpCLR.Runtime.Host.WarpRuntimeOptions? right) -> bool
 ~override WarpCLR.Runtime.Host.WarpJitCacheStatistics.Equals(object obj) -> bool
 ~override WarpCLR.Runtime.Host.WarpJitCacheStatistics.ToString() -> string
+
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.WarpCoreCLRWorkerOptions() -> void
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.<Clone>$() -> WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions!
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.Equals(WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions? other) -> bool
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.DotnetHostPath.get -> string?
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.DotnetHostPath.init -> void
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.WorkerAssemblyPath.get -> string?
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.WorkerAssemblyPath.init -> void
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.MaximumWorkerProcesses.get -> int
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.MaximumWorkerProcesses.init -> void
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.CompilationTimeout.get -> System.TimeSpan
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.CompilationTimeout.init -> void
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.QuantumTimeout.get -> System.TimeSpan
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.QuantumTimeout.init -> void
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.CleanupTimeout.get -> System.TimeSpan
+WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.CleanupTimeout.init -> void
+override WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.Equals(object? obj) -> bool
+override WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.GetHashCode() -> int
+override WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.ToString() -> string!
+static WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.operator !=(WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions? left, WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions? right) -> bool
+static WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions.operator ==(WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions? left, WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions? right) -> bool
+WarpCLR.Runtime.Host.WarpJitCacheOptions.CoreCLR.get -> WarpCLR.Runtime.Host.WarpCoreCLRWorkerOptions!
+WarpCLR.Runtime.Host.WarpJitCacheOptions.CoreCLR.init -> void

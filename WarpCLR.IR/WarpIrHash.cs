@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.ObjectModel;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace WarpCLR.IR;
 
@@ -12,6 +11,7 @@ public static class WarpIrHash
         ArgumentNullException.ThrowIfNull(kernel);
 
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendString(hash, "warp.ir-identity/raw-utf16-code-units/0.2");
         AppendString(hash, WarpProfileCatalog.ProfileId);
         AppendString(hash, kernel.Name);
         AppendInt32(hash, kernel.InputBufferCount);
@@ -29,7 +29,7 @@ public static class WarpIrHash
 
         if (kernel.Execution is WarpLogicalExecutionMetadata execution)
         {
-            AppendString(hash, WarpLogicalExecutionMetadata.Version);
+            AppendString(hash, execution.IdentityVersion);
             AppendInt32(hash, execution.RecursiveCalls ? 1 : 0);
             AppendInt32(hash, execution.FrameOwners ? 1 : 0);
             AppendInt32(hash, execution.RuntimeStateAccess ? 1 : 0);
@@ -37,6 +37,10 @@ public static class WarpIrHash
             AppendInt32(hash, execution.ManagedExceptionTermination ? 1 : 0);
             AppendInt32(hash, execution.LogicalWorkerAccess ? 1 : 0);
             if (execution.LogicalWorkerAccess) { AppendString(hash, WarpManagedInvocationOpCode.Version); }
+            if (execution.PrivateControllerProjection is { } projection)
+            {
+                AppendPrivateController(hash, projection);
+            }
             foreach (WarpLogicalBodyMetadata body in execution.Bodies)
             {
                 AppendInt32(hash, body.PrivateWordCount);
@@ -49,6 +53,18 @@ public static class WarpIrHash
             }
         }
         return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    private static void AppendPrivateController(IncrementalHash hash, WarpPrivateControllerProjection projection)
+    {
+        AppendString(hash, WarpPrivateControllerOpCode.Version);
+        AppendInt32(hash, projection.Uses.Count);
+        foreach (WarpPrivateControllerUse use in projection.Uses)
+        {
+            AppendInt32(hash, use.Function); AppendInt32(hash, use.Block); AppendInt32(hash, use.Value);
+            AppendInt32(hash, use.Callee); AppendInt32(hash, use.Argument); AppendInt32(hash, use.CallValue);
+            AppendString(hash, use.ServiceIdentity);
+        }
     }
 
     private static void AppendBody(
@@ -72,7 +88,8 @@ public static class WarpIrHash
             {
                 AppendInt32(hash, instruction.Result);
                 AppendInt32(hash, (int)instruction.ResultType);
-                AppendInt32(hash, instruction.ResultWordCount != 1 ? 0x10014 : (int)instruction.OpCode);
+                AppendInt32(hash, instruction.OpCode == WarpIrOpCode.Call && instruction.ResultWordCount != 1 ? 0x10014 : (int)instruction.OpCode);
+                if (WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode)) { AppendString(hash, WarpManagedWideAtomicOpCode.Semantics); }
                 AppendInt32(hash, instruction.Left);
                 AppendInt32(hash, instruction.Right);
                 AppendUInt32(hash, instruction.Immediate);
@@ -159,9 +176,13 @@ public static class WarpIrHash
 
     private static void AppendString(IncrementalHash hash, string value)
     {
-        byte[] bytes = Encoding.UTF8.GetBytes(value);
-        AppendInt32(hash, bytes.Length);
-        hash.AppendData(bytes);
+        AppendInt32(hash, value.Length);
+        Span<byte> bytes = stackalloc byte[sizeof(ushort)];
+        foreach (char unit in value)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes, unit);
+            hash.AppendData(bytes);
+        }
     }
 
     private static void AppendInt32(IncrementalHash hash, int value)

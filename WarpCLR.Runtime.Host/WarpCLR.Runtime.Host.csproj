@@ -5,7 +5,27 @@
   <ItemGroup>
     <ProjectReference Include="..\WarpCLR.Backend.CoreCLR\WarpCLR.Backend.CoreCLR.csproj" />
     <ProjectReference Include="..\WarpCLR.Compiler\WarpCLR.Compiler.csproj" />
+    <ProjectReference Include="../WarpCLR.CoreCLR.Worker/WarpCLR.CoreCLR.Worker.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\WarpCLR.IR\WarpCLR.IR.csproj" />
     <ProjectReference Include="..\WarpCLR.Verifier\WarpCLR.Verifier.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="buildTransitive/WarpCLR.Runtime.Host.props" Pack="true" PackagePath="buildTransitive/WarpCLR.Runtime.Host.props" />
+    <None Include="../eng/portable-validation/*" Pack="true" PackagePath="tools/portable-validation/" Visible="false" />
+  </ItemGroup>
+  <Target Name="ResolveCoreCLRWorkerArtifacts" BeforeTargets="IncludeCoreCLRWorker;_GetPackageFiles" DependsOnTargets="BuildOnlySettings">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../WarpCLR.CoreCLR.Worker/WarpCLR.CoreCLR.Worker.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WarpCoreCLRWorkerTargetPath" />
+    </MSBuild>
+    <Error Condition="'@(_WarpCoreCLRWorkerTargetPath-&gt;Count())' != '1'" Text="The CoreCLR worker must resolve exactly one build output." />
+    <ItemGroup>
+      <_WarpCoreCLRWorkerArtifacts Include="@(_WarpCoreCLRWorkerTargetPath);@(_WarpCoreCLRWorkerTargetPath-&gt;'%(RootDir)%(Directory)%(Filename).deps.json');@(_WarpCoreCLRWorkerTargetPath-&gt;'%(RootDir)%(Directory)%(Filename).runtimeconfig.json')" />
+      <None Include="@(_WarpCoreCLRWorkerArtifacts)" Pack="true" PackagePath="tools/coreclr-worker/" Visible="false" />
+    </ItemGroup>
+  </Target>
+  <Target Name="IncludeCoreCLRWorker" BeforeTargets="GetCopyToOutputDirectoryItems" DependsOnTargets="ResolveCoreCLRWorkerArtifacts">
+    <ItemGroup>
+      <ContentWithTargetPath Include="@(_WarpCoreCLRWorkerArtifacts)" TargetPath="%(_WarpCoreCLRWorkerArtifacts.Filename)%(_WarpCoreCLRWorkerArtifacts.Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 </Project>

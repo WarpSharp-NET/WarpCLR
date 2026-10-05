@@ -26,8 +26,19 @@ public sealed partial class CoreCLRResumableKernel
 
     public static CoreCLRResumableKernel Compile(WarpLogicalMachineLayout layout)
     {
+        MethodInfo method = EmitCompilation(layout);
+        return PrepareCompilation(layout, method);
+    }
+
+    internal static MethodInfo EmitCompilation(WarpLogicalMachineLayout layout)
+    {
         ArgumentNullException.ThrowIfNull(layout);
         WarpCompilationAdmission.Validate(layout.Kernel);
+        if (!BitConverter.IsLittleEndian && layout.Kernel.Instructions.Concat(layout.Kernel.Functions.SelectMany(function => function.Instructions))
+            .Any(instruction => WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode)))
+        {
+            throw new PlatformNotSupportedException("The physical pair-atomic ABI requires a little-endian CoreCLR host.");
+        }
         if (!RuntimeFeature.IsDynamicCodeSupported || !RuntimeFeature.IsDynamicCodeCompiled)
         {
             throw new PlatformNotSupportedException("The CoreCLR backend requires an available native .NET JIT.");
@@ -52,8 +63,13 @@ public sealed partial class CoreCLRResumableKernel
             [typeof(uint[][]), typeof(uint[]), typeof(int), typeof(uint[]), typeof(int), typeof(int), typeof(CancellationToken), typeof(uint[])]);
         new QuantumEmitter(layout, method.GetILGenerator(), maximumParallelCopies).Emit();
         MethodInfo compiledMethod = type.CreateType()!.GetMethod(method.Name)!;
-        RuntimeHelpers.PrepareMethod(compiledMethod.MethodHandle);
-        return new CoreCLRResumableKernel(layout, compiledMethod);
+        return compiledMethod;
+    }
+
+    internal static CoreCLRResumableKernel PrepareCompilation(WarpLogicalMachineLayout layout, MethodInfo method)
+    {
+        RuntimeHelpers.PrepareMethod(method.MethodHandle);
+        return new CoreCLRResumableKernel(layout, method);
     }
 
     public void ExecuteQuantum(
@@ -80,6 +96,10 @@ public sealed partial class CoreCLRResumableKernel
         int maximumCallDepth, int quantum, uint[] managedArena, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(managedArena);
+        if (Layout.Kernel.Execution?.PrivateControllerProjection is not null)
+        {
+            throw new InvalidOperationException("A private controller program requires an opaque registry-owned source-segment invocation.");
+        }
         ValidateInvocation(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum);
         if (state[WarpLogicalMachineLayout.StatusOffset] != WarpLogicalMachineLayout.Runnable)
         {
@@ -287,6 +307,11 @@ public sealed partial class CoreCLRResumableKernel
             foreach (WarpIrInstruction instruction in node.Instructions)
             {
                 EmitManagedBoundsCheck(instruction, node);
+                if (WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode))
+                {
+                    EmitWideAtomic(instruction);
+                    continue;
+                }
                 StoreFrame(frame, WarpLogicalMachineLayout.FrameHeaderWords + instruction.Result,
                     () => EmitInstruction(instruction));
             }
@@ -519,6 +544,7 @@ public sealed partial class CoreCLRResumableKernel
                     il.Emit(OpCodes.Ldelem_U4);
                     return;
                 case WarpIrOpCode.LoadScalar:
+                case WarpPrivateControllerOpCode.LoadController:
                     il.Emit(OpCodes.Ldarg_1);
                     Constant(checked((int)instruction.Immediate));
                     il.Emit(OpCodes.Ldelem_U4);
@@ -587,6 +613,11 @@ public sealed partial class CoreCLRResumableKernel
 
         private void EmitManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
         {
+            if (WarpManagedWideAtomicOpCode.IsAtomic(instruction.OpCode))
+            {
+                EmitWideAtomicBoundsCheck(instruction, node);
+                return;
+            }
             if (WarpManagedStateOpCode.RequiresBounds(instruction.OpCode))
             {
                 EmitStateBoundsCheck(instruction, node);
