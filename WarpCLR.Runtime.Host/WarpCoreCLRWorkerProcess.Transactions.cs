@@ -58,7 +58,7 @@ internal sealed partial class WarpCoreCLRWorkerProcess
             WarpCoreCLRWorkerProtocol.Frame frame = await WarpCoreCLRWorkerProtocol.ReadAsync(process.StandardOutput.BaseStream, key, current, deadline.Token).ConfigureAwait(false);
             if (frame.Kind != WarpCoreCLRWorkerProtocol.Executed) { throw new InvalidDataException("Worker quantum result missing."); }
             (uint[] returnedState, uint[] returnedArena) = WarpCoreCLRWorkerWords.ReadResponse(frame.Payload, request, state.Length, arena.Length);
-            CommitResponse(layout, state, arena, depth, returnedState, returnedArena, command, recovery, frame.Payload, deadline.Token);
+            CommitResponse(layout, state, arena, depth, returnedState, returnedArena, command, recovery, frame.Payload, request, deadline.Token);
         }
         catch (Exception error)
         {
@@ -111,7 +111,7 @@ internal sealed partial class WarpCoreCLRWorkerProcess
 
     private void CommitResponse(WarpLogicalMachineLayout layout, uint[] state, uint[] arena, int depth,
         uint[] returnedState, uint[] returnedArena, WarpCoreCLRStoppedCommands.Command command,
-        WarpCoreCLRQuarantineRecovery? recovery, byte[] response, CancellationToken cancellationToken)
+        WarpCoreCLRQuarantineRecovery? recovery, byte[] response, byte[] request, CancellationToken cancellationToken)
     {
         ValidateResult(layout, state, returnedState, depth);
         if (command.Controller is not null)
@@ -123,8 +123,10 @@ internal sealed partial class WarpCoreCLRWorkerProcess
             cancellationToken.ThrowIfCancellationRequested();
             recovery?.ObserveGeneratedCompletion(state, returnedState, RegistryAuthority);
             (WarpCoreCLRGenerationTransition? transition, WarpCoreCLRControllerCheckpoint? checkpoint) = ObserveGenerationCommit(command, returnedState, returnedArena, response);
+            WordCheckpoint wordCheckpoint = PrepareWordCheckpoint(command, returnedState, returnedArena, response, request);
             returnedState.CopyTo(state, 0); returnedArena.CopyTo(arena, 0);
             Committed(command, transition, checkpoint);
+            PublishWordCheckpoint(command, wordCheckpoint);
         }
     }
 

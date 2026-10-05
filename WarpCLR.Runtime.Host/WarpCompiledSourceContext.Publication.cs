@@ -114,11 +114,7 @@ internal sealed partial class WarpCompiledSourceContext
             allocations[worker] = 0;
             return Invoke(grant, nameof(WarpPortableSchedulerServices.CancelWorker), [worker, ticket.Generation]);
         }
-        RequireSuccess(Invoke(grant, nameof(WarpPortableSchedulerServices.CaptureServiceResult), [worker, ticket.Generation, 1]));
-        for (uint word = 0; word < 3; word++)
-        {
-            inputs[word][worker] = Arena[WarpPortableHeapLayout.Result + word];
-        }
+        PublishEntryAllocationArguments(grant, ticket);
         var location = new WarpCompiledSourceLocation(0, 0, null, null);
         RequireSuccess(Publish(grant, worker, ticket.Generation, location));
         uint revision = Arena[Worker(worker) + WarpPortableSchedulerLayout.RootRevision];

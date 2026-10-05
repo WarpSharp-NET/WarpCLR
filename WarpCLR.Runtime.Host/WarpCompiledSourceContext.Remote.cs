@@ -43,6 +43,7 @@ internal sealed partial class WarpCompiledSourceContext
                 state[WarpCompiledSourceBoundary.StateOffset] != WarpCompiledSourceBoundary.BeforeSource;
             if (state[WarpLogicalMachineLayout.StatusOffset] != WarpLogicalMachineLayout.Runnable || !(ordinary || owned))
             { throw new InvalidOperationException("A parked or terminal source continuation cannot start an owned remote quantum."); }
+            sourceCheckpoints.Remove(state);
             ticket.BeginExecution();
             if (state[WarpCompiledSourceBoundary.StateOffset] == WarpCompiledSourceBoundary.BeforeSource)
             {
@@ -52,16 +53,20 @@ internal sealed partial class WarpCompiledSourceContext
         }
     }
 
-    internal void FinishRemoteSource(WarpCompiledPausedCensus census, WarpCompiledWorkerTicket ticket)
+    internal void FinishRemoteSource(WarpCompiledPausedCensus census, WarpCompiledWorkerTicket ticket, WarpCoreCLRWorkerLease source)
     {
         lock (executionIdentityGate)
         {
             RequireRemoteCensus(census);
             ValidateTicket(ticket);
+            WarpCoreCLRWorkerProcess.WordCheckpoint words = source.RequireCommittedWordCheckpoint(states[ticket.Worker], Arena);
+            var checkpoint = new SourceCheckpoint(this, ticket, source, words, sourceCheckpointAuthority);
             executionQuanta[ticket.Worker] = checked(executionQuanta[ticket.Worker] + 1);
             ticket.FinishExecution();
             controller.ResumeAfterRemoteCommit(census.Grant);
             remoteCensus = null;
+            sourceCheckpoints.Remove(states[ticket.Worker]);
+            sourceCheckpoints.Add(states[ticket.Worker], checkpoint);
         }
     }
 

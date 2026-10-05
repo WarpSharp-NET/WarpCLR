@@ -72,7 +72,7 @@ internal sealed partial class WarpCompiledRemoteSourceAdapter
             await source.ExecuteOwnedManagedQuantumAsync(context.RemoteSourceInputs, [], checked((int)run.Ticket.Worker),
                 context.RemoteSourceState(run.Ticket), context.Plan.MaximumDepth, context.Plan.Quantum, context.Arena,
                 run.Admission, CancellationToken.None).ConfigureAwait(false);
-            context.FinishRemoteSource(run.Census, run.Ticket);
+            context.FinishRemoteSource(run.Census, run.Ticket, source);
             return null;
         }
         catch (WarpHostException failure)

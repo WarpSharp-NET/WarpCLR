@@ -50,6 +50,7 @@ internal sealed partial class WarpCompiledSourceContext
         string canonical = string.Join('\n', plan.Identity, schema, heapSchema, Arena.Length.ToString(CultureInfo.InvariantCulture),
             Arena[WarpPortableHeapLayout.Context].ToString(CultureInfo.InvariantCulture));
         Identity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        sourceArgumentIdentity = WarpCoreCLRReadOnlyWordIdentity.FromArguments(inputs, []);
     }
 
     internal WarpCompiledSourcePlan Plan { get; }
@@ -237,6 +238,7 @@ internal sealed partial class WarpCompiledSourceContext
     private void ResetDispatchSources(uint[][] nextInputs, uint[][] nextStates)
     {
         inputs = nextInputs;
+        sourceArgumentIdentity = WarpCoreCLRReadOnlyWordIdentity.FromArguments(inputs, []);
         for (uint worker = 0; worker < Plan.Workers; worker++)
         {
             if (tickets[worker] is not null || helpers[worker] is not null) { throw new InvalidOperationException("Redispatch retained an unresolved runtime continuation."); }

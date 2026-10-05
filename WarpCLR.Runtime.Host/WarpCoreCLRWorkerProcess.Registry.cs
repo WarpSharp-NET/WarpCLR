@@ -24,6 +24,7 @@ internal sealed partial class WarpCoreCLRWorkerProcess
             if (controller is not null) { ValidateControllerCommand(command, inputs, scalars); }
             BeginGenerationCore(command);
             RegistryCommands.Add(command.Ordinal, command);
+            WordCheckpoints.Remove(state);
             return command;
         }
     }

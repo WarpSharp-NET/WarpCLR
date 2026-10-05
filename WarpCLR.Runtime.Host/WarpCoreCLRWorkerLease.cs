@@ -44,6 +44,18 @@ internal sealed class WarpCoreCLRWorkerLease(WarpCoreCLRWorkerKernel kernel) : I
         return kernel.ExecuteBatchAsync(binding, inputBase, states, depth, quantum, cancellationToken);
     }
 
+    internal WarpCoreCLRWorkerProcess.WordCheckpoint RequireCommittedWordCheckpoint(uint[] state, uint[] arena)
+    {
+        ObjectDisposedException.ThrowIf(IsReleased, this);
+        return kernel.RequireCommittedWordCheckpoint(state, arena);
+    }
+
+    internal void ValidateCommittedWordCheckpoint(WarpCoreCLRWorkerProcess.WordCheckpoint checkpoint, uint[] state, uint[] arena)
+    {
+        ObjectDisposedException.ThrowIf(IsReleased, this);
+        kernel.ValidateCommittedWordCheckpoint(checkpoint, state, arena);
+    }
+
     internal Task ExecuteManagedQuantumAsync(uint[][] inputs, uint[] scalars, int logicalWorkerIndex, uint[] state,
         int maximumLogicalCallDepth, int quantum, uint[] persistentArena, CancellationToken cancellationToken = default)
     {

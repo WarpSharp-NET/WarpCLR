@@ -42,6 +42,12 @@ internal sealed class WarpCoreCLRWorkerKernel : IAsyncDisposable
         }
     }
 
+    internal WarpCoreCLRWorkerProcess.WordCheckpoint RequireCommittedWordCheckpoint(uint[] state, uint[] arena) =>
+        worker.RequireCommittedWordCheckpoint(state, arena);
+
+    internal void ValidateCommittedWordCheckpoint(WarpCoreCLRWorkerProcess.WordCheckpoint checkpoint, uint[] state, uint[] arena) =>
+        worker.ValidateCommittedWordCheckpoint(checkpoint, state, arena);
+
     internal Task ExecuteManagedQuantumAsync(uint[][] inputs, uint[] scalars, int workerIndex, uint[] state, int depth, int quantum,
         uint[] arena, CancellationToken cancellationToken) =>
         worker.ExecuteManagedQuantumAsync(Layout, inputs, scalars, workerIndex, state, depth, quantum, arena, cancellationToken);
