@@ -112,7 +112,7 @@ internal static partial class WarpPortableWordLowerer
                 try { attachment = ExceptionAttachment.CaptureBoundProgram(lowered); }
                 finally { AttachmentRegistrations.Remove(lowered); }
             }
-            return lowered.SealCompilerIdentity(graph, schema, attachment);
+            return SealRuntimeProgram(graph, schema, lowered, attachment);
         }
 
         internal static WarpVerificationException Error(string method, string message, int offset) => new("WRPCLR2300", method + ": " + message, offset);

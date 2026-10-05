@@ -28,7 +28,7 @@ internal sealed partial class WarpCompiledSourcePlan
         ArgumentNullException.ThrowIfNull(program);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumDepth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSteps);
-        CompilerIdentity = WarpPortableWordProgramIdentity.Validate(graph, typeSchema, program);
+        CompilerIdentity = WarpPortableWordLowerer.RequireRuntimeCompilerSeal(graph, typeSchema, program);
         TypeSchema = typeSchema;
         Program = program;
         FrameSchema = program.RequiredServices.Contains(WarpPortableSourceFrameSchema.Semantics, StringComparer.Ordinal) ||
