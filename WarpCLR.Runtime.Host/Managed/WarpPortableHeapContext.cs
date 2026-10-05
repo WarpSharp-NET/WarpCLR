@@ -7,7 +7,6 @@ namespace WarpCLR.Runtime.Host;
 
 internal sealed class WarpPortableHeapContext : IDisposable
 {
-    private static long nextContext;
     private readonly Lock gate = new();
     private readonly uint[] arena;
     private readonly Dictionary<string, CoreCLRResumableKernel> services = new(StringComparer.Ordinal);
@@ -17,12 +16,8 @@ internal sealed class WarpPortableHeapContext : IDisposable
         uint maximumRoots = 64, uint maximumWorkers = 64, uint quotaWords = 4096)
     {
         ArgumentNullException.ThrowIfNull(schema);
-        long token = Interlocked.Increment(ref nextContext);
-        if (token <= 0 || token > uint.MaxValue)
-        {
-            throw new InvalidOperationException("The nonreusing logical context namespace is exhausted.");
-        }
-        arena = schema.CreateArena((uint)token, payloadWords, maximumObjects, maximumRoots, maximumWorkers, quotaWords);
+        uint token = WarpLogicalOwnerNamespace.Next();
+        arena = schema.CreateArena(token, payloadWords, maximumObjects, maximumRoots, maximumWorkers, quotaWords);
     }
 
     internal int CompiledServiceCount => services.Count;

@@ -7,14 +7,72 @@ public sealed partial class CoreCLRResumableKernel
 {
     private sealed partial class QuantumEmitter
     {
+        private void EmitStateDispatch(WarpLogicalMachineNode node, WarpStateDispatchTerminator dispatch)
+        {
+            Label runnable = il.DefineLabel();
+            Label invalid = il.DefineLabel();
+            Label terminal = il.DefineLabel();
+            EmitStateDispatchStatus(runnable, invalid, terminal);
+            il.MarkLabel(runnable);
+            LoadState(WarpLogicalMachineLayout.DepthOffset);
+            Constant(1);
+            il.Emit(OpCodes.Blt_Un, invalid);
+            LoadState(WarpLogicalMachineLayout.DepthOffset);
+            LoadPhysicalCapacity();
+            il.Emit(OpCodes.Bgt_Un, invalid);
+            LoadState(WarpLogicalMachineLayout.LogicalDepthOffset);
+            il.Emit(OpCodes.Ldarg_S, (byte)4);
+            il.Emit(OpCodes.Bgt_Un, invalid);
+            LoadState(WarpLogicalMachineLayout.DepthOffset);
+            Constant(1);
+            il.Emit(OpCodes.Sub);
+            Constant(layout.FrameWords);
+            il.Emit(OpCodes.Mul);
+            Constant(WarpLogicalMachineLayout.HeaderWords);
+            il.Emit(OpCodes.Add);
+            il.Emit(OpCodes.Stloc, nextFrame);
+            LoadFrame(nextFrame, WarpLogicalMachineLayout.FrameActivationOffset);
+            il.Emit(OpCodes.Brfalse, invalid);
+            foreach (WarpStateDispatchTarget destination in dispatch.Destinations)
+            {
+                Label next = il.DefineLabel();
+                LoadFrame(nextFrame, WarpLogicalMachineLayout.FrameFunctionOffset);
+                Constant(destination.Function);
+                il.Emit(OpCodes.Bne_Un, next);
+                LoadFrame(nextFrame, WarpLogicalMachineLayout.FrameProgramCounterOffset);
+                Constant(layout.GetBlockEntry(destination.Function, destination.Block));
+                il.Emit(OpCodes.Beq, loop);
+                il.MarkLabel(next);
+            }
+            il.MarkLabel(invalid);
+            EmitFault(node, 3);
+            il.MarkLabel(terminal);
+            il.Emit(OpCodes.Ret);
+        }
+
+        private void EmitStateDispatchStatus(Label runnable, Label invalid, Label terminal)
+        {
+            LoadState(WarpLogicalMachineLayout.StatusOffset);
+            Constant((int)WarpLogicalMachineLayout.Runnable);
+            il.Emit(OpCodes.Beq, runnable);
+            LoadState(WarpLogicalMachineLayout.StatusOffset);
+            Constant((int)WarpLogicalMachineLayout.Completed);
+            il.Emit(OpCodes.Beq, terminal);
+            LoadState(WarpLogicalMachineLayout.StatusOffset);
+            Constant((int)WarpLogicalMachineLayout.Faulted);
+            il.Emit(OpCodes.Beq, terminal);
+            il.Emit(OpCodes.Br, invalid);
+        }
+
         private void EmitPrivateInstruction(WarpIrInstruction instruction)
         {
             int offset = checked(layout.PrivateOffset + (int)instruction.Immediate);
+            LocalBuilder privateFrame = instruction.Immediate < layout.GetAliasPrefixWords(emittedFunction) ? aliasOwnerFrame : frame;
             if (instruction.OpCode == WarpManagedFrameOpCode.StorePrivateWord)
             {
-                StoreFrame(frame, offset, () => LoadValue(instruction.Left));
+                StoreFrame(privateFrame, offset, () => LoadValue(instruction.Left));
             }
-            LoadFrame(frame, offset);
+            LoadFrame(privateFrame, offset);
         }
 
         private void LoadPhysicalCapacity()
@@ -22,7 +80,7 @@ public sealed partial class CoreCLRResumableKernel
             il.Emit(OpCodes.Ldarg_S, (byte)4);
             Constant(layout.Kernel.HelperExpansionFactor);
             il.Emit(OpCodes.Mul);
-            if (layout.IsRuntimeHelper(0))
+            if (!layout.CountsSourceDepth(0))
             {
                 Constant(1);
                 il.Emit(OpCodes.Add);
@@ -31,13 +89,7 @@ public sealed partial class CoreCLRResumableKernel
 
         private void EmitCallCapacity(WarpLogicalMachineNode node, WarpIrInstruction call)
         {
-            Label physical = il.DefineLabel();
-            il.Emit(OpCodes.Ldloc, depth);
-            LoadPhysicalCapacity();
-            il.Emit(OpCodes.Blt, physical);
-            EmitFault(node, WarpLogicalMachineLayout.CallDepthFault);
-            il.MarkLabel(physical);
-            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(call.Callee + 1))
+            if (layout.HasLogicalAccounting && layout.CountsSourceDepth(call.Callee + 1))
             {
                 Label logical = il.DefineLabel();
                 LoadState(WarpLogicalMachineLayout.LogicalDepthOffset);
@@ -46,6 +98,12 @@ public sealed partial class CoreCLRResumableKernel
                 EmitFault(node, WarpLogicalMachineLayout.CallDepthFault);
                 il.MarkLabel(logical);
             }
+            Label physical = il.DefineLabel();
+            il.Emit(OpCodes.Ldloc, depth);
+            LoadPhysicalCapacity();
+            il.Emit(OpCodes.Blt, physical);
+            EmitFault(node, layout.HasLogicalAccounting ? WarpLogicalMachineLayout.PhysicalFrameCapacityFault : WarpLogicalMachineLayout.CallDepthFault);
+            il.MarkLabel(physical);
         }
 
         private void EmitClearPrivate(int function)

@@ -589,8 +589,11 @@ internal sealed class NativeCachePolicyTests
         public bool IsFaulted => false;
         public bool Disposed { get; private set; }
         public void Dispose() => Disposed = true;
+        public WarpNativeManagedArena CreateManagedArena(uint[] initial) => throw new NotSupportedException("The cache identity fixture does not allocate device memory.");
+
         public IWarpNativeMachineExecution CreateMachineExecution(uint[] states, IReadOnlyList<uint[]> inputs,
-            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth) => throw NoExecution();
+            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth,
+            WarpNativeManagedArena? managedArena = null) => throw NoExecution();
         public uint[] ResumeUInt32(uint[] states, IReadOnlyList<uint[]> inputs, IReadOnlyList<uint> scalars, int itemCount,
             int inputBase, int maximumCallDepth, int quantum, CancellationToken cancellationToken = default) => throw NoExecution();
         public uint ReduceUInt32(uint[] values, WarpReductionOperation operation, CancellationToken cancellationToken = default) => throw NoExecution();

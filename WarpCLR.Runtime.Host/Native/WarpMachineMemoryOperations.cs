@@ -7,4 +7,5 @@ internal sealed record WarpMachineMemoryOperations(
     Action<IntPtr, uint, uint> Launch,
     Action Synchronize,
     Action<ulong> Free,
-    Action Quarantine);
+    Action Quarantine,
+    object? ContextIdentity = null);

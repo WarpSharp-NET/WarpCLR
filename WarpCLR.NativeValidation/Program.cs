@@ -60,6 +60,7 @@ internal static class Program
         }
 
         await ValidateHeapAsync(toolchain, reports).ConfigureAwait(false);
+        await ValidateRuntimeHooksAsync(toolchain, reports).ConfigureAwait(false);
 
         await Console.Out.WriteLineAsync(JsonSerializer.Serialize(reports)).ConfigureAwait(false);
         return 0;
@@ -95,6 +96,32 @@ internal static class Program
             }
         }
 
+    }
+
+    private static async Task ValidateRuntimeHooksAsync(WarpNativeToolchain toolchain, List<ValidationRecord> reports)
+    {
+        IEnumerable<WarpLogicalMachineLayout> layouts = WarpManagedSourceHookKernels.Create()
+            .Append(WarpWordArenaServiceLowerer.Lower(typeof(WarpPortableFrameServices).GetMethod(nameof(WarpPortableFrameServices.ValidateOwner))!))
+            .Concat(WarpExceptionMachineHookKernels.Create())
+            .Concat(WarpStateArenaBridgeKernels.Create())
+            .Concat(CreateFilterAliasLayouts())
+            .Concat([WarpManagedExceptionHookKernels.Create(0), WarpManagedExceptionHookKernels.Create(1),
+                WarpManagedExceptionHookKernels.Create(3), WarpManagedExceptionHookKernels.Create(sourceCost: 2),
+                WarpManagedExceptionHookKernels.CreateHelper()]);
+        foreach (WarpLogicalMachineLayout layout in layouts)
+        {
+            await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);
+        }
+    }
+
+    private static IEnumerable<WarpLogicalMachineLayout> CreateFilterAliasLayouts()
+    {
+        yield return WarpFilterAliasHookKernels.Create();
+        yield return WarpFilterAliasHookKernels.Create(callSource: true);
+        foreach ((uint depth, uint activation) in new (uint, uint)[] { (0, 1), (3, 1), (uint.MaxValue, 1), (1, 0), (1, 2), (1, uint.MaxValue) })
+        {
+            yield return WarpFilterAliasHookKernels.Create(ownerDepth: depth, ownerActivation: activation);
+        }
     }
 
     private static async Task ValidateAsync(WarpLogicalMachineLayout layout, WarpNativeToolchain toolchain, List<ValidationRecord> reports)

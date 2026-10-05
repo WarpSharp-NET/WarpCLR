@@ -130,7 +130,7 @@ public sealed partial class CoreCLRResumableKernel
             throw new ArgumentException("Logical machine state must match the admitted frame capacity.", nameof(state));
         }
 
-        if (state[WarpLogicalMachineLayout.StatusOffset] > WarpLogicalMachineLayout.Faulted ||
+        if (!Layout.HasValidRuntimeHeader(state) || state[WarpLogicalMachineLayout.StatusOffset] > WarpLogicalMachineLayout.Faulted ||
             state[WarpLogicalMachineLayout.DepthOffset] == 0 ||
             state[WarpLogicalMachineLayout.DepthOffset] > (uint)Layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
             state[WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue)
@@ -148,19 +148,22 @@ public sealed partial class CoreCLRResumableKernel
     private void ValidateFrames(uint[] state)
     {
         uint logicalDepth = 0;
+        uint parentActivation = 0;
         for (int depth = 0; depth < state[WarpLogicalMachineLayout.DepthOffset]; depth++)
         {
             int frame = checked(WarpLogicalMachineLayout.HeaderWords + (depth * Layout.FrameWords));
             uint pc = state[frame + WarpLogicalMachineLayout.FrameProgramCounterOffset];
             uint function = state[frame + WarpLogicalMachineLayout.FrameFunctionOffset];
             if ((depth == 0 && function != 0) || (depth != 0 && function == 0) || pc >= (uint)Layout.Nodes.Count || function > (uint)Layout.Kernel.Functions.Count ||
-                function != (uint)Layout.Nodes[checked((int)pc)].Function)
+                function != (uint)Layout.Nodes[checked((int)pc)].Function ||
+                !Layout.HasValidFrameIdentity(state, frame, checked((int)function), parentActivation))
             {
                 throw new ArgumentException("A logical machine frame has an invalid program counter or function.", nameof(state));
             }
 
-            if (!Layout.IsRuntimeHelper(checked((int)function))) { logicalDepth++; }
-            if (depth != 0)
+            if (Layout.CountsSourceDepth(checked((int)function))) { logicalDepth++; }
+            parentActivation = state[frame + WarpLogicalMachineLayout.FrameActivationOffset];
+            if (depth != 0 && Layout.GetAliasOwnerFunction(checked((int)function)) == -1)
             {
                 ValidateReturnLocation(state, frame, function);
             }
@@ -209,6 +212,9 @@ public sealed partial class CoreCLRResumableKernel
         private readonly LocalBuilder remainingQuantum;
         private readonly LocalBuilder usedOperations;
         private readonly LocalBuilder nextOperations;
+        private readonly LocalBuilder aliasOwnerFrame;
+        private readonly LocalBuilder aliasCursor;
+        private int emittedFunction;
         private readonly LocalBuilder[] edgeCopies;
         private readonly Label loop;
         private readonly Label[] nodes;
@@ -224,6 +230,8 @@ public sealed partial class CoreCLRResumableKernel
             remainingQuantum = il.DeclareLocal(typeof(int));
             usedOperations = il.DeclareLocal(typeof(ulong));
             nextOperations = il.DeclareLocal(typeof(ulong));
+            aliasOwnerFrame = il.DeclareLocal(typeof(int));
+            aliasCursor = il.DeclareLocal(typeof(int));
             edgeCopies = Enumerable.Range(0, maximumParallelCopies).Select(_ => il.DeclareLocal(typeof(uint))).ToArray();
             loop = il.DefineLabel();
             nodes = layout.Nodes.Select(_ => il.DefineLabel()).ToArray();
@@ -268,8 +276,11 @@ public sealed partial class CoreCLRResumableKernel
 
         private void EmitNode(WarpLogicalMachineNode node)
         {
+            emittedFunction = node.Function;
+            EmitAliasGuard(node);
             if (node.StartsBlock)
             {
+                EmitSourceBoundary(node);
                 EmitBlockCharge(node);
             }
 
@@ -341,6 +352,7 @@ public sealed partial class CoreCLRResumableKernel
                 () => Constant(layout.GetBlockEntry(call.Callee + 1, 0)));
             StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameReturnValueOffset, () => Constant(call.ResultWordCount == 0 ? 0 : call.Result));
             StoreFrame(nextFrame, WarpLogicalMachineLayout.FrameReturnWordCountOffset, () => Constant(call.ResultWordCount));
+            EmitFrameIdentity(node, call.Callee + 1);
             for (int index = 0; index < call.Arguments.Count; index++)
             {
                 int argument = call.Arguments[index];
@@ -348,7 +360,7 @@ public sealed partial class CoreCLRResumableKernel
             }
 
             EmitClearPrivate(call.Callee + 1);
-            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(call.Callee + 1))
+            if (layout.HasLogicalAccounting && layout.CountsSourceDepth(call.Callee + 1))
             {
                 ChangeLogicalDepth(1);
             }
@@ -366,6 +378,12 @@ public sealed partial class CoreCLRResumableKernel
         {
             switch (node.Terminator)
             {
+                case WarpManagedExceptionTerminator managed:
+                    EmitManagedException(node, managed);
+                    break;
+                case WarpStateDispatchTerminator dispatch:
+                    EmitStateDispatch(node, dispatch);
+                    break;
                 case WarpBranchTerminator branch:
                     EmitEdge(node.Function, branch.Target);
                     break;
@@ -439,7 +457,7 @@ public sealed partial class CoreCLRResumableKernel
                 il.Emit(OpCodes.Stelem_I4);
             }
 
-            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(node.Function))
+            if (layout.HasLogicalAccounting && layout.CountsSourceDepth(node.Function))
             {
                 ChangeLogicalDepth(-1);
             }
@@ -481,11 +499,7 @@ public sealed partial class CoreCLRResumableKernel
 
         private void EmitInstruction(WarpIrInstruction instruction)
         {
-            if (WarpManagedFrameOpCode.IsPrivate(instruction.OpCode))
-            {
-                EmitPrivateInstruction(instruction);
-                return;
-            }
+            if (TryEmitFrameInstruction(instruction)) { return; }
             if (WarpManagedMemoryOpCode.RequiresArena(instruction.OpCode))
             {
                 EmitManagedInstruction(instruction);
@@ -570,6 +584,11 @@ public sealed partial class CoreCLRResumableKernel
 
         private void EmitManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
         {
+            if (WarpManagedStateOpCode.RequiresBounds(instruction.OpCode))
+            {
+                EmitStateBoundsCheck(instruction, node);
+                return;
+            }
             if (!WarpManagedMemoryOpCode.RequiresBounds(instruction.OpCode))
             {
                 return;

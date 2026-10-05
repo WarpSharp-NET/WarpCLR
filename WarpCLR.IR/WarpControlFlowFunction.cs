@@ -38,6 +38,8 @@ public sealed class WarpControlFlowFunction
             {
                 WarpReturnTerminator => 1,
                 WarpTupleReturnTerminator tuple => tuple.Values.Count,
+                WarpStateDispatchTerminator dispatch => dispatch.ResultWordCount,
+                WarpManagedExceptionTerminator managed => managed.ResultWordCount,
                 _ => -1,
             };
             if (words < 0)

@@ -39,13 +39,18 @@ internal static partial class WarpIntegerMapCilVerifier
                 lowered.Blocks);
         }
 
+        bool runtimeState = method.StateParameters.Any(state => state) || functions.Any(function => function.StateParameters.Any(state => state));
+        var execution = runtimeState ? new WarpLogicalExecutionMetadata([
+            new WarpLogicalBodyMetadata(0, true, Enumerable.Repeat(0, entry.Blocks.Count)),
+            .. loweredFunctions.Select(function => new WarpLogicalBodyMetadata(0, true, Enumerable.Repeat(0, function.Blocks.Count)))],
+            runtimeStateAccess: true) : null;
         var controlFlow = new WarpControlFlowKernel(
             method.Identity,
             method.InputBufferCount,
             method.WordArena ? 0 : method.ParameterCount - method.InputBufferCount,
             entry.Blocks,
             method.Reduction,
-            loweredFunctions);
+            loweredFunctions, execution);
         WarpCompilationAdmission.Validate(controlFlow);
         return new WarpIntegerMapKernel(controlFlow);
     }
@@ -76,12 +81,9 @@ internal static partial class WarpIntegerMapCilVerifier
         ValidateSupportedInstructions(method, instructions);
         CilBlock[] blocks = BuildBlocks(method, instructions, admission);
         FlowShape[] entryShapes = AnalyzeFlow(method, blocks);
-        if (method.WordArena)
-        {
-            AnalyzeArenaTypes(method, blocks, admission);
-        }
-
-        return Lower(method, blocks, entryShapes, admission, isEntry);
+        Dictionary<int, bool> stateOperations = method.WordArena ? AnalyzeArenaTypes(method, blocks, admission)
+            : new Dictionary<int, bool>();
+        return Lower(method, blocks, entryShapes, admission, isEntry, stateOperations);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "MA0051:Method is too long", Justification = "The bounds-checked ECMA-335 operand decoder deliberately keeps all operand encodings in one exhaustive switch.")]
@@ -561,7 +563,7 @@ internal static partial class WarpIntegerMapCilVerifier
         IReadOnlyList<CilBlock> blocks,
         IReadOnlyList<FlowShape> entryShapes,
         WarpCilCompilationAdmission admission,
-        bool isEntry)
+        bool isEntry, Dictionary<int, bool> stateOperations)
     {
         int nextValue = 0;
         var prologueInstructions = new List<WarpIrInstruction>();
@@ -780,7 +782,8 @@ internal static partial class WarpIntegerMapCilVerifier
                     continue;
                 }
 
-                if (LowerArenaInstruction(instruction, state.Stack, loweredInstructions, admission, ref nextValue))
+                if (LowerArenaInstruction(instruction, state.Stack, loweredInstructions, admission, ref nextValue,
+                    stateOperations.TryGetValue(instruction.Offset, out bool stateBank) && stateBank))
                 {
                     continue;
                 }

@@ -6,13 +6,15 @@ internal interface IWarpNativeModule : IDisposable
 {
     WarpNativeImage Image { get; }
     bool IsFaulted { get; }
+    WarpNativeManagedArena CreateManagedArena(uint[] initial);
     IWarpNativeMachineExecution CreateMachineExecution(
         uint[] states,
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint> scalars,
         int itemCount,
         int inputBase,
-        int maximumCallDepth);
+        int maximumCallDepth,
+        WarpNativeManagedArena? managedArena = null);
     uint[] DispatchUInt32(
         IReadOnlyList<uint[]> inputs,
         IReadOnlyList<uint> scalars,

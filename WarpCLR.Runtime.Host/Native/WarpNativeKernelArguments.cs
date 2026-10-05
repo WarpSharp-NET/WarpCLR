@@ -29,11 +29,16 @@ internal sealed class WarpNativeKernelArguments : IDisposable
     }
 
     public WarpNativeKernelArguments(ulong statePointer, IReadOnlyList<ulong> inputPointers,
-        IReadOnlyList<uint> scalars, uint itemCount, uint inputBase, uint maximumCallDepth, uint quantum)
+        IReadOnlyList<uint> scalars, uint itemCount, uint inputBase, uint maximumCallDepth, uint quantum,
+        ulong arenaPointer = 0, uint arenaWordCount = 0, bool managedArena = false)
     {
         ArgumentNullException.ThrowIfNull(inputPointers);
         ArgumentNullException.ThrowIfNull(scalars);
-        int count = checked(inputPointers.Count + scalars.Count + 5);
+        if (managedArena ? arenaPointer == 0 : arenaPointer != 0 || arenaWordCount != 0)
+        {
+            throw new ArgumentException("The logical launch must bind exactly its admitted managed arena capability.", nameof(arenaPointer));
+        }
+        int count = checked(inputPointers.Count + scalars.Count + 5 + (managedArena ? 2 : 0));
         values = new WarpNativeBlock(checked(count * sizeof(ulong)));
         addresses = new WarpNativeBlock(checked(count * IntPtr.Size));
         int index = 0;
@@ -43,7 +48,12 @@ internal sealed class WarpNativeKernelArguments : IDisposable
         Set32(index++, itemCount);
         Set32(index++, inputBase);
         Set32(index++, maximumCallDepth);
-        Set32(index, quantum);
+        Set32(index++, quantum);
+        if (managedArena)
+        {
+            Set64(index++, arenaPointer);
+            Set32(index, arenaWordCount);
+        }
     }
 
     public WarpNativeKernelArguments(ulong outputPointer, ulong inputPointer, uint inputCount,

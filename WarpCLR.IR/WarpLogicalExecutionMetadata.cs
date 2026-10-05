@@ -4,9 +4,11 @@ namespace WarpCLR.IR;
 
 internal sealed class WarpLogicalExecutionMetadata
 {
-    internal const string Version = "warp.logical-source-frames/0.1";
+    internal const string Version = "warp.logical-source-frames/0.5";
 
-    internal WarpLogicalExecutionMetadata(IEnumerable<WarpLogicalBodyMetadata> bodies, bool recursiveCalls = true)
+    internal WarpLogicalExecutionMetadata(IEnumerable<WarpLogicalBodyMetadata> bodies, bool recursiveCalls = true,
+        bool frameOwners = false, bool runtimeStateAccess = false, bool nonlocalStateDispatch = false,
+        bool managedExceptionTermination = false)
     {
         ArgumentNullException.ThrowIfNull(bodies);
         Bodies = Array.AsReadOnly(WarpCompilationAdmission.Materialize(bodies, "<logical-frame-metadata>",
@@ -16,10 +18,26 @@ internal sealed class WarpLogicalExecutionMetadata
             throw new ArgumentException("Every physical body requires immutable logical-frame metadata.", nameof(bodies));
         }
         RecursiveCalls = recursiveCalls;
+        FrameOwners = frameOwners;
+        RuntimeStateAccess = runtimeStateAccess;
+        if (nonlocalStateDispatch && (!runtimeStateAccess || !frameOwners))
+        {
+            throw new ArgumentException("Nonlocal dispatch requires explicit state and frame ownership capabilities.", nameof(nonlocalStateDispatch));
+        }
+        NonlocalStateDispatch = nonlocalStateDispatch;
+        if (managedExceptionTermination && !nonlocalStateDispatch)
+        {
+            throw new ArgumentException("Managed exception termination requires admitted nonlocal state and frame ownership capabilities.", nameof(managedExceptionTermination));
+        }
+        ManagedExceptionTermination = managedExceptionTermination;
     }
 
     internal ReadOnlyCollection<WarpLogicalBodyMetadata> Bodies { get; }
     internal bool RecursiveCalls { get; }
+    internal bool FrameOwners { get; }
+    internal bool RuntimeStateAccess { get; }
+    internal bool NonlocalStateDispatch { get; }
+    internal bool ManagedExceptionTermination { get; }
 
     internal int Validate(IReadOnlyList<WarpBasicBlock> blocks, IReadOnlyList<WarpControlFlowFunction> functions)
     {
@@ -27,6 +45,7 @@ internal sealed class WarpLogicalExecutionMetadata
         {
             throw new ArgumentException("Logical-frame metadata must cover every body in function order.", nameof(functions));
         }
+        ValidateAliases(functions);
         ValidateBody(blocks, Bodies[0]);
         for (int index = 0; index < functions.Count; index++)
         {
@@ -35,18 +54,55 @@ internal sealed class WarpLogicalExecutionMetadata
         return GetHelperExpansion(blocks, functions);
     }
 
-    private static void ValidateBody(IReadOnlyList<WarpBasicBlock> blocks, WarpLogicalBodyMetadata metadata)
+    private void ValidateAliases(IReadOnlyList<WarpControlFlowFunction> functions)
     {
+        for (int function = 0; function < Bodies.Count; function++)
+        {
+            WarpLogicalBodyMetadata metadata = Bodies[function];
+            int owner = metadata.AliasOwnerFunction;
+            if (owner == -1) { continue; }
+            if (!NonlocalStateDispatch || !FrameOwners || !RuntimeStateAccess || function == 0 ||
+                owner > functions.Count || owner == function || !Bodies[owner].CountsSourceDepth ||
+                metadata.AliasPrefixWords > Bodies[owner].PrivateWordCount)
+            {
+                throw new ArgumentException("A filter alias requires an exact original source owner and nonlocal runtime capabilities.", nameof(functions));
+            }
+        }
+    }
+
+    private void ValidateBody(IReadOnlyList<WarpBasicBlock> blocks, WarpLogicalBodyMetadata metadata)
+    {
+        if (!ManagedExceptionTermination && blocks.Any(block => block.Terminator is WarpManagedExceptionTerminator))
+        {
+            throw new ArgumentException("Managed exception termination requires its exact immutable capability.", nameof(blocks));
+        }
+        if (!NonlocalStateDispatch && blocks.Any(block => block.Terminator is WarpStateDispatchTerminator))
+        {
+            throw new ArgumentException("A nonlocal state dispatch requires explicit immutable execution admission.", nameof(blocks));
+        }
         if (metadata.SourceBlockCosts.Count != blocks.Count)
         {
             throw new ArgumentException("Each block requires one original-source charge.", nameof(metadata));
         }
         foreach (WarpIrInstruction instruction in blocks.SelectMany(block => block.Instructions))
         {
+            if (instruction.OpCode == WarpIrOpCode.Call && Bodies[instruction.Callee + 1].AliasOwnerFunction != -1)
+            {
+                throw new ArgumentException("Filter aliases enter through nonlocal dispatch rather than an ordinary call.", nameof(blocks));
+            }
+            if (WarpManagedFrameOpCode.IsOwner(instruction.OpCode) && !FrameOwners ||
+                WarpManagedStateOpCode.IsState(instruction.OpCode) && !RuntimeStateAccess)
+            {
+                throw new ArgumentException("Runtime word capabilities require explicit immutable execution admission.", nameof(blocks));
+            }
             if (WarpManagedFrameOpCode.IsPrivate(instruction.OpCode) && instruction.Immediate >= metadata.PrivateWordCount)
             {
                 throw new ArgumentException("A private storage instruction is outside its own body's admitted word bank.", nameof(blocks));
             }
+        }
+        if (metadata.AliasOwnerFunction != -1 && blocks.Any(block => block.Terminator is WarpReturnTerminator or WarpTupleReturnTerminator))
+        {
+            throw new ArgumentException("A source filter finishes through runtime state dispatch rather than an ordinary return.", nameof(blocks));
         }
     }
 
@@ -54,12 +110,15 @@ internal sealed class WarpLogicalExecutionMetadata
     {
         var states = new byte[Bodies.Count];
         var lengths = new int[Bodies.Count];
-        int maximum = 0;
+        int helperMaximum = 0;
+        int aliasMaximum = 0;
         for (int body = 0; body < Bodies.Count; body++)
         {
-            if (Bodies[body].RuntimeHelper) { maximum = Math.Max(maximum, Visit(body)); }
+            if (Bodies[body].RuntimeHelper) { helperMaximum = Math.Max(helperMaximum, Visit(body)); }
+            else if (!Bodies[body].CountsSourceDepth) { aliasMaximum = Math.Max(aliasMaximum, Visit(body)); }
         }
-        return checked(maximum + 1);
+        // One filter may retain a suspended helper chain and run its own helper chain.
+        return checked(helperMaximum + aliasMaximum + 1);
 
         int Visit(int body)
         {
@@ -74,7 +133,7 @@ internal sealed class WarpLogicalExecutionMetadata
             foreach (int callee in current.SelectMany(block => block.Instructions)
                 .Where(instruction => instruction.OpCode == WarpIrOpCode.Call).Select(instruction => instruction.Callee + 1))
             {
-                if (Bodies[callee].RuntimeHelper) { children = Math.Max(children, Visit(callee)); }
+                if (!Bodies[callee].CountsSourceDepth) { children = Math.Max(children, Visit(callee)); }
             }
             states[body] = 2;
             lengths[body] = checked(children + 1);

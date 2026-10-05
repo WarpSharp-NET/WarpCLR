@@ -13,23 +13,23 @@ internal sealed class WarpIntegerMapVerifier
 
         MethodInfo entry = request.Method;
         WarpInitializationAdmission.RequireModule(entry.Module);
-        ValidateMethod(entry, request.InputBufferCount, isEntry: true, request.WordArena);
+        ValidateMethod(entry, request.InputBufferCount, isEntry: true, request.WordArena, multipleBanks: request.WordBanks is not null);
 
-        var builder = new ReflectionMethodGraphBuilder(entry, request.WordArena);
+        var builder = new ReflectionMethodGraphBuilder(entry, request.WordArena, request.WordBanks);
         builder.Discover();
 
         WarpIntegerMapMethodBody entryBody = CreateBody(
             entry,
             GetEntryIdentity(entry),
             request.InputBufferCount,
-            builder.GetCallTargets(entry), request.WordArena);
+            builder.GetCallTargets(entry), request.WordArena, request.WordBanks);
         WarpIntegerMapMethodBody[] functions = builder.Functions
             .Select(
                 method => CreateBody(
                     method,
                     GetIdentity(method),
                     inputBufferCount: 0,
-                    callTargets: builder.GetCallTargets(method), request.WordArena))
+                    callTargets: builder.GetCallTargets(method), request.WordArena, request.WordBanks))
             .ToArray();
 
         return WarpIntegerMapCilVerifier.Verify(entryBody, functions);
@@ -40,7 +40,7 @@ internal sealed class WarpIntegerMapVerifier
         string identity,
         int inputBufferCount,
         IReadOnlyDictionary<int, WarpCilCallTarget> callTargets,
-        bool wordArena = false)
+        bool wordArena = false, WarpWordBankBindings? wordBanks = null)
     {
         MethodBody body = method.GetMethodBody()
             ?? throw SignatureError(method, "The method does not have a CIL body.");
@@ -80,7 +80,8 @@ internal sealed class WarpIntegerMapVerifier
             callTargets: callTargets,
             wordArena: wordArena,
             arenaParameters: method.GetParameters().Select(parameter => parameter.ParameterType == typeof(uint[])).ToImmutableArray(),
-            arenaElementTokens: wordArena ? ResolveArenaElements(method, il) : null);
+            arenaElementTokens: wordArena ? ResolveArenaElements(method, il) : null,
+            stateParameters: wordBanks?.GetStateParameters(method) ?? default);
     }
 
     private static ImmutableHashSet<int> ResolveArenaElements(MethodInfo method, byte[] il)
@@ -113,7 +114,7 @@ internal sealed class WarpIntegerMapVerifier
         MethodInfo method,
         int inputBufferCount,
         bool isEntry,
-        bool wordArena = false)
+        bool wordArena = false, bool multipleBanks = false)
     {
         WarpInitializationAdmission.RequireMethod(method);
         if (!method.IsStatic)
@@ -157,7 +158,7 @@ internal sealed class WarpIntegerMapVerifier
             }
         }
 
-        if (parameters.Count(parameter => parameter.ParameterType == typeof(uint[])) > 1)
+        if (!multipleBanks && parameters.Count(parameter => parameter.ParameterType == typeof(uint[])) > 1)
         {
             throw SignatureError(method, "A portable word service can bind only one context arena.");
         }
@@ -192,6 +193,7 @@ internal sealed class WarpIntegerMapVerifier
     {
         private readonly MethodInfo entry;
         private readonly bool wordArena;
+        private readonly WarpWordBankBindings? wordBanks;
         private readonly Dictionary<MethodInfo, int> functionIds = new();
         private readonly Dictionary<MethodInfo, IReadOnlyDictionary<int, WarpCilCallTarget>> calls = new();
         private readonly HashSet<MethodInfo> visiting = [];
@@ -199,10 +201,11 @@ internal sealed class WarpIntegerMapVerifier
         private readonly List<MethodInfo> functions = [];
         private readonly WarpCilCompilationAdmission admission;
 
-        public ReflectionMethodGraphBuilder(MethodInfo entry, bool wordArena)
+        public ReflectionMethodGraphBuilder(MethodInfo entry, bool wordArena, WarpWordBankBindings? wordBanks)
         {
             this.entry = entry;
             this.wordArena = wordArena;
+            this.wordBanks = wordBanks;
             admission = new WarpCilCompilationAdmission(GetEntryIdentity(entry));
         }
 
@@ -240,6 +243,13 @@ internal sealed class WarpIntegerMapVerifier
             return target;
         }
 
+        private WarpCilCallTarget CreateCallTarget(MethodInfo target, int functionId) =>
+            new(functionId, target.GetParameters().Length, GetIdentity(target))
+            {
+                ArenaParameters = target.GetParameters().Select(parameter => parameter.ParameterType == typeof(uint[])).ToImmutableArray(),
+                StateParameters = wordBanks?.GetStateParameters(target) ?? default,
+            };
+
         private void Visit(MethodInfo method)
         {
             if (visited.Contains(method))
@@ -268,7 +278,7 @@ internal sealed class WarpIntegerMapVerifier
             foreach (int token in callTokens.Distinct())
             {
                 MethodInfo target = ResolveCallTarget(method, token);
-                ValidateMethod(target, inputBufferCount: 0, isEntry: false, wordArena);
+                ValidateMethod(target, inputBufferCount: 0, isEntry: false, wordArena, multipleBanks: wordBanks is not null);
                 if (visiting.Contains(target))
                 {
                     throw new WarpVerificationException(
@@ -286,15 +296,7 @@ internal sealed class WarpIntegerMapVerifier
                     functions.Add(target);
                 }
 
-                methodCalls.Add(
-                    token,
-                    new WarpCilCallTarget(
-                        functionId,
-                        target.GetParameters().Length,
-                        GetIdentity(target))
-                    {
-                        ArenaParameters = target.GetParameters().Select(parameter => parameter.ParameterType == typeof(uint[])).ToImmutableArray(),
-                    });
+                methodCalls.Add(token, CreateCallTarget(target, functionId));
                 Visit(target);
             }
 

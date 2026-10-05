@@ -14,7 +14,8 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
         int itemCount,
         int inputBase,
         int maximumCallDepth,
-        int quantum)
+        int quantum,
+        uint? managedArenaWordCount = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(states);
@@ -25,9 +26,9 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumCallDepth);
         WarpLogicalMachineLayout layout = image.MachineLayout
             ?? throw new WarpHostException("WRPNATIVE1008", "The loaded module does not implement the resumable logical CLR ABI.");
-        if (layout.RequiresManagedMemory)
+        if (layout.RequiresManagedMemory != managedArenaWordCount.HasValue)
         {
-            throw new WarpHostException("WRPNATIVE1008", "This program requires the managed arena launch ABI.");
+            throw new WarpHostException("WRPNATIVE1008", "The logical program must bind exactly its admitted managed arena ABI.");
         }
         if (quantum < layout.MaximumBlockCost)
         {
@@ -39,7 +40,8 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
             throw new WarpHostException("WRPNATIVE1004", "The logical-machine arguments do not match the verified entry point.");
         }
 
-        WarpNativeArgumentLayout.Validate(image.Target, inputs.Count, scalars.Count, machine: true);
+        WarpNativeArgumentLayout.Validate(image.Target, inputs.Count, scalars.Count, machine: true,
+            managedArena: managedArenaWordCount.HasValue);
 
         int stride = layout.GetStateWords(maximumCallDepth);
         if (states.Length != itemCount * (long)stride)
@@ -48,6 +50,10 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
         }
 
         ulong bytes = checked((ulong)Math.Max(states.Length, 1) * sizeof(uint));
+        if (managedArenaWordCount.HasValue)
+        {
+            bytes = checked(bytes + Math.Max((ulong)managedArenaWordCount.Value, 1) * sizeof(uint));
+        }
         foreach (uint[]? input in inputs)
         {
             if (input is null || inputBase > input.Length || itemCount > input.Length - inputBase)
@@ -77,7 +83,7 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
             int offset = worker * stride;
             uint status = states[offset + WarpLogicalMachineLayout.StatusOffset];
             uint depth = states[offset + WarpLogicalMachineLayout.DepthOffset];
-            if (status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
+            if (!layout.HasValidRuntimeHeader(states.AsSpan(offset, stride)) || status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
                 states[offset + WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue ||
                 layout.HasLogicalAccounting && states[offset + WarpLogicalMachineLayout.LogicalDepthOffset] > maximumCallDepth)
             {
@@ -102,7 +108,7 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
             uint status = states[offset + WarpLogicalMachineLayout.StatusOffset];
             uint depth = states[offset + WarpLogicalMachineLayout.DepthOffset];
             uint faultKind = states[offset + WarpLogicalMachineLayout.FaultKindOffset];
-            if (status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
+            if (!layout.HasValidRuntimeHeader(states.AsSpan(offset, stride)) || status > WarpLogicalMachineLayout.Faulted || depth == 0 || depth > layout.GetPhysicalFrameCapacity(maximumCallDepth) ||
                 states[offset + WarpLogicalMachineLayout.RemainingStepsHighOffset] > int.MaxValue ||
                 layout.HasLogicalAccounting && states[offset + WarpLogicalMachineLayout.LogicalDepthOffset] > maximumCallDepth ||
                 (status == WarpLogicalMachineLayout.Completed && depth != 1) ||
@@ -110,7 +116,11 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
                 (status == WarpLogicalMachineLayout.Faulted &&
                     faultKind is not WarpLogicalMachineLayout.StepLimitFault and not WarpLogicalMachineLayout.CallDepthFault &&
                     !(layout.HasLogicalAccounting && faultKind == WarpLogicalMachineLayout.OperationalOverflowFault) &&
-                    !(layout.RequiresManagedMemory && faultKind == WarpLogicalMachineLayout.ManagedMemoryBoundsFault)))
+                    !(layout.HasLogicalAccounting && faultKind == WarpLogicalMachineLayout.PhysicalFrameCapacityFault) &&
+                    !(layout.HasManagedExceptionTermination && faultKind == WarpLogicalMachineLayout.ManagedExceptionFault) &&
+                    !(layout.HasFrameOwners && faultKind == WarpLogicalMachineLayout.ActivationExhaustionFault) &&
+                    !((layout.RequiresManagedMemory || layout.Kernel.Execution?.RuntimeStateAccess == true) &&
+                        faultKind == WarpLogicalMachineLayout.ManagedMemoryBoundsFault)))
             {
                 throw new WarpHostException("WRPNATIVE1007", "The native logical worker returned malformed status, depth, or fault metadata.");
             }
@@ -133,19 +143,22 @@ internal readonly record struct WarpNativeMachineLaunch(uint GridX, uint Workgro
     private static void ValidateFrames(WarpLogicalMachineLayout layout, uint[] states, int offset, uint depth, string errorCode)
     {
         uint sourceDepth = 0;
+        uint parentActivation = 0;
         for (int frame = 0; frame < depth; frame++)
         {
             int frameOffset = offset + WarpLogicalMachineLayout.HeaderWords + frame * layout.FrameWords;
             uint function = states[frameOffset + WarpLogicalMachineLayout.FrameFunctionOffset];
             uint pc = states[frameOffset + WarpLogicalMachineLayout.FrameProgramCounterOffset];
             if ((frame == 0 && function != 0) || (frame != 0 && function == 0) || pc >= layout.Nodes.Count || function > layout.Kernel.Functions.Count ||
-                function != layout.Nodes[(int)pc].Function)
+                function != layout.Nodes[(int)pc].Function ||
+                !layout.HasValidFrameIdentity(states.AsSpan(offset), frameOffset - offset, checked((int)function), parentActivation))
             {
                 throw new WarpHostException(errorCode, "The logical continuation does not reference a verified function/program counter.");
             }
 
-            if (!layout.IsRuntimeHelper(checked((int)function))) { sourceDepth++; }
-            if (frame != 0)
+            if (layout.CountsSourceDepth(checked((int)function))) { sourceDepth++; }
+            parentActivation = states[frameOffset + WarpLogicalMachineLayout.FrameActivationOffset];
+            if (frame != 0 && layout.GetAliasOwnerFunction(checked((int)function)) == -1)
             {
                 int callerOffset = frameOffset - layout.FrameWords;
                 uint callerFunction = states[callerOffset + WarpLogicalMachineLayout.FrameFunctionOffset];

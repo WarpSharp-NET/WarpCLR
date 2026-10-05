@@ -11,6 +11,7 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
     private readonly WarpNativeLibrary library;
     private readonly CudaApi api;
     private readonly HashSet<Module> modules = [];
+    private readonly HashSet<WarpNativeManagedArena> arenas = [];
     private IntPtr context;
     private bool disposed;
     private bool faulted;
@@ -63,6 +64,17 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
 
     public static WarpCudaNativeDriver Open(int deviceOrdinal = 0, string? libraryPath = null) =>
         new(deviceOrdinal, libraryPath);
+
+    private void WithArenaContext(Action action, bool checkFault)
+    {
+        lock (gate)
+        {
+            if (checkFault) { EnsureUsable(); }
+            if (disposed) { action(); return; }
+            using var scope = EnterContext();
+            action();
+        }
+    }
 
     public IWarpNativeModule Load(WarpNativeImage image)
     {
@@ -132,18 +144,18 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
         lock (gate)
         {
             if (disposed) { return; }
-            try
+            var cleanup = new WarpNativeCleanup();
+            cleanup.Attempt(() =>
             {
                 using var scope = EnterContext();
-                foreach (Module module in modules.ToArray()) { module.Release(); }
-            }
-            finally
-            {
-                disposed = true;
-                api.ContextDestroy(context);
-                context = IntPtr.Zero;
-                library.Dispose();
-            }
+                foreach (Module module in modules.ToArray()) { cleanup.Attempt(module.Release); }
+                foreach (WarpNativeManagedArena arena in arenas.ToArray()) { cleanup.Attempt(arena.CloseContext); }
+            });
+            disposed = true;
+            cleanup.Attempt(() => Check(api.ContextDestroy(context), "cuCtxDestroy"));
+            context = IntPtr.Zero;
+            try { cleanup.Complete(); }
+            finally { library.Dispose(); }
         }
     }
 
@@ -177,8 +189,24 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
         public WarpNativeImage Image { get; } = image;
         public bool IsFaulted { get { lock (owner.gate) { return owner.faulted; } } }
 
+        public WarpNativeManagedArena CreateManagedArena(uint[] initial)
+        {
+            lock (owner.gate)
+            {
+                owner.EnsureUsable();
+                ObjectDisposedException.ThrowIf(released, this);
+                using var scope = owner.EnterContext();
+                var arena = new WarpNativeManagedArena(Image.Target, CreateOperations(function), initial,
+                    action => owner.WithArenaContext(action, checkFault: true),
+                    action => owner.WithArenaContext(action, checkFault: false), item => owner.arenas.Remove(item));
+                try { owner.arenas.Add(arena); return arena; }
+                catch { arena.Dispose(); throw; }
+            }
+        }
+
         public IWarpNativeMachineExecution CreateMachineExecution(uint[] states, IReadOnlyList<uint[]> inputs,
-            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth)
+            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth,
+            WarpNativeManagedArena? managedArena = null)
         {
             lock (owner.gate)
             {
@@ -187,7 +215,7 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
                 using var scope = owner.EnterContext();
                 var bound = new WarpBoundNativeMachineExecution(
                     () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase,
-                        maximumCallDepth, CreateOperations(function)),
+                        maximumCallDepth, CreateOperations(function), managedArena),
                     action => WithContext(action, checkFault: true), action => WithContext(action, checkFault: false),
                     item => executions.Remove(item));
                 try { executions.Add(bound); return bound; }
@@ -214,8 +242,8 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
                 (arguments, grid, block) => Check(owner.api.LaunchKernel(entry, grid, 1, 1, block, 1, 1, 0,
                     IntPtr.Zero, arguments, IntPtr.Zero), "cuLaunchKernel(resume)"),
                 () => Check(owner.api.ContextSynchronize(), "cuCtxSynchronize(resume)"),
-                pointer => { owner.api.MemoryFree(pointer); },
-                () => owner.faulted = true);
+                pointer => Check(owner.api.MemoryFree(pointer), "cuMemFree(logical)"),
+                () => owner.faulted = true, owner);
         }
 
         public uint ReduceUInt32(uint[] values, WarpReductionOperation operation, CancellationToken cancellationToken = default)
@@ -322,10 +350,12 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
         internal void Release()
         {
             if (released) { return; }
-            foreach (WarpBoundNativeMachineExecution execution in executions.ToArray()) { execution.Dispose(); }
-            owner.api.ModuleUnload(module);
             released = true;
+            var cleanup = new WarpNativeCleanup();
+            foreach (WarpBoundNativeMachineExecution execution in executions.ToArray()) { cleanup.Attempt(execution.Dispose); }
+            cleanup.Attempt(() => Check(owner.api.ModuleUnload(module), "module unload"));
             owner.modules.Remove(this);
+            cleanup.Complete();
         }
     }
 

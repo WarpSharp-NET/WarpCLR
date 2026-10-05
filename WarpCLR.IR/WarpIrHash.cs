@@ -31,10 +31,17 @@ public static class WarpIrHash
         {
             AppendString(hash, WarpLogicalExecutionMetadata.Version);
             AppendInt32(hash, execution.RecursiveCalls ? 1 : 0);
+            AppendInt32(hash, execution.FrameOwners ? 1 : 0);
+            AppendInt32(hash, execution.RuntimeStateAccess ? 1 : 0);
+            AppendInt32(hash, execution.NonlocalStateDispatch ? 1 : 0);
+            AppendInt32(hash, execution.ManagedExceptionTermination ? 1 : 0);
             foreach (WarpLogicalBodyMetadata body in execution.Bodies)
             {
                 AppendInt32(hash, body.PrivateWordCount);
                 AppendInt32(hash, body.RuntimeHelper ? 1 : 0);
+                AppendInt32(hash, body.CountsSourceDepth ? 1 : 0);
+                AppendInt32(hash, body.AliasOwnerFunction);
+                AppendInt32(hash, body.AliasPrefixWords);
                 AppendInt32(hash, body.SourceBlockCosts.Count);
                 foreach (int cost in body.SourceBlockCosts) { AppendInt32(hash, cost); }
             }
@@ -90,6 +97,23 @@ public static class WarpIrHash
     {
         switch (terminator)
         {
+            case WarpManagedExceptionTerminator managed:
+                AppendInt32(hash, 0x10005);
+                AppendInt32(hash, managed.ResultWordCount);
+                AppendInt32(hash, managed.Context);
+                AppendInt32(hash, managed.ObjectId);
+                AppendInt32(hash, managed.Generation);
+                break;
+            case WarpStateDispatchTerminator dispatch:
+                AppendInt32(hash, 0x10004);
+                AppendInt32(hash, dispatch.ResultWordCount);
+                AppendInt32(hash, dispatch.Destinations.Count);
+                foreach (WarpStateDispatchTarget target in dispatch.Destinations)
+                {
+                    AppendInt32(hash, target.Function);
+                    AppendInt32(hash, target.Block);
+                }
+                break;
             case WarpBranchTerminator branch:
                 AppendInt32(hash, (int)WarpControlFlowOperation.Branch);
                 AppendTarget(hash, branch.Target);

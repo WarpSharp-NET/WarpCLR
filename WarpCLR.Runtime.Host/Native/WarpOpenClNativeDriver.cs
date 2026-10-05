@@ -14,6 +14,7 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
     private readonly OpenClApi api;
     private readonly IntPtr device;
     private readonly HashSet<Module> modules = [];
+    private readonly HashSet<WarpNativeManagedArena> arenas = [];
     private IntPtr context;
     private IntPtr queue;
     private bool disposed;
@@ -87,6 +88,16 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
         return Math.Min(Query64(0x1004), dimensionX);
     }
 
+    private void WithArenaContext(Action action, bool checkFault)
+    {
+        lock (gate)
+        {
+            if (checkFault) { EnsureUsable(); }
+
+            action();
+        }
+    }
+
     public IWarpNativeModule Load(WarpNativeImage image)
     {
         ArgumentNullException.ThrowIfNull(image);
@@ -118,7 +129,7 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
                 kernel = api.CreateKernel(program, image.EntryPoint, out error);
                 Check(error, "clCreateKernel");
                 ValidateKernel(kernel, checked(image.InputBufferCount + image.ScalarArgumentCount +
-                    (image.MachineLayout is null ? 2 : 5)));
+                    (image.MachineLayout is null ? 2 : 5) + (image.MachineLayout?.RequiresManagedMemory == true ? 2 : 0)));
                 if (image.SupportsScalableReduction) { reductionKernel = CreateReductionKernel(program); }
 
                 var loaded = new Module(this, image, program, kernel, reductionKernel);
@@ -140,13 +151,16 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
         lock (gate)
         {
             if (disposed) { return; }
-            foreach (Module module in modules.ToArray()) { module.Release(); }
-            api.ReleaseQueue(queue);
-            api.ReleaseContext(context);
+            var cleanup = new WarpNativeCleanup();
+            foreach (Module module in modules.ToArray()) { cleanup.Attempt(module.Release); }
+            foreach (WarpNativeManagedArena arena in arenas.ToArray()) { cleanup.Attempt(arena.CloseContext); }
+            disposed = true;
+            cleanup.Attempt(() => Check(api.ReleaseQueue(queue), "clReleaseCommandQueue"));
+            cleanup.Attempt(() => Check(api.ReleaseContext(context), "clReleaseContext"));
             queue = IntPtr.Zero;
             context = IntPtr.Zero;
-            disposed = true;
-            library.Dispose();
+            try { cleanup.Complete(); }
+            finally { library.Dispose(); }
         }
     }
 
@@ -270,16 +284,33 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
         public WarpNativeImage Image { get; } = image;
         public bool IsFaulted { get { lock (owner.gate) { return owner.faulted; } } }
 
-        public IWarpNativeMachineExecution CreateMachineExecution(uint[] states, IReadOnlyList<uint[]> inputs,
-            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth)
+        public WarpNativeManagedArena CreateManagedArena(uint[] initial)
         {
             lock (owner.gate)
             {
                 owner.EnsureUsable();
                 ObjectDisposedException.ThrowIf(released, this);
-                var operations = CreateOperations(kernel, Image.InputBufferCount + Image.ScalarArgumentCount + 5, Image.InputBufferCount + 1);
+
+                var arena = new WarpNativeManagedArena(Image.Target, CreateOperations(kernel, 0, 0), initial,
+                    action => owner.WithArenaContext(action, checkFault: true),
+                    action => owner.WithArenaContext(action, checkFault: false), item => owner.arenas.Remove(item));
+                try { owner.arenas.Add(arena); return arena; }
+                catch { arena.Dispose(); throw; }
+            }
+        }
+
+        public IWarpNativeMachineExecution CreateMachineExecution(uint[] states, IReadOnlyList<uint[]> inputs,
+            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth,
+            WarpNativeManagedArena? managedArena = null)
+        {
+            lock (owner.gate)
+            {
+                owner.EnsureUsable();
+                ObjectDisposedException.ThrowIf(released, this);
+                var operations = CreateOperations(kernel, Image.InputBufferCount + Image.ScalarArgumentCount + 5 + (managedArena is null ? 0 : 2),
+                    Image.InputBufferCount + 1, managedArena is null ? -1 : Image.InputBufferCount + Image.ScalarArgumentCount + 5);
                 var bound = new WarpBoundNativeMachineExecution(
-                    () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth, operations),
+                    () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth, operations, managedArena),
                     action => WithQueue(action, checkFault: true), action => WithQueue(action, checkFault: false),
                     item => executions.Remove(item));
                 try { executions.Add(bound); return bound; }
@@ -296,7 +327,7 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
             }
         }
 
-        private WarpMachineMemoryOperations CreateOperations(IntPtr entry, int argumentCount, int pointerCount) =>
+        private WarpMachineMemoryOperations CreateOperations(IntPtr entry, int argumentCount, int pointerCount, int arenaPointerIndex = -1) =>
             new(
                 bytes =>
                 {
@@ -308,16 +339,16 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
                     new IntPtr(unchecked((long)destination)), 1, 0, bytes, source, 0, IntPtr.Zero, IntPtr.Zero), "clEnqueueWriteBuffer(logical)"),
                 (destination, source, bytes) => Check(owner.api.EnqueueReadBuffer(owner.queue,
                     new IntPtr(unchecked((long)source)), 1, 0, bytes, destination, 0, IntPtr.Zero, IntPtr.Zero), "clEnqueueReadBuffer(logical)"),
-                (arguments, grid, block) => LaunchWithArguments(entry, argumentCount, pointerCount, arguments, grid, block),
+                (arguments, grid, block) => LaunchWithArguments(entry, argumentCount, pointerCount, arenaPointerIndex, arguments, grid, block),
                 () => Check(owner.api.Finish(owner.queue), "clFinish(logical)"),
-                pointer => { owner.api.ReleaseBuffer(new IntPtr(unchecked((long)pointer))); },
-                () => owner.faulted = true);
+                pointer => Check(owner.api.ReleaseBuffer(new IntPtr(unchecked((long)pointer))), "clReleaseMemObject(logical)"),
+                () => owner.faulted = true, owner);
 
-        private void LaunchWithArguments(IntPtr entry, int argumentCount, int pointerCount, IntPtr arguments, uint grid, uint block)
+        private void LaunchWithArguments(IntPtr entry, int argumentCount, int pointerCount, int arenaPointerIndex, IntPtr arguments, uint grid, uint block)
         {
             for (uint index = 0; index < argumentCount; index++)
             {
-                nuint size = index < pointerCount ? checked((nuint)IntPtr.Size) : sizeof(uint);
+                nuint size = index < pointerCount || index == arenaPointerIndex ? checked((nuint)IntPtr.Size) : sizeof(uint);
                 Check(owner.api.SetKernelArgument(entry, index, size,
                     Marshal.ReadIntPtr(arguments, checked((int)index * IntPtr.Size))), "clSetKernelArg(logical)");
             }
@@ -458,12 +489,14 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
         internal void Release()
         {
             if (released) { return; }
-            foreach (WarpBoundNativeMachineExecution execution in executions.ToArray()) { execution.Dispose(); }
-            owner.api.ReleaseKernel(kernel);
-            if (reductionKernel != IntPtr.Zero) { owner.api.ReleaseKernel(reductionKernel); }
-            owner.api.ReleaseProgram(program);
             released = true;
+            var cleanup = new WarpNativeCleanup();
+            foreach (WarpBoundNativeMachineExecution execution in executions.ToArray()) { cleanup.Attempt(execution.Dispose); }
+            cleanup.Attempt(() => Check(owner.api.ReleaseKernel(kernel), "clReleaseKernel"));
+            if (reductionKernel != IntPtr.Zero) { cleanup.Attempt(() => Check(owner.api.ReleaseKernel(reductionKernel), "clReleaseKernel(reduction)")); }
+            cleanup.Attempt(() => Check(owner.api.ReleaseProgram(program), "clReleaseProgram"));
             owner.modules.Remove(this);
+            cleanup.Complete();
         }
     }
 

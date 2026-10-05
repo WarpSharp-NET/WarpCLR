@@ -50,20 +50,17 @@ public sealed class WarpControlFlowKernel
             argumentCount: 0,
             functionArray,
             isEntry: true);
-        ValidateReachability(blockArray);
+        ValidateStateDestinations(blockArray, functionArray, execution);
+        ValidateReachability(blockArray, GetStateEntryBlocks(blockArray, functionArray, 0));
 
         if (reduction.HasValue && blockArray.Any(block => block.Terminator is WarpTupleReturnTerminator))
         {
             throw new ArgumentException("A wide result requires a reduction contract with a matching accumulator width.", nameof(reduction));
         }
 
-        ValidateFunctionBodies(functionArray);
+        ValidateFunctionBodies(blockArray, functionArray);
         HelperExpansionFactor = execution?.Validate(blockArray, functionArray) ?? 1;
-        if (execution is null && blockArray.Concat(functionArray.SelectMany(function => function.Blocks))
-            .SelectMany(block => block.Instructions).Any(instruction => WarpManagedFrameOpCode.IsPrivate(instruction.OpCode)))
-        {
-            throw new ArgumentException("Private storage requires its admitted logical-frame metadata.", nameof(execution));
-        }
+        ValidateRuntimeCapabilities(blockArray, functionArray, execution);
         ValidateAcyclicCallGraph(blockArray, functionArray, execution?.RecursiveCalls == true);
         Execution = execution;
 
@@ -80,6 +77,20 @@ public sealed class WarpControlFlowKernel
     internal WarpLogicalExecutionMetadata? Execution { get; }
 
     internal int HelperExpansionFactor { get; }
+
+    private static void ValidateRuntimeCapabilities(WarpBasicBlock[] blocks, WarpControlFlowFunction[] functions, WarpLogicalExecutionMetadata? execution)
+    {
+        WarpBasicBlock[] bodies = blocks.Concat(functions.SelectMany(function => function.Blocks)).ToArray();
+        if (execution?.ManagedExceptionTermination != true && bodies.Any(block => block.Terminator is WarpManagedExceptionTerminator))
+        {
+            throw new ArgumentException("Managed exception termination requires its immutable execution admission.", nameof(execution));
+        }
+        if (execution is null && bodies.SelectMany(block => block.Instructions).Any(instruction => WarpManagedFrameOpCode.IsPrivate(instruction.OpCode) ||
+            WarpManagedFrameOpCode.IsOwner(instruction.OpCode) || WarpManagedStateOpCode.IsState(instruction.OpCode)))
+        {
+            throw new ArgumentException("Private storage requires its admitted logical-frame metadata.", nameof(execution));
+        }
+    }
 
     public string Name { get; }
 
@@ -116,7 +127,7 @@ public sealed class WarpControlFlowKernel
         }
     }
 
-    private static void ValidateFunctionBodies(WarpControlFlowFunction[] functions)
+    private static void ValidateFunctionBodies(IReadOnlyList<WarpBasicBlock> entry, WarpControlFlowFunction[] functions)
     {
         foreach (WarpControlFlowFunction function in functions)
         {
@@ -129,7 +140,7 @@ public sealed class WarpControlFlowKernel
                 function.ParameterCount,
                 functions,
                 isEntry: false);
-            ValidateReachability(function.Blocks);
+            ValidateReachability(function.Blocks, GetStateEntryBlocks(entry, functions, function.Id + 1));
         }
     }
 
@@ -271,6 +282,13 @@ public sealed class WarpControlFlowKernel
                 ValidateTarget(conditional.WhenNonZero, blocks, valueTypes, available);
                 ValidateTarget(conditional.WhenZero, blocks, valueTypes, available);
                 return -1;
+            case WarpStateDispatchTerminator dispatch:
+                return dispatch.ResultWordCount;
+            case WarpManagedExceptionTerminator managed:
+                RequireAvailable(managed.Context, available);
+                RequireAvailable(managed.ObjectId, available);
+                RequireAvailable(managed.Generation, available);
+                return managed.ResultWordCount;
             case WarpReturnTerminator single:
                 RequireAvailable(single.Value, available);
                 return 1;
@@ -328,6 +346,10 @@ public sealed class WarpControlFlowKernel
             WarpIrOpCode.LoadArgument or WarpIrOpCode.Constant)
         {
             ValidateSourceInstruction(instruction, inputBufferCount, scalarArgumentCount, argumentCount, isEntry);
+        }
+        else if (WarpManagedStateOpCode.IsState(instruction.OpCode) || WarpManagedFrameOpCode.IsOwner(instruction.OpCode))
+        {
+            ValidateRuntimeWordInstruction(instruction, available);
         }
         else
         {
@@ -449,6 +471,16 @@ public sealed class WarpControlFlowKernel
         }
     }
 
+    private static void ValidateRuntimeWordInstruction(WarpIrInstruction instruction, IReadOnlySet<int> available)
+    {
+        if (WarpManagedFrameOpCode.IsOwner(instruction.OpCode) || instruction.OpCode == WarpManagedStateOpCode.WordCount)
+        {
+            ValidateWordQueryInstruction(instruction);
+        }
+        else if (instruction.OpCode == WarpManagedStateOpCode.StoreWord) { ValidateBinaryInstruction(instruction, available); }
+        else { ValidateUnaryInstruction(instruction, available); }
+    }
+
     private static void ValidatePrivateInstruction(WarpIrInstruction instruction, IReadOnlySet<int> available)
     {
         if (instruction.OpCode == WarpManagedFrameOpCode.LoadPrivateWord)
@@ -552,11 +584,37 @@ public sealed class WarpControlFlowKernel
         }
     }
 
-    private static void ValidateReachability(IReadOnlyList<WarpBasicBlock> blocks)
+    private static void ValidateStateDestinations(WarpBasicBlock[] entry,
+        WarpControlFlowFunction[] functions, WarpLogicalExecutionMetadata? execution)
+    {
+        foreach (WarpStateDispatchTerminator dispatch in entry.Concat(functions.SelectMany(function => function.Blocks))
+            .Select(block => block.Terminator).OfType<WarpStateDispatchTerminator>())
+        {
+            if (execution?.NonlocalStateDispatch != true)
+            {
+                throw new ArgumentException("A nonlocal dispatch requires explicitly admitted runtime capabilities.", nameof(execution));
+            }
+            foreach (WarpStateDispatchTarget target in dispatch.Destinations)
+            {
+                if (target.Function > functions.Length || target.Block >= (target.Function == 0 ? entry.Length : functions[target.Function - 1].Blocks.Count))
+                {
+                    throw new ArgumentException("A nonlocal continuation names a body or block outside its immutable closure.", nameof(entry));
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<int> GetStateEntryBlocks(IReadOnlyList<WarpBasicBlock> entry,
+        IReadOnlyList<WarpControlFlowFunction> functions, int function) => entry.Concat(functions.SelectMany(body => body.Blocks))
+        .Select(block => block.Terminator).OfType<WarpStateDispatchTerminator>()
+        .SelectMany(dispatch => dispatch.Destinations).Where(target => target.Function == function).Select(target => target.Block);
+
+    private static void ValidateReachability(IReadOnlyList<WarpBasicBlock> blocks, IEnumerable<int> additionalEntries)
     {
         var reachable = new HashSet<int>();
         var pending = new Stack<int>();
         pending.Push(0);
+        foreach (int entry in additionalEntries) { pending.Push(entry); }
 
         while (pending.TryPop(out int blockId))
         {
@@ -617,17 +675,21 @@ public sealed class WarpControlFlowKernel
         WarpControlFlowFunction[] functions, bool recursive)
     {
         var states = new byte[functions.Length];
-
-        foreach (int callee in GetCallees(entryBlocks))
+        var reachable = new HashSet<int>();
+        var pending = new Stack<int>(GetFunctionTargets(entryBlocks));
+        while (pending.TryPop(out int function))
         {
-            Visit(callee);
+            if (!reachable.Add(function)) { continue; }
+            foreach (int target in GetFunctionTargets(functions[function].Blocks)) { pending.Push(target); }
         }
-
-        if (states.Any(state => state == 0))
+        if (reachable.Count != functions.Length)
         {
             throw new ArgumentException(
                 "Every control-flow function must be reachable from the kernel entry point.", nameof(functions));
         }
+        // Nonlocal transfers reach a body without pushing a new call frame.
+        // Recursion policy applies only to the ordinary call edges of those bodies.
+        foreach (int function in reachable) { Visit(function); }
 
         void Visit(int function)
         {
@@ -652,6 +714,10 @@ public sealed class WarpControlFlowKernel
             states[function] = 2;
         }
     }
+
+    private static IEnumerable<int> GetFunctionTargets(IReadOnlyList<WarpBasicBlock> blocks) =>
+        GetCallees(blocks).Concat(blocks.Select(block => block.Terminator).OfType<WarpStateDispatchTerminator>()
+            .SelectMany(dispatch => dispatch.Destinations).Where(target => target.Function != 0).Select(target => target.Function - 1));
 
     private static IEnumerable<int> GetCallees(IEnumerable<WarpBasicBlock> blocks) =>
         blocks.SelectMany(block => block.Instructions)

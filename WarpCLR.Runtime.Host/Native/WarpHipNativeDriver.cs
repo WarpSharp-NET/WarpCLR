@@ -12,6 +12,7 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
     private readonly HipApi api;
     private readonly int deviceOrdinal;
     private readonly HashSet<Module> modules = [];
+    private readonly HashSet<WarpNativeManagedArena> arenas = [];
     private bool disposed;
     private bool faulted;
 
@@ -57,6 +58,17 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
 
     public WarpNativeTarget Target { get; }
     public static WarpHipNativeDriver Open(int deviceOrdinal = 0, string? libraryPath = null) => new(deviceOrdinal, libraryPath);
+
+    private void WithArenaContext(Action action, bool checkFault)
+    {
+        lock (gate)
+        {
+            if (checkFault) { EnsureUsable(); }
+            if (disposed) { action(); return; }
+            using var device = EnterDevice();
+            action();
+        }
+    }
 
     public IWarpNativeModule Load(WarpNativeImage image)
     {
@@ -111,17 +123,16 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
         lock (gate)
         {
             if (disposed) { return; }
-            try
+            var cleanup = new WarpNativeCleanup();
+            cleanup.Attempt(() =>
             {
                 using var device = EnterDevice();
-                foreach (Module module in modules.ToArray()) { module.Release(); }
-                // No hipDeviceReset: the runtime may be shared with other clients in this process.
-            }
-            finally
-            {
-                disposed = true;
-                library.Dispose();
-            }
+                foreach (Module module in modules.ToArray()) { cleanup.Attempt(module.Release); }
+                foreach (WarpNativeManagedArena arena in arenas.ToArray()) { cleanup.Attempt(arena.CloseContext); }
+            });
+            disposed = true;
+            try { cleanup.Complete(); }
+            finally { library.Dispose(); }
         }
     }
 
@@ -164,8 +175,24 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
         public WarpNativeImage Image { get; } = image;
         public bool IsFaulted { get { lock (owner.gate) { return owner.faulted; } } }
 
+        public WarpNativeManagedArena CreateManagedArena(uint[] initial)
+        {
+            lock (owner.gate)
+            {
+                owner.EnsureUsable();
+                ObjectDisposedException.ThrowIf(released, this);
+                using var device = owner.EnterDevice();
+                var arena = new WarpNativeManagedArena(Image.Target, CreateOperations(function, IntPtr.Zero), initial,
+                    action => owner.WithArenaContext(action, checkFault: true),
+                    action => owner.WithArenaContext(action, checkFault: false), item => owner.arenas.Remove(item));
+                try { owner.arenas.Add(arena); return arena; }
+                catch { arena.Dispose(); throw; }
+            }
+        }
+
         public IWarpNativeMachineExecution CreateMachineExecution(uint[] states, IReadOnlyList<uint[]> inputs,
-            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth)
+            IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth,
+            WarpNativeManagedArena? managedArena = null)
         {
             lock (owner.gate)
             {
@@ -178,7 +205,7 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
                 {
                     var bound = new WarpBoundNativeMachineExecution(
                         () => new WarpNativeMachineExecution(Image, states, inputs, scalars, itemCount, inputBase,
-                            maximumCallDepth, CreateOperations(function, stream)),
+                            maximumCallDepth, CreateOperations(function, stream), managedArena),
                         action => WithDevice(action, checkFault: true), action => WithDevice(action, checkFault: false),
                         item => { owner.api.StreamDestroy(stream); executions.Remove(item); });
                     streamTransferred = true;
@@ -212,8 +239,8 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
                 (arguments, grid, block) => Check(owner.api.LaunchKernel(entry, grid, 1, 1, block, 1, 1, 0,
                     stream, arguments, IntPtr.Zero), "hipModuleLaunchKernel(resume)"),
                 () => Check(owner.api.StreamSynchronize(stream), "hipStreamSynchronize(resume)"),
-                pointer => { owner.api.MemoryFree(new IntPtr(unchecked((long)pointer))); },
-                () => owner.faulted = true);
+                pointer => Check(owner.api.MemoryFree(new IntPtr(unchecked((long)pointer))), "hipFree(logical)"),
+                () => owner.faulted = true, owner);
         }
 
         public uint ReduceUInt32(uint[] values, WarpReductionOperation operation, CancellationToken cancellationToken = default)
@@ -331,10 +358,12 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
         internal void Release()
         {
             if (released) { return; }
-            foreach (WarpBoundNativeMachineExecution execution in executions.ToArray()) { execution.Dispose(); }
-            owner.api.ModuleUnload(module);
             released = true;
+            var cleanup = new WarpNativeCleanup();
+            foreach (WarpBoundNativeMachineExecution execution in executions.ToArray()) { cleanup.Attempt(execution.Dispose); }
+            cleanup.Attempt(() => Check(owner.api.ModuleUnload(module), "module unload"));
             owner.modules.Remove(this);
+            cleanup.Complete();
         }
     }
 

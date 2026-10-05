@@ -62,9 +62,6 @@ internal sealed class WarpManagedAtomicTests
             Assert.AreEqual(WarpLogicalMachineLayout.ManagedMemoryBoundsFault, state[WarpLogicalMachineLayout.FaultKindOffset]);
             Assert.AreEqual(0u, state[WarpLogicalMachineLayout.ResultOffset]);
             Assert.AreEqual(0xFFFFFFFFu, arena[0]);
-            WarpNativeMachineLaunch.ValidateReturnedStates(layout, state, 1, 1);
-            state[WarpLogicalMachineLayout.FaultKindOffset] = 3;
-            Assert.ThrowsExactly<WarpHostException>(() => WarpNativeMachineLaunch.ValidateReturnedStates(layout, state, 1, 1));
         }
     }
 

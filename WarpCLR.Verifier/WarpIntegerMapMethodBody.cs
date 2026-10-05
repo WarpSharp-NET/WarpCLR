@@ -17,7 +17,8 @@ internal sealed class WarpIntegerMapMethodBody
         IReadOnlyDictionary<int, WarpCilCallTarget>? callTargets = null,
         bool wordArena = false,
         ImmutableArray<bool> arenaParameters = default,
-        ImmutableHashSet<int>? arenaElementTokens = null)
+        ImmutableHashSet<int>? arenaElementTokens = null,
+        ImmutableArray<bool> stateParameters = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
         WarpCompilationAdmission.Require("<CIL-method>", WarpCompilationResourceKind.IdentityCharacters, identity.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
@@ -62,6 +63,12 @@ internal sealed class WarpIntegerMapMethodBody
         }
 
         ArenaParameters = arenaParameters.IsDefault ? ImmutableArray.CreateRange(Enumerable.Repeat(false, parameterCount)) : arenaParameters;
+        if (!stateParameters.IsDefault && (stateParameters.Length != parameterCount ||
+            stateParameters.Where((state, index) => state && !ArenaParameters[index]).Any()))
+        {
+            throw new ArgumentException("State parameter capabilities must bind an admitted array parameter.", nameof(stateParameters));
+        }
+        StateParameters = stateParameters.IsDefault ? ImmutableArray.CreateRange(Enumerable.Repeat(false, parameterCount)) : stateParameters;
         ArenaElementTokens = arenaElementTokens ?? ImmutableHashSet<int>.Empty;
     }
 
@@ -88,6 +95,8 @@ internal sealed class WarpIntegerMapMethodBody
     internal bool WordArena { get; }
 
     internal ImmutableArray<bool> ArenaParameters { get; }
+
+    internal ImmutableArray<bool> StateParameters { get; }
 
     internal ImmutableHashSet<int> ArenaElementTokens { get; }
 }

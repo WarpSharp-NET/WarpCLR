@@ -195,7 +195,7 @@ public sealed partial class WarpPortableMachineEmitter
             Line("  %base64 = zext i32 %warp_base to i64");
             Line("  %input_index = add i64 %base64, %worker");
             Line($"  %depth_scaled = mul i32 %warp_max_depth, {N(layout.Kernel.HelperExpansionFactor)}");
-            Line($"  %physical_max_depth = add i32 %depth_scaled, {N(layout.IsRuntimeHelper(0) ? 1 : 0)}");
+            Line($"  %physical_max_depth = add i32 %depth_scaled, {N(!layout.CountsSourceDepth(0) ? 1 : 0)}");
             Line("  %max_depth64 = zext i32 %physical_max_depth to i64");
             Line($"  %frame_area = mul i64 %max_depth64, {N(layout.FrameWords)}");
             Line($"  %stride = add i64 %frame_area, {N(WarpLogicalMachineLayout.HeaderWords + layout.ResultTailWords)}");
@@ -276,8 +276,11 @@ public sealed partial class WarpPortableMachineEmitter
         private void AppendNode(WarpLogicalMachineNode node)
         {
             Line($"node_{N(node.ProgramCounter)}:");
+            emittedFunction = node.Function;
+            AppendAliasGuard(node);
             if (node.StartsBlock)
             {
+                AppendSourceBoundary(node);
                 AppendCharge(node);
             }
 
@@ -325,10 +328,8 @@ public sealed partial class WarpPortableMachineEmitter
 
         private string EmitInstruction(WarpIrInstruction instruction)
         {
-            if (WarpManagedFrameOpCode.IsPrivate(instruction.OpCode))
-            {
-                return EmitPrivateInstruction(instruction);
-            }
+            if (WarpManagedFrameOpCode.IsOwner(instruction.OpCode) || WarpManagedStateOpCode.IsState(instruction.OpCode) ||
+                WarpManagedFrameOpCode.IsPrivate(instruction.OpCode)) { return EmitFrameInstruction(instruction); }
             if (WarpManagedAtomicOpCode.IsAtomic(instruction.OpCode))
             {
                 return EmitManagedAtomic(instruction);
@@ -402,6 +403,11 @@ public sealed partial class WarpPortableMachineEmitter
 
         private void AppendManagedBoundsCheck(WarpIrInstruction instruction, WarpLogicalMachineNode node)
         {
+            if (WarpManagedStateOpCode.RequiresBounds(instruction.OpCode))
+            {
+                AppendStateBoundsCheck(instruction, node);
+                return;
+            }
             if (!WarpManagedMemoryOpCode.RequiresBounds(instruction.OpCode))
             {
                 return;
@@ -561,13 +567,14 @@ public sealed partial class WarpPortableMachineEmitter
             StoreAt(callee, WarpLogicalMachineLayout.FrameProgramCounterOffset, N(layout.GetBlockEntry(call.Callee + 1, 0)));
             StoreAt(callee, WarpLogicalMachineLayout.FrameReturnValueOffset, N(call.ResultWordCount == 0 ? 0 : call.Result));
             StoreAt(callee, WarpLogicalMachineLayout.FrameReturnWordCountOffset, N(call.ResultWordCount));
+            AppendFrameIdentity(node, callee, call.Callee + 1);
             for (int index = 0; index < arguments.Length; index++)
             {
                 StoreAt(callee, layout.ArgumentOffset + index, arguments[index]);
             }
 
             AppendPrivateInitialization(callee, call.Callee + 1);
-            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(call.Callee + 1))
+            if (layout.HasLogicalAccounting && layout.CountsSourceDepth(call.Callee + 1))
             {
                 ChangeLogicalDepth(1);
             }
@@ -579,6 +586,12 @@ public sealed partial class WarpPortableMachineEmitter
         {
             switch (node.Terminator)
             {
+                case WarpManagedExceptionTerminator managed:
+                    AppendManagedException(node, managed);
+                    break;
+                case WarpStateDispatchTerminator dispatch:
+                    AppendStateDispatch(node, dispatch);
+                    break;
                 case WarpBranchTerminator branch:
                     AppendBranch(node.Function, branch.Target);
                     break;
@@ -641,7 +654,7 @@ public sealed partial class WarpPortableMachineEmitter
                 Line($"  store i32 {values[word]}, ptr addrspace(1) {pointer}, align 4");
             }
 
-            if (layout.HasLogicalAccounting && !layout.IsRuntimeHelper(node.Function))
+            if (layout.HasLogicalAccounting && layout.CountsSourceDepth(node.Function))
             {
                 ChangeLogicalDepth(-1);
             }

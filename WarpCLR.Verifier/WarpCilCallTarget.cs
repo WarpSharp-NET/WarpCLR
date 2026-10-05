@@ -10,4 +10,6 @@ internal sealed record WarpCilCallTarget(
     string Identity)
 {
     internal System.Collections.Immutable.ImmutableArray<bool> ArenaParameters { get; init; }
+
+    internal System.Collections.Immutable.ImmutableArray<bool> StateParameters { get; init; }
 }

@@ -15,22 +15,26 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
     private readonly int maximumItemCount;
     private readonly ulong[] previousBudgets;
     private readonly ulong[] previousOperations;
+    private readonly uint[] previousBoundaries;
     private int itemCount;
     private int inputBase;
     private readonly int maximumCallDepth;
     private WarpNativeMachineLaunch launch;
     private readonly ulong statePointer;
+    private WarpNativeManagedArena.Lease? arenaLease;
     private bool disposed;
     private bool cancelled;
     private bool faulted;
 
     public WarpNativeMachineExecution(WarpNativeImage image, uint[] states, IReadOnlyList<uint[]> inputs,
-        IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth, WarpMachineMemoryOperations operations)
+        IReadOnlyList<uint> scalars, int itemCount, int inputBase, int maximumCallDepth, WarpMachineMemoryOperations operations,
+        WarpNativeManagedArena? managedArena = null)
     {
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(image);
         int minimumQuantum = image.MachineLayout?.MaximumBlockCost ?? 1;
-        launch = WarpNativeMachineLaunch.Admit(image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth, minimumQuantum);
+        launch = WarpNativeMachineLaunch.Admit(image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth,
+            minimumQuantum, managedArena?.WordCount);
         this.image = image;
         this.operations = operations;
         maximumItemCount = itemCount;
@@ -40,16 +44,17 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         stateSnapshot = (uint[])states.Clone();
         previousBudgets = new ulong[itemCount];
         previousOperations = new ulong[itemCount];
+        previousBoundaries = new uint[itemCount];
         CaptureBudgets(stateSnapshot, itemCount);
         this.scalars = scalars.ToArray();
         this.inputs = inputs.ToArray();
-        if (itemCount == 0) { return; }
         try
         {
+            arenaLease = managedArena?.Acquire(image.Target, operations);
+            if (itemCount == 0) { return; }
             using var state = new WarpPinnedUInt32(stateSnapshot);
             nuint bytes = checked((nuint)stateSnapshot.Length * sizeof(uint));
-            statePointer = operations.Allocate(bytes);
-            allocations.Add(statePointer);
+            statePointer = Allocate(bytes);
             operations.Upload(statePointer, state.Pointer, bytes);
             UploadInputs(this.inputs);
         }
@@ -65,7 +70,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         }
 
         WarpNativeMachineLaunch nextLaunch = WarpNativeMachineLaunch.Admit(image, states, inputs, scalars,
-            itemCount, inputBase, maximumCallDepth, image.MachineLayout!.MaximumBlockCost);
+            itemCount, inputBase, maximumCallDepth, image.MachineLayout!.MaximumBlockCost, arenaLease?.WordCount);
         uint[] nextSnapshot = (uint[])states.Clone();
         try
         {
@@ -75,7 +80,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
                 operations.Upload(statePointer, state.Pointer, checked((nuint)nextSnapshot.Length * sizeof(uint)));
             }
         }
-        catch (WarpHostException) { faulted = true; operations.Quarantine(); throw; }
+        catch (WarpHostException) { Quarantine(); throw; }
 
         stateSnapshot = nextSnapshot;
         CaptureBudgets(stateSnapshot, itemCount);
@@ -99,7 +104,8 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         try
         {
             using var arguments = new WarpNativeKernelArguments(statePointer, inputPointers, scalars,
-                checked((uint)itemCount), checked((uint)inputBase), checked((uint)maximumCallDepth), checked((uint)quantum));
+                checked((uint)itemCount), checked((uint)inputBase), checked((uint)maximumCallDepth), checked((uint)quantum),
+                arenaLease?.Pointer ?? 0, arenaLease?.WordCount ?? 0, managedArena: arenaLease is not null);
             launched = true;
             operations.Launch(arguments.Pointer, launch.GridX, launch.WorkgroupSize);
             operations.Synchronize();
@@ -112,13 +118,13 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         }
         catch (WarpHostException)
         {
-            if (launched) { faulted = true; operations.Quarantine(); }
+            if (launched) { Quarantine(); }
             throw;
         }
         catch (OperationCanceledException)
         {
             cancelled = true;
-            if (observedLogicalFault) { faulted = true; operations.Quarantine(); }
+            if (observedLogicalFault) { Quarantine(); }
             throw;
         }
     }
@@ -126,9 +132,30 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
     public void Dispose()
     {
         if (disposed) { return; }
-        foreach (ref readonly ulong pointer in CollectionsMarshal.AsSpan(allocations)) { operations.Free(pointer); }
-        allocations.Clear();
         disposed = true;
+        var cleanup = new WarpNativeCleanup();
+        foreach (ref readonly ulong pointer in CollectionsMarshal.AsSpan(allocations))
+        {
+            ulong allocation = pointer;
+            cleanup.Attempt(() => FreeAllocation(allocation));
+        }
+        allocations.Clear();
+        if (arenaLease is not null) { cleanup.Attempt(arenaLease.Dispose); }
+        arenaLease = null;
+        cleanup.Complete();
+    }
+
+    private void FreeAllocation(ulong pointer)
+    {
+        try { operations.Free(pointer); }
+        catch (WarpHostException) { Quarantine(); throw; }
+    }
+
+    private void Quarantine()
+    {
+        faulted = true;
+        arenaLease?.Quarantine();
+        operations.Quarantine();
     }
 
     private void UploadInputs(IReadOnlyList<uint[]> inputs)
@@ -136,8 +163,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         foreach (uint[] input in inputs)
         {
             nuint bytes = checked((nuint)Math.Max(input.Length, 1) * sizeof(uint));
-            ulong pointer = operations.Allocate(bytes);
-            allocations.Add(pointer);
+            ulong pointer = Allocate(bytes);
             inputPointers.Add(pointer);
             // Runtime-owned immutable snapshots remain pinned only for the synchronous upload.
             using var pin = new WarpPinnedUInt32(input);
@@ -145,9 +171,18 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         }
     }
 
+    private ulong Allocate(nuint bytes)
+    {
+        ulong pointer = operations.Allocate(bytes);
+        if (pointer == 0) { throw new WarpHostException("WRPNATIVE1007", "The native allocator returned a null buffer capability."); }
+        allocations.Add(pointer);
+        return pointer;
+    }
+
     private void EnsureUsable()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
+        arenaLease?.EnsureUsable();
         if (faulted) { throw new WarpHostException("WRPNATIVE1006", "The native logical execution has been quarantined."); }
         if (cancelled) { throw new OperationCanceledException("The logical execution was cancelled."); }
     }
@@ -159,6 +194,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         {
             previousBudgets[worker] = ReadBudget(states, worker * stride);
             previousOperations[worker] = ReadOperations(states, worker * stride);
+            previousBoundaries[worker] = states[worker * stride + WarpLogicalMachineLayout.SourceBoundaryStateOffset];
         }
     }
 
@@ -173,14 +209,18 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
             ulong used = ReadOperations(stateSnapshot, worker * stride);
             bool unchanged = remaining == previousBudgets[worker];
             bool helperProgress = image.MachineLayout!.HasLogicalAccounting && used > previousOperations[worker];
+            uint boundary = stateSnapshot[worker * stride + WarpLogicalMachineLayout.SourceBoundaryStateOffset];
+            bool boundaryProgress = image.MachineLayout!.HasLogicalAccounting && previousBoundaries[worker] == 0 &&
+                boundary == WarpLogicalMachineLayout.BeforeSourceBoundary;
             if (remaining > previousBudgets[worker] || used < previousOperations[worker] ||
-                (unchanged && status == WarpLogicalMachineLayout.Runnable && !helperProgress))
+                (unchanged && status == WarpLogicalMachineLayout.Runnable && !helperProgress && !boundaryProgress))
             {
                 throw new WarpHostException("WRPNATIVE1007", "A native worker increased its step budget or yielded runnable state without charged progress.");
             }
 
             previousBudgets[worker] = remaining;
             previousOperations[worker] = used;
+            previousBoundaries[worker] = boundary;
             observedFault |= status == WarpLogicalMachineLayout.Faulted;
         }
 
