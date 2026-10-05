@@ -12,13 +12,15 @@ internal sealed partial class WarpPortableTypedProgram
         private readonly WarpPortableMethodGraph graph;
         private readonly WarpPortableTypedTypeCatalog types;
         private readonly Dictionary<string, WarpPortableMethodGraphMethod> methods;
+        private readonly WarpPortableCliSizeContract? cliSizes;
         private long workspace;
         private readonly Dictionary<string, WarpPortableTypedReturnSummary> summaries = new(StringComparer.Ordinal);
 
-        public Builder(WarpPortableMethodGraph graph)
+        public Builder(WarpPortableMethodGraph graph, WarpPortableCliSizeContract? cliSizes)
         {
             this.graph = graph;
-            types = new(graph);
+            this.cliSizes = cliSizes;
+            types = new(graph, cliSizes);
             methods = graph.Methods.ToDictionary(method => method.Identity, StringComparer.Ordinal);
         }
 
@@ -28,7 +30,7 @@ internal sealed partial class WarpPortableTypedProgram
             var verified = ImmutableArray.CreateBuilder<WarpPortableTypedMethod>(graph.Methods.Length);
             foreach (WarpPortableMethodGraphMethod method in graph.Methods)
             {
-                var verifier = new WarpPortableTypedMethodVerifier(graph, method, types, methods, summaries);
+                var verifier = new WarpPortableTypedMethodVerifier(graph, method, types, methods, summaries, cliSizes: cliSizes);
                 workspace += verifier.Workspace;
                 WarpCompilationAdmission.Require(method.Identity, WarpCompilationResourceKind.VerifierWorkspaceSlots,
                     workspace, WarpCompilationAdmission.MaximumVerifierWorkspaceSlotsPerEntry);
@@ -37,11 +39,12 @@ internal sealed partial class WarpPortableTypedProgram
 
             ImmutableArray<WarpPortableTypedMethod> result = verified.MoveToImmutable();
             ImmutableArray<WarpPortableTypedType> snapshot = types.Snapshot();
-            string hash = Hash(graph.GraphHash, snapshot, result);
-            return new(graph.GraphHash, hash, snapshot, result);
+            string hash = Hash(graph.GraphHash, snapshot, result, cliSizes);
+            return new(graph.GraphHash, hash, snapshot, result, cliSizes);
         }
 
-        private static string Hash(string graphHash, ImmutableArray<WarpPortableTypedType> types, ImmutableArray<WarpPortableTypedMethod> methods)
+        private static string Hash(string graphHash, ImmutableArray<WarpPortableTypedType> types, ImmutableArray<WarpPortableTypedMethod> methods,
+            WarpPortableCliSizeContract? cliSizes)
         {
             using var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
@@ -57,6 +60,7 @@ internal sealed partial class WarpPortableTypedProgram
                 {
                     WriteMethod(writer, method);
                 }
+                if (cliSizes is not null) { writer.Write(WarpPortableCliSizeContract.Semantics); writer.Write(cliSizes.ContractHash); }
             }
 
             return Convert.ToHexString(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
@@ -119,7 +123,7 @@ internal sealed partial class WarpPortableTypedProgram
             foreach (WarpPortableTypedValue value in values)
             {
                 writer.Write(value.TypeIdentity); writer.Write((int)value.Category); writer.Write(value.WordCount);
-                writer.Write(value.IsReadOnly); writer.Write(value.IsUninitializedThis); writer.Write(value.IsNull);
+                writer.Write(value.IsReadOnly); writer.Write(value.ControlledMutability); writer.Write(value.IsUninitializedThis); writer.Write(value.IsNull);
                 writer.Write(value.MethodTarget ?? string.Empty); writer.Write(value.SourceStorageType ?? string.Empty); WriteProvenance(writer, value.Provenance);
             }
         }

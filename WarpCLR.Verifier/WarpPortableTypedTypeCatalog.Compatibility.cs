@@ -7,12 +7,13 @@ internal sealed partial class WarpPortableTypedTypeCatalog
     public bool Assignable(WarpPortableTypedValue value, string destination)
     {
         WarpPortableTypedType target = Get(destination);
+        if (value.Category == WarpPortableStackCategory.CliNativeInteger && target.Category == WarpPortableStackCategory.I4) { return true; }
         if (value.Category != target.Category)
         {
             return false;
         }
 
-        if (target.Category is WarpPortableStackCategory.I4 or WarpPortableStackCategory.I8)
+        if (target.Category is WarpPortableStackCategory.I4 or WarpPortableStackCategory.I8 or WarpPortableStackCategory.CliNativeInteger)
         {
             return true;
         }
@@ -52,14 +53,16 @@ internal sealed partial class WarpPortableTypedTypeCatalog
             throw new WarpVerificationException("WRPCLR2201", "A byref merge exceeds the bounded lifetime-provenance set.", offset);
         }
 
-        return first with { TypeIdentity = identity, WordCount = Get(identity).WordCount, Provenance = provenance,
+        return first with { TypeIdentity = identity, WordCount = first.Category == WarpPortableStackCategory.Reference ? 3 : Get(identity).WordCount, Provenance = provenance,
             IsReadOnly = first.IsReadOnly || second.IsReadOnly, IsNull = first.IsNull && second.IsNull,
+            ControlledMutability = (first.IsReadOnly || second.IsReadOnly) &&
+                (!first.IsReadOnly || first.ControlledMutability) && (!second.IsReadOnly || second.ControlledMutability),
             SourceStorageType = string.Equals(first.SourceStorageType, second.SourceStorageType, StringComparison.Ordinal) ? first.SourceStorageType : null };
     }
 
     public static bool Same(WarpPortableTypedValue first, WarpPortableTypedValue second) =>
         string.Equals(first.TypeIdentity, second.TypeIdentity, StringComparison.Ordinal) && first.Category == second.Category &&
-        first.WordCount == second.WordCount && first.IsReadOnly == second.IsReadOnly &&
+        first.WordCount == second.WordCount && first.IsReadOnly == second.IsReadOnly && first.ControlledMutability == second.ControlledMutability &&
         first.IsUninitializedThis == second.IsUninitializedThis && first.IsNull == second.IsNull &&
         string.Equals(first.MethodTarget, second.MethodTarget, StringComparison.Ordinal) &&
         string.Equals(first.SourceStorageType, second.SourceStorageType, StringComparison.Ordinal) && first.Provenance.SequenceEqual(second.Provenance);

@@ -6,6 +6,11 @@ public sealed partial class WarpPortableMachineEmitter
 {
     private sealed partial class Emission
     {
+        // Physical LLVM partitioning adds no logical node, state word, source
+        // event or operational charge. State/private SSA and quantum_ptr retain
+        // their exact existing ownership across these ordinary native calls.
+        private const int MaximumNodesPerNativePartition = 32;
+
         private string BodyCallingConvention => backend == WarpBackendKind.SPIRV ? "spir_func " : string.Empty;
 
         private string QuantumPointerType => backend == WarpBackendKind.AMDGPU ? "ptr addrspace(5)" : "ptr";
@@ -54,7 +59,63 @@ public sealed partial class WarpPortableMachineEmitter
 
         private void AppendFunctionBody(int function)
         {
-            Line($"define internal {BodyCallingConvention}i1 @warp_body_{N(function)}({BodyParameters()}) #1 {{");
+            WarpLogicalMachineNode[] body = layout.Nodes.Where(node => node.Function == function).ToArray();
+            if (body.Length <= MaximumNodesPerNativePartition)
+            {
+                AppendNodePartition(function, body, $"warp_body_{N(function)}", split: false);
+                return;
+            }
+            WarpLogicalMachineNode[][] partitions = body.Chunk(MaximumNodesPerNativePartition).ToArray();
+            AppendPartitionRouter(function, partitions);
+            for (int partition = 0; partition < partitions.Length; partition++)
+            {
+                AppendNodePartition(function, partitions[partition], $"warp_body_{N(function)}_partition_{N(partition)}", split: true);
+            }
+        }
+
+        private void AppendPartitionRouter(int function, WarpLogicalMachineNode[][] partitions)
+        {
+            AppendBodyEntry(function, $"warp_body_{N(function)}");
+            string pc = LoadFrame(WarpLogicalMachineLayout.FrameProgramCounterOffset);
+            Line($"  switch i32 {pc}, label %invalid_state [");
+            for (int partition = 0; partition < partitions.Length; partition++)
+            {
+                foreach (WarpLogicalMachineNode node in partitions[partition])
+                { Line($"    i32 {N(node.ProgramCounter)}, label %partition_{N(partition)}"); }
+            }
+            Line("  ]");
+            for (int partition = 0; partition < partitions.Length; partition++)
+            {
+                Line($"partition_{N(partition)}:");
+                string proceed = Assign($"call {BodyCallingConvention}i1 @warp_body_{N(function)}_partition_{N(partition)}({BodyParameters()})");
+                Line($"  br i1 {proceed}, label %dispatch, label %done");
+            }
+            AppendInvalidState();
+            AppendBodyEnd();
+        }
+
+        private void AppendNodePartition(int function, WarpLogicalMachineNode[] body, string name, bool split)
+        {
+            AppendBodyEntry(function, name);
+            string pc = LoadFrame(WarpLogicalMachineLayout.FrameProgramCounterOffset);
+            if (split)
+            {
+                // The immutable body router owns validity. A new PC outside
+                // this shard returns to it within the same native quantum.
+                Line($"  switch i32 {pc}, label %changed_function [");
+                foreach (WarpLogicalMachineNode node in body)
+                { Line($"    i32 {N(node.ProgramCounter)}, label %node_{N(node.ProgramCounter)}"); }
+                Line("  ]");
+            }
+            else { AppendProgramCounterSwitch(pc, body); }
+            AppendInvalidState();
+            foreach (WarpLogicalMachineNode node in body) { AppendNode(node); }
+            AppendBodyEnd();
+        }
+
+        private void AppendBodyEntry(int function, string name)
+        {
+            Line($"define internal {BodyCallingConvention}i1 @{name}({BodyParameters()}) #1 {{");
             Line("entry:");
             Line("  br label %dispatch");
             Line("dispatch:");
@@ -65,11 +126,10 @@ public sealed partial class WarpPortableMachineEmitter
             Line("changed_function:");
             Line("  ret i1 true");
             Line("dispatch_pc:");
-            WarpLogicalMachineNode[] body = layout.Nodes.Where(node => node.Function == function).ToArray();
-            string pc = LoadFrame(WarpLogicalMachineLayout.FrameProgramCounterOffset);
-            AppendProgramCounterSwitch(pc, body);
-            AppendInvalidState();
-            foreach (WarpLogicalMachineNode node in body) { AppendNode(node); }
+        }
+
+        private void AppendBodyEnd()
+        {
             Line("done:");
             Line("  ret i1 false");
             Line("}");

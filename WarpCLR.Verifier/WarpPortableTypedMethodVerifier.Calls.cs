@@ -30,7 +30,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             if (receiver.Category == WarpPortableStackCategory.ManagedByref && target.SourceMethod is not ConstructorInfo)
             {
                 RequireInitialized(receiver, state, step.Offset);
-                Require(!receiver.IsReadOnly || !types.Source(types.Get(receiver.TypeIdentity).ElementType!).IsValueType ||
+                Require(!receiver.IsReadOnly || receiver.ControlledMutability || !types.Source(types.Get(receiver.TypeIdentity).ElementType!).IsValueType ||
                     target.Intrinsic?.Contains("object.type-of", StringComparison.Ordinal) == true || target.SourceMethod.GetCustomAttributesData().Any(attribute =>
                     attribute.AttributeType.FullName is "System.Runtime.CompilerServices.IsReadOnlyAttribute") ||
                     target.SourceMethod.DeclaringType!.GetCustomAttributesData().Any(attribute => attribute.AttributeType.FullName is "System.Runtime.CompilerServices.IsReadOnlyAttribute"),
@@ -61,7 +61,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         }
         else if (types.Get(target.ReturnType).Category != WarpPortableStackCategory.Void)
         {
-            state.Stack.Add(CallResult(target, receiver, arguments, step.Offset));
+            state.Stack.Add(CallResult(target, receiver, arguments, step));
         }
     }
 
@@ -113,14 +113,15 @@ internal sealed partial class WarpPortableTypedMethodVerifier
     }
 
     private WarpPortableTypedValue CallResult(WarpPortableMethodGraphMethod target, WarpPortableTypedValue? receiver,
-        WarpPortableTypedValue[] arguments, int offset)
+        WarpPortableTypedValue[] arguments, Step step)
     {
         WarpPortableTypedValue value = types.Value(target.ReturnType);
         if (value.Category != WarpPortableStackCategory.ManagedByref) { return LoadToStack(value); }
         string element = types.Get(target.ReturnType).ElementType!;
         if (target.Intrinsic is not null && receiver is not null && target.SourceMethod.DeclaringType!.IsArray)
         {
-            return Borrow(element, new(WarpPortableProvenanceKind.HeapInterior, string.Empty, -1, receiver.TypeIdentity, 0, types.Get(element).ByteSize));
+            return Borrow(element, new(WarpPortableProvenanceKind.HeapInterior, string.Empty, -1, receiver.TypeIdentity, 0, types.Get(element).ByteSize),
+                step.Prefix.ReadOnly, step.Prefix.ReadOnly);
         }
 
         WarpPortableTypedReturnSummary summary = summaries[target.Identity];
@@ -134,7 +135,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
                 { ByteOffset = checked(parent.ByteOffset + origin.ByteOffset), ByteLength = origin.ByteLength }));
         }
 
-        Require(origins.Count != 0, "A byref-returning callee has no proved portable lifetime summary.", offset);
+        Require(origins.Count != 0, "A byref-returning callee has no proved portable lifetime summary.", step.Offset);
         return value with { Provenance = SortOrigins(origins), IsReadOnly = summary.ReadOnly };
     }
 

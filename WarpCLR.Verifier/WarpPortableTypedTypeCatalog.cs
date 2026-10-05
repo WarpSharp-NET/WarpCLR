@@ -11,9 +11,12 @@ internal sealed partial class WarpPortableTypedTypeCatalog
     private readonly Dictionary<string, WarpPortableMethodGraphField> fields;
     private readonly Dictionary<string, WarpPortableTypedType> types = new(StringComparer.Ordinal);
     private readonly HashSet<string> constructing = new(StringComparer.Ordinal);
+    private readonly WarpPortableCliSizeContract? cliSizes;
 
-    public WarpPortableTypedTypeCatalog(WarpPortableMethodGraph graph)
+    public WarpPortableTypedTypeCatalog(WarpPortableMethodGraph graph, WarpPortableCliSizeContract? cliSizes = null)
     {
+        this.cliSizes = cliSizes;
+        cliSizes?.RequireGraph(graph);
         captured = graph.Types.ToDictionary(type => type.Identity, StringComparer.Ordinal);
         fields = graph.Fields.ToDictionary(field => field.Identity, StringComparer.Ordinal);
         foreach (WarpPortableMethodGraphType type in graph.Types)
@@ -31,6 +34,7 @@ internal sealed partial class WarpPortableTypedTypeCatalog
 
         types.Add("verified-method-target", new("verified-method-target", WarpPortableStackCategory.FunctionTarget,
             0, false, 4, 4, 1, 0, null, [], []));
+        if (cliSizes is not null) { types.Add(WarpPortableCliNativeInteger.Identity, WarpPortableCliNativeInteger.Storage); }
         foreach (string identity in sources.Keys.ToArray())
         {
             Get(identity);
@@ -91,6 +95,15 @@ internal sealed partial class WarpPortableTypedTypeCatalog
     }
 
     public WarpPortableTypedValue Value(string identity) => new(identity, Get(identity).Category, Get(identity).WordCount, []);
+
+    internal WarpPortableTypedValue CliNativeValue(int sourceOffset)
+    {
+        if (cliSizes?.NativeEvaluationBits != 64)
+        {
+            throw new WarpVerificationException("WRPCLR2210", "Native-integer CIL requires its exact graph/profile-bound CLI64 evaluation-width contract.", sourceOffset);
+        }
+        return Value(WarpPortableCliNativeInteger.Identity);
+    }
 
     private static WarpVerificationException Error(string message) => new("WRPCLR2200", message, 0);
 }

@@ -84,7 +84,9 @@ internal sealed partial class WarpPortableTypedMethodVerifier
 
     private void ValidatePrefixTarget(Prefix prefix, WarpPortableMethodGraphInstruction target)
     {
-        if (prefix.Constrained is not null && target.OpCode != OpCodes.Callvirt || prefix.ReadOnly && target.OpCode != OpCodes.Ldelema ||
+        bool arrayAddress = target.OpCode == OpCodes.Call && target.Method is { } identity && methods[identity].SourceMethod.DeclaringType!.IsArray &&
+            string.Equals(methods[identity].SourceMethod.Name, "Address", StringComparison.Ordinal);
+        if (prefix.Constrained is not null && target.OpCode != OpCodes.Callvirt || prefix.ReadOnly && target.OpCode != OpCodes.Ldelema && !arrayAddress ||
             (prefix.Volatile || prefix.Alignment != 0) && !MemoryOperation(target.OpCode))
         {
             throw Error("A CIL prefix targets an incompatible operation.", target.Offset);

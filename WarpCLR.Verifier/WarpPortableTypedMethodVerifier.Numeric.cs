@@ -21,11 +21,13 @@ internal sealed partial class WarpPortableTypedMethodVerifier
 
         if (name is "shl" or "shr" or "shr.un")
         {
-            Require(Integer(left.Category) && right.Category == WarpPortableStackCategory.I4, "Shift requires an exact integer value and I4 count.", step.Offset);
+            Require(Integer(left.Category) && right.Category is WarpPortableStackCategory.I4 or WarpPortableStackCategory.CliNativeInteger,
+                "Shift requires an exact integer value and I4 or profile-bound native-integer count.", step.Offset);
             state.Stack.Add(left with { SourceStorageType = null }); return;
         }
 
-        Require(NumericCategory(left.Category) && left.Category == right.Category, "Numeric operands have incompatible types or float widths.", step.Offset);
+        bool nativePromotion = NativeAndI4(left.Category, right.Category);
+        Require(NumericCategory(left.Category) && (left.Category == right.Category || nativePromotion), "Numeric operands have incompatible types or float widths.", step.Offset);
         if (name is "and" or "or" or "xor" || name.Contains("ovf", StringComparison.Ordinal) || name is "div.un" or "rem.un")
         {
             Require(Integer(left.Category), "A bitwise/checked/unsigned integer operation cannot consume float or reference values.", step.Offset);
@@ -38,7 +40,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             if (name is "div" or "rem") { step.Effects.Add(WarpPortableTypedEffect.OverflowCheck); }
         }
 
-        state.Stack.Add(types.Merge(left, right, step.Offset) with { SourceStorageType = null });
+        state.Stack.Add((nativePromotion ? types.CliNativeValue(step.Offset) : types.Merge(left, right, step.Offset)) with { SourceStorageType = null });
     }
 
     private void Conversion(string name, WarpPortableTypedFlowState state, Step step)
@@ -47,6 +49,12 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         Require(NumericCategory(value.Category), "A numeric conversion cannot reinterpret a managed reference/byref/handle.", step.Offset);
         string[] components = name.Split('.');
         string target = components[1] is "ovf" ? components[2] : components[1];
+        if (target is "i" or "u")
+        {
+            WarpPortableTypedValue native = types.CliNativeValue(step.Offset);
+            if (components[1] is "ovf") { step.Effects.Add(WarpPortableTypedEffect.OverflowCheck); }
+            step.Effects.Add(WarpPortableTypedEffect.Conversion); state.Stack.Add(native); return;
+        }
         Type? type = target switch
         {
             "i1" => typeof(sbyte), "u1" => typeof(byte), "i2" => typeof(short), "u2" => typeof(ushort),
@@ -61,7 +69,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
 
     private void Comparison(WarpPortableTypedValue left, WarpPortableTypedValue right, string operation, int offset)
     {
-        Require(!left.IsUninitializedThis && !right.IsUninitializedThis && left.Category == right.Category,
+        Require(!left.IsUninitializedThis && !right.IsUninitializedThis && (left.Category == right.Category || NativeAndI4(left.Category, right.Category)),
             "Comparison operands have incompatible categories or uninitialized constructor references.", offset);
         if (NumericCategory(left.Category)) { return; }
         if (left.Category == WarpPortableStackCategory.Reference)
@@ -74,6 +82,9 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             operation is "ceq" or "beq" or "bne.un", "Only equal-type managed byrefs can be compared for identity.", offset);
     }
 
-    private static bool Integer(WarpPortableStackCategory category) => category is WarpPortableStackCategory.I4 or WarpPortableStackCategory.I8;
+    private static bool NativeAndI4(WarpPortableStackCategory first, WarpPortableStackCategory second) =>
+        first == WarpPortableStackCategory.CliNativeInteger && second == WarpPortableStackCategory.I4 ||
+        second == WarpPortableStackCategory.CliNativeInteger && first == WarpPortableStackCategory.I4;
+    private static bool Integer(WarpPortableStackCategory category) => category is WarpPortableStackCategory.I4 or WarpPortableStackCategory.I8 or WarpPortableStackCategory.CliNativeInteger;
     private static bool NumericCategory(WarpPortableStackCategory category) => Integer(category) || category is WarpPortableStackCategory.Binary32 or WarpPortableStackCategory.Binary64;
 }

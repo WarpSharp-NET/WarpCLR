@@ -20,7 +20,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             WarpPortableTypedValue owner = Pop(state, step.Offset);
             Require(owner.Category == WarpPortableStackCategory.Reference && (owner.IsNull || types.Source(owner.TypeIdentity).IsArray),
                 "Ldlen requires a managed array reference.", step.Offset);
-            state.Stack.Add(Primitive(typeof(uint))); step.Effects.Add(WarpPortableTypedEffect.NullCheck); ReadEffect(step); return;
+            state.Stack.Add(types.CliNativeValue(step.Offset)); step.Effects.Add(WarpPortableTypedEffect.NullCheck); ReadEffect(step); return;
         }
 
         ArrayElement(instruction, state, step);
@@ -48,7 +48,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         {
             if (!step.Prefix.ReadOnly) { step.Effects.Add(WarpPortableTypedEffect.TypeCheck); }
             state.Stack.Add(Borrow(requested, new(WarpPortableProvenanceKind.HeapInterior, string.Empty, -1,
-                reference.TypeIdentity, 0, access.ByteSize), step.Prefix.ReadOnly)); return;
+                reference.TypeIdentity, 0, access.ByteSize), step.Prefix.ReadOnly, step.Prefix.ReadOnly)); return;
         }
 
         if (store)

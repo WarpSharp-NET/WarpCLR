@@ -9,6 +9,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
     private readonly WarpPortableMethodGraph graph;
     private readonly WarpPortableMethodGraphMethod method;
     private readonly WarpPortableTypedTypeCatalog types;
+    private readonly WarpPortableCliSizeContract? cliSizes;
     private readonly Dictionary<string, WarpPortableMethodGraphMethod> methods;
     private readonly Dictionary<string, WarpPortableMethodGraphField> fields;
     private readonly ImmutableArray<string> argumentTypes;
@@ -31,10 +32,11 @@ internal sealed partial class WarpPortableTypedMethodVerifier
 
     public WarpPortableTypedMethodVerifier(WarpPortableMethodGraph graph, WarpPortableMethodGraphMethod method,
         WarpPortableTypedTypeCatalog types, Dictionary<string, WarpPortableMethodGraphMethod> methods,
-        Dictionary<string, WarpPortableTypedReturnSummary> summaries, bool validateLifetimes = true)
+        Dictionary<string, WarpPortableTypedReturnSummary> summaries, bool validateLifetimes = true, WarpPortableCliSizeContract? cliSizes = null)
     {
         this.summaries = summaries; this.validateLifetimes = validateLifetimes;
         this.graph = graph; this.method = method; this.types = types; this.methods = methods;
+        this.cliSizes = cliSizes;
         fields = graph.Fields.ToDictionary(field => field.Identity, StringComparer.Ordinal);
         argumentTypes = ArgumentTypes(method);
         indices = method.Instructions.Select((instruction, index) => (instruction.Offset, Index: index))
@@ -80,7 +82,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         return new(method.Identity, argumentTypes, method.LocalTypes, method.ReturnType, result.MoveToImmutable(), maximumStackWords,
             checked(privateWords + maximumStackWords), method.Intrinsic,
             method.Instructions.IsEmpty && summaries.TryGetValue(method.Identity, out WarpPortableTypedReturnSummary? summary) ? summary :
-                new(SortOrigins(returned), returnedReadOnly));
+                new(SortOrigins(returned), returnedReadOnly || method.SourceMethod is MethodInfo function && ReadOnlyParameter(function.ReturnParameter)));
     }
 
     private ImmutableArray<string> ArgumentTypes(WarpPortableMethodGraphMethod target)

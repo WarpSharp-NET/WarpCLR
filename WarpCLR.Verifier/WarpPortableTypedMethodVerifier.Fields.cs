@@ -58,7 +58,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             Require(string.Equals(types.Get(owner.TypeIdentity).ElementType, metadata.DeclaringType, StringComparison.Ordinal),
                 "A value-field byref points to the wrong declaring type.", step.Offset);
             string identity = types.Get(types.Source(field.TypeIdentity).MakeByRefType()).Identity;
-            return types.Value(identity) with { IsReadOnly = readOnly || owner.IsReadOnly, Provenance = owner.Provenance.Select(origin =>
+            return types.Value(identity) with { IsReadOnly = readOnly || owner.IsReadOnly, ControlledMutability = !readOnly && owner.ControlledMutability, Provenance = owner.Provenance.Select(origin =>
                 origin with { ByteOffset = checked(origin.ByteOffset + field.ByteOffset), ByteLength = field.ByteSize }).ToImmutableArray() };
         }
 
@@ -67,8 +67,9 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         return Borrow(field.TypeIdentity, new(WarpPortableProvenanceKind.HeapInterior, string.Empty, -1, owner.TypeIdentity, field.ByteOffset, field.ByteSize), readOnly);
     }
 
-    private WarpPortableTypedValue Borrow(string element, WarpPortableTypedProvenance origin, bool readOnly = false) =>
-        types.Value(types.Get(types.Source(element).MakeByRefType()).Identity) with { Provenance = [origin], IsReadOnly = readOnly };
+    private WarpPortableTypedValue Borrow(string element, WarpPortableTypedProvenance origin, bool readOnly = false, bool controlledMutability = false) =>
+        types.Value(types.Get(types.Source(element).MakeByRefType()).Identity) with
+        { Provenance = [origin], IsReadOnly = readOnly, ControlledMutability = controlledMutability };
 
     private static void ReadEffect(Step step)
     {

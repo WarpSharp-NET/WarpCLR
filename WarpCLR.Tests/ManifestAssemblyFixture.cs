@@ -9,7 +9,7 @@ internal static class ManifestAssemblyFixture
     public const string ReductionEntryIdentity = "WarpCLR.Tests.TestKernels.ManifestReduction";
 
     public const string MapGraphHash =
-        "9EE270B20F8DDB67E0134A1821813152B45B22261C303F5E8EA94D03D7385658";
+        "C406FC8804EBD7AF5E2D2EF5511915BDCF8F770EBDE62DCDC552FDBFF481351E";
 
     public const string ReductionGraphHash =
         "350CCE4D1001CECC70247AE0367F4E5711499C21BB83B84D39FE2097A8947CC4";

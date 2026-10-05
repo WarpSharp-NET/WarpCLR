@@ -33,7 +33,7 @@ internal sealed partial class WarpPortableTypedProgram
                     }
 
                     if (method.Instructions.IsEmpty) { continue; }
-                    var verifier = new WarpPortableTypedMethodVerifier(graph, method, types, methods, summaries, validateLifetimes: false);
+                    var verifier = new WarpPortableTypedMethodVerifier(graph, method, types, methods, summaries, validateLifetimes: false, cliSizes: cliSizes);
                     WarpCompilationAdmission.Require(method.Identity, WarpCompilationResourceKind.VerifierWorkspaceSlots,
                         verifier.Workspace, WarpCompilationAdmission.MaximumVerifierWorkspaceSlotsPerEntry);
                     WarpPortableTypedReturnSummary current = verifier.Verify().ReturnSummary;

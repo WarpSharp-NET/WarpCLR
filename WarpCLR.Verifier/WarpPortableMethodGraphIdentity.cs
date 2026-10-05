@@ -13,7 +13,8 @@ internal static class WarpPortableMethodGraphIdentity
         string identity;
         if (type.HasElementType)
         {
-            identity = Type(type.GetElementType()!) + (type.IsByRef ? "&" : "[" + new string(',', type.GetArrayRank() - 1) + "]");
+            identity = Type(type.GetElementType()!) + (type.IsByRef ? "&" : type.IsSZArray ? "[]" :
+                type.GetArrayRank() == 1 ? "[*]" : "[" + new string(',', type.GetArrayRank() - 1) + "]");
         }
         else
         {

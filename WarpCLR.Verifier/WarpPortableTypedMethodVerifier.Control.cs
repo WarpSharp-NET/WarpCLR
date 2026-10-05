@@ -15,6 +15,7 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             Require(value.Category == WarpPortableStackCategory.Reference && !value.IsUninitializedThis &&
                 (value.IsNull || typeof(Exception).IsAssignableFrom(types.Source(value.TypeIdentity))), "Throw requires a portable exception reference.", step.Offset);
             Require(state.Stack.Count == 0, "Throw leaves extraneous stack values.", step.Offset);
+            step.Effects.Add(WarpPortableTypedEffect.NullCheck);
             step.Effects.Add(WarpPortableTypedEffect.Call); return;
         }
 

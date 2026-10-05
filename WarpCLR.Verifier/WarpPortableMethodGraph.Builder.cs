@@ -128,7 +128,8 @@ internal sealed partial class WarpPortableMethodGraph
         private string AddType(Type type)
         {
             string identity = WarpPortableMethodGraphIdentity.Type(type);
-            if (!WarpPortableMethodGraphIntrinsics.IsLeafType(type) && !WarpPortableMethodGraphIntrinsics.IsStructuralTuple(type) && !type.HasElementType && !permitted.Contains(type.Assembly))
+            if (!WarpPortableMethodGraphIntrinsics.IsLeafType(type) && !WarpPortableMethodGraphIntrinsics.IsStructuralTuple(type) &&
+                !WarpPortableMethodGraphIntrinsics.IsStructuralNullable(type) && !type.HasElementType && !permitted.Contains(type.Assembly))
             {
                 throw Error($"Type '{identity}' belongs to an assembly outside the caller's permitted closure.");
             }
@@ -202,7 +203,8 @@ internal sealed partial class WarpPortableMethodGraph
                 return identity;
             }
 
-            if (!permitted.Contains(field.Module.Assembly) && !WarpPortableMethodGraphIntrinsics.IsStructuralTuple(field.DeclaringType!))
+            if (!permitted.Contains(field.Module.Assembly) && !WarpPortableMethodGraphIntrinsics.IsStructuralTuple(field.DeclaringType!) &&
+                !WarpPortableMethodGraphIntrinsics.IsStructuralNullable(field.DeclaringType!))
             {
                 throw Error($"Field '{identity}' is outside the permitted managed closure.");
             }
@@ -514,8 +516,7 @@ internal sealed partial class WarpPortableMethodGraph
             OpCode opCode = instruction.OpCode;
             if (opCode == OpCodes.Calli || opCode == OpCodes.Jmp || opCode == OpCodes.Localloc || opCode == OpCodes.Cpblk ||
                 opCode == OpCodes.Initblk || opCode == OpCodes.Arglist || opCode == OpCodes.Mkrefany || opCode == OpCodes.Refanyval ||
-                opCode == OpCodes.Refanytype || opCode == OpCodes.Conv_I || opCode == OpCodes.Conv_U ||
-                opCode == OpCodes.Conv_Ovf_I || opCode == OpCodes.Conv_Ovf_U || opCode == OpCodes.Conv_Ovf_I_Un || opCode == OpCodes.Conv_Ovf_U_Un)
+                opCode == OpCodes.Refanytype)
             {
                 throw Error("Native-address arithmetic, indirect calls and unsafe memory operations are not portable.", instruction.Offset);
             }

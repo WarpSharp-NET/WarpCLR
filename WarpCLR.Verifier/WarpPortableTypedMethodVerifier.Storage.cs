@@ -20,7 +20,8 @@ internal sealed partial class WarpPortableTypedMethodVerifier
             WarpPortableTypedValue value = Pop(state, step.Offset);
             RequireAssignable(value, declared, step.Offset);
             Require(value.Category != WarpPortableStackCategory.FunctionTarget, "A method target cannot escape into private storage.", step.Offset);
-            slots[index] = value with { TypeIdentity = declared, WordCount = types.Get(declared).WordCount, SourceStorageType = null };
+            slots[index] = value with { TypeIdentity = declared, Category = types.Get(declared).Category,
+                WordCount = types.Get(declared).WordCount, SourceStorageType = null };
             if (!argument) { System.Array.Fill(state.InitializedLocals[index], true); }
             step.Effects.Add(WarpPortableTypedEffect.PrivateWrite); step.MemoryType = declared;
             step.StorageBits = types.Get(declared).StorageBits;
@@ -70,8 +71,12 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         if (operation == OpCodes.Sizeof)
         {
             WarpPortableTypedType type = types.Get(instruction.Type!);
-            Require(type.Category is not (WarpPortableStackCategory.Reference or WarpPortableStackCategory.ManagedByref or WarpPortableStackCategory.Handle or WarpPortableStackCategory.FunctionTarget) && type.ManagedRootByteOffsets.IsEmpty,
-                "Sizeof cannot expose the physical managed-reference representation.", step.Offset);
+            if (cliSizes is null)
+            {
+                Require(type.Category is not (WarpPortableStackCategory.Reference or WarpPortableStackCategory.ManagedByref or WarpPortableStackCategory.Handle or WarpPortableStackCategory.FunctionTarget) && type.ManagedRootByteOffsets.IsEmpty,
+                    "Sizeof cannot expose the physical managed-reference representation without its separate captured CLI numeric layout.", step.Offset);
+            }
+            else { _ = cliSizes.TypeSize(type.Identity, step.Offset); }
             state.Stack.Add(Primitive(typeof(uint))); return;
         }
 

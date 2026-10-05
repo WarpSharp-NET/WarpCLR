@@ -5,7 +5,7 @@ namespace WarpCLR.Verifier;
 
 internal static partial class WarpPortableMethodGraphIntrinsics
 {
-    public const string MathContract = "warp.math.binary32.arithmetic/rne-gradual-canonical-nan/0.1|warp.math.binary64.arithmetic/rne-gradual-canonical-nan/0.1";
+    public const string MathContract = "warp.math.binary32.arithmetic/rne-gradual-canonical-nan/0.1|warp.math.binary64.arithmetic/rne-gradual-canonical-nan/0.1|" + NumericSignatureContract;
 
     public static bool IsLeafType(Type type) =>
         type.IsPrimitive || type.IsArray || type == typeof(void) || type == typeof(object) || type == typeof(string) ||
@@ -20,6 +20,8 @@ internal static partial class WarpPortableMethodGraphIntrinsics
     public static bool IsStructuralTuple(Type type) => type.Assembly == typeof(object).Assembly && type.IsValueType &&
         (type == typeof(ValueTuple) || type.IsGenericType && type.GetGenericTypeDefinition().FullName?.StartsWith("System.ValueTuple`", StringComparison.Ordinal) == true);
 
+    public static bool IsStructuralNullable(Type type) => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
+
     public static bool IsDelegate(Type type) => typeof(MulticastDelegate).IsAssignableFrom(type) && type != typeof(MulticastDelegate);
 
     public static string? Resolve(MethodBase method)
@@ -31,7 +33,7 @@ internal static partial class WarpPortableMethodGraphIntrinsics
         }
 
         ParameterInfo[] parameters = method.GetParameters();
-        string? operation = ResolveObjectOperation(method, type, parameters) ?? ResolveNumericOperation(method, type, parameters) ??
+        string? operation = ResolveObjectOperation(method, type, parameters) ?? ResolveNullableOperation(method, type, parameters) ?? ResolveNumericOperation(method, type, parameters) ??
             ResolveMemoryOperation(method, type, parameters) ?? ResolveDataOperation(method, type, parameters) ??
             ResolveStringOperation(method, type, parameters) ?? ResolveManagedOperation(method, type, parameters);
         if (operation is null)
@@ -80,6 +82,16 @@ internal static partial class WarpPortableMethodGraphIntrinsics
         {
             return "object.type-of";
         }
+        else if (type == typeof(object) && !method.IsStatic && method is MethodInfo { ReturnType: var hashResult } &&
+            hashResult == typeof(int) && parameters.Length == 0 && method.Name is nameof(GetHashCode))
+        {
+            return "object.reference-hash";
+        }
+        else if (type == typeof(RuntimeHelpers) && method.IsStatic && method is MethodInfo { ReturnType: var identityResult } &&
+            identityResult == typeof(int) && parameters.Length == 1 && parameters[0].ParameterType == typeof(object) && method.Name is nameof(RuntimeHelpers.GetHashCode))
+        {
+            return "object.reference-hash-null-zero";
+        }
         else if (type == typeof(object) && method.IsStatic && parameters.Length == 2 &&
             parameters.All(parameter => parameter.ParameterType == typeof(object)) &&
             string.Equals(method.Name, nameof(ReferenceEquals), StringComparison.Ordinal))
@@ -98,9 +110,7 @@ internal static partial class WarpPortableMethodGraphIntrinsics
     private static string? ResolveNumericOperation(MethodBase method, Type type, ParameterInfo[] parameters)
     {
         if ((type == typeof(Math) || type == typeof(MathF)) && method is MethodInfo { IsStatic: true, IsGenericMethod: false } numeric &&
-            IsMathOperation(numeric.Name) && parameters.All(parameter => parameter.ParameterType == typeof(float) ||
-                parameter.ParameterType == typeof(double) || parameter.ParameterType == typeof(int)) &&
-            (numeric.ReturnType == typeof(float) || numeric.ReturnType == typeof(double) || numeric.ReturnType == typeof(int)))
+            IsExactMathSignature(numeric, parameters))
         {
             return "math.strict." + method.Name;
         }
@@ -157,12 +167,4 @@ internal static partial class WarpPortableMethodGraphIntrinsics
         return null;
     }
 
-    private static bool IsMathOperation(string name) => name is
-        nameof(Math.Abs) or nameof(Math.Acos) or nameof(Math.Acosh) or nameof(Math.Asin) or nameof(Math.Asinh) or
-        nameof(Math.Atan) or nameof(Math.Atan2) or nameof(Math.Atanh) or nameof(Math.BitDecrement) or nameof(Math.BitIncrement) or
-        nameof(Math.Cbrt) or nameof(Math.Ceiling) or nameof(Math.Clamp) or nameof(Math.CopySign) or nameof(Math.Cos) or
-        nameof(Math.Cosh) or nameof(Math.Exp) or nameof(Math.Floor) or nameof(Math.FusedMultiplyAdd) or nameof(Math.IEEERemainder) or
-        nameof(Math.ILogB) or nameof(Math.Log) or nameof(Math.Log2) or nameof(Math.Log10) or nameof(Math.Max) or nameof(Math.Min) or
-        nameof(Math.Pow) or nameof(Math.Round) or nameof(Math.ScaleB) or nameof(Math.Sign) or nameof(Math.Sin) or nameof(Math.Sinh) or
-        nameof(Math.Sqrt) or nameof(Math.Tan) or nameof(Math.Tanh) or nameof(Math.Truncate);
 }

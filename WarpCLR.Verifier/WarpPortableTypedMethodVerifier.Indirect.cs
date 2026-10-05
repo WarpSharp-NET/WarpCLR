@@ -51,7 +51,9 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         {
             Require(type.Category != WarpPortableStackCategory.ManagedByref && !types.Source(identity).IsByRefLike, "A managed byref/byref-like value cannot escape by boxing.", step.Offset);
             RequireAssignable(value, identity, step.Offset);
-            state.Stack.Add(value with { TypeIdentity = identity, Category = WarpPortableStackCategory.Reference, WordCount = 3, Provenance = [] });
+            string boxed = WarpPortableMethodGraphIntrinsics.IsStructuralNullable(types.Source(identity)) ?
+                types.Get(types.Source(identity).GetGenericArguments()[0]).Identity : identity;
+            state.Stack.Add(value with { TypeIdentity = boxed, Category = WarpPortableStackCategory.Reference, WordCount = 3, Provenance = [] });
             if (type.Category != WarpPortableStackCategory.Reference)
             {
                 step.Effects.Add(WarpPortableTypedEffect.Allocate); step.Effects.Add(WarpPortableTypedEffect.Safepoint);
@@ -64,17 +66,26 @@ internal sealed partial class WarpPortableTypedMethodVerifier
         if (operation == OpCodes.Unbox)
         {
             Require(type.Category != WarpPortableStackCategory.Reference, "Unbox requires an exact value-type target.", step.Offset);
-            step.Effects.Add(WarpPortableTypedEffect.NullCheck); step.Effects.Add(WarpPortableTypedEffect.TypeCheck);
+            bool nullable = WarpPortableMethodGraphIntrinsics.IsStructuralNullable(types.Source(identity));
+            if (!nullable) { step.Effects.Add(WarpPortableTypedEffect.NullCheck); }
+            step.Effects.Add(WarpPortableTypedEffect.TypeCheck);
+            if (nullable)
+            {
+                step.Effects.Add(WarpPortableTypedEffect.Allocate); step.Effects.Add(WarpPortableTypedEffect.Safepoint);
+            }
             state.Stack.Add(Borrow(identity, new(WarpPortableProvenanceKind.HeapInterior, string.Empty, -1, identity, 0, type.ByteSize))); return;
         }
 
         if (operation == OpCodes.Unbox_Any && type.Category != WarpPortableStackCategory.Reference)
         {
-            step.Effects.Add(WarpPortableTypedEffect.NullCheck); step.Effects.Add(WarpPortableTypedEffect.TypeCheck);
+            if (!WarpPortableMethodGraphIntrinsics.IsStructuralNullable(types.Source(identity))) { step.Effects.Add(WarpPortableTypedEffect.NullCheck); }
+            step.Effects.Add(WarpPortableTypedEffect.TypeCheck);
             ReadEffect(step); state.Stack.Add(LoadToStack(types.Value(identity))); return;
         }
 
         if (operation != OpCodes.Isinst) { step.Effects.Add(WarpPortableTypedEffect.TypeCheck); }
-        state.Stack.Add(types.Value(identity) with { Category = WarpPortableStackCategory.Reference, WordCount = 3, IsNull = value.IsNull });
+        string referenceType = WarpPortableMethodGraphIntrinsics.IsStructuralNullable(types.Source(identity)) ?
+            types.Get(types.Source(identity).GetGenericArguments()[0]).Identity : identity;
+        state.Stack.Add(types.Value(referenceType) with { Category = WarpPortableStackCategory.Reference, WordCount = 3, IsNull = value.IsNull });
     }
 }
