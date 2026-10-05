@@ -4,11 +4,11 @@ namespace WarpCLR.IR;
 
 internal sealed class WarpLogicalExecutionMetadata
 {
-    internal const string Version = "warp.logical-source-frames/0.5";
+    internal const string Version = "warp.logical-source-frames/0.6";
 
     internal WarpLogicalExecutionMetadata(IEnumerable<WarpLogicalBodyMetadata> bodies, bool recursiveCalls = true,
         bool frameOwners = false, bool runtimeStateAccess = false, bool nonlocalStateDispatch = false,
-        bool managedExceptionTermination = false)
+        bool managedExceptionTermination = false, bool logicalWorkerAccess = false)
     {
         ArgumentNullException.ThrowIfNull(bodies);
         Bodies = Array.AsReadOnly(WarpCompilationAdmission.Materialize(bodies, "<logical-frame-metadata>",
@@ -30,6 +30,7 @@ internal sealed class WarpLogicalExecutionMetadata
             throw new ArgumentException("Managed exception termination requires admitted nonlocal state and frame ownership capabilities.", nameof(managedExceptionTermination));
         }
         ManagedExceptionTermination = managedExceptionTermination;
+        LogicalWorkerAccess = logicalWorkerAccess;
     }
 
     internal ReadOnlyCollection<WarpLogicalBodyMetadata> Bodies { get; }
@@ -38,6 +39,7 @@ internal sealed class WarpLogicalExecutionMetadata
     internal bool RuntimeStateAccess { get; }
     internal bool NonlocalStateDispatch { get; }
     internal bool ManagedExceptionTermination { get; }
+    internal bool LogicalWorkerAccess { get; }
 
     internal int Validate(IReadOnlyList<WarpBasicBlock> blocks, IReadOnlyList<WarpControlFlowFunction> functions)
     {
@@ -86,6 +88,10 @@ internal sealed class WarpLogicalExecutionMetadata
         }
         foreach (WarpIrInstruction instruction in blocks.SelectMany(block => block.Instructions))
         {
+            if (instruction.OpCode == WarpManagedInvocationOpCode.LoadLogicalWorker && !LogicalWorkerAccess)
+            {
+                throw new ArgumentException("Logical worker identity requires its exact immutable invocation capability.", nameof(blocks));
+            }
             if (instruction.OpCode == WarpIrOpCode.Call && Bodies[instruction.Callee + 1].AliasOwnerFunction != -1)
             {
                 throw new ArgumentException("Filter aliases enter through nonlocal dispatch rather than an ordinary call.", nameof(blocks));

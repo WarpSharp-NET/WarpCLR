@@ -201,6 +201,18 @@ public sealed partial class WarpPortableMachineEmitter
             Line($"  %stride = add i64 %frame_area, {N(WarpLogicalMachineLayout.HeaderWords + layout.ResultTailWords)}");
             Line("  %state_offset = mul i64 %worker, %stride");
             Line("  %state = getelementptr i32, ptr addrspace(1) %warp_states, i64 %state_offset");
+            if (layout.Kernel.Execution?.LogicalWorkerAccess == true)
+            {
+                Line("  %logical_worker_in_range = icmp ule i64 %input_index, 2147483647");
+                Line("  br i1 %logical_worker_in_range, label %dispatch, label %invalid_invocation_index");
+                Line("invalid_invocation_index:");
+                StoreHeader(WarpLogicalMachineLayout.FaultKindOffset, "3");
+                StoreHeader(WarpLogicalMachineLayout.FaultFunctionOffset, "0");
+                StoreHeader(WarpLogicalMachineLayout.FaultBlockOffset, "0");
+                StoreHeader(WarpLogicalMachineLayout.StatusOffset, N(WarpLogicalMachineLayout.Faulted));
+                Line("  br label %done");
+                return;
+            }
             Line("  br label %dispatch");
         }
 
@@ -360,6 +372,8 @@ public sealed partial class WarpPortableMachineEmitter
                 string pointer = Assign($"getelementptr i32, ptr addrspace(1) %warp_input_{N(instruction.Immediate)}, i64 %input_index");
                 return Assign($"load i32, ptr addrspace(1) {pointer}, align 4");
             }
+
+            if (instruction.OpCode == WarpManagedInvocationOpCode.LoadLogicalWorker) { return Assign("trunc i64 %input_index to i32"); }
 
             string left = LoadValue(instruction.Left);
             if (instruction.OpCode == WarpManagedMemoryOpCode.WordAddress)

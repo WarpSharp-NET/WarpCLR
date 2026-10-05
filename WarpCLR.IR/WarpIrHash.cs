@@ -35,6 +35,8 @@ public static class WarpIrHash
             AppendInt32(hash, execution.RuntimeStateAccess ? 1 : 0);
             AppendInt32(hash, execution.NonlocalStateDispatch ? 1 : 0);
             AppendInt32(hash, execution.ManagedExceptionTermination ? 1 : 0);
+            AppendInt32(hash, execution.LogicalWorkerAccess ? 1 : 0);
+            if (execution.LogicalWorkerAccess) { AppendString(hash, WarpManagedInvocationOpCode.Version); }
             foreach (WarpLogicalBodyMetadata body in execution.Bodies)
             {
                 AppendInt32(hash, body.PrivateWordCount);

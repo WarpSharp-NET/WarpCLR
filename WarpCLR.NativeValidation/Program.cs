@@ -107,7 +107,10 @@ internal static class Program
             .Concat(CreateFilterAliasLayouts())
             .Concat([WarpManagedExceptionHookKernels.Create(0), WarpManagedExceptionHookKernels.Create(1),
                 WarpManagedExceptionHookKernels.Create(3), WarpManagedExceptionHookKernels.Create(sourceCost: 2),
-                WarpManagedExceptionHookKernels.CreateHelper()]);
+                WarpManagedExceptionHookKernels.CreateHelper()])
+            .Concat(WarpPortableCollectiveKernels.CreateServices())
+            .Concat([WarpLogicalWorkerHookKernels.CreateDirect(), WarpLogicalWorkerHookKernels.CreateNested(),
+                WarpLogicalWorkerHookKernels.CreateInputBinding()]);
         foreach (WarpLogicalMachineLayout layout in layouts)
         {
             await ValidateAsync(layout, toolchain, reports).ConfigureAwait(false);

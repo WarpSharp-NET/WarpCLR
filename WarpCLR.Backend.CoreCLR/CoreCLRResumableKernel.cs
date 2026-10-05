@@ -508,6 +508,9 @@ public sealed partial class CoreCLRResumableKernel
 
             switch (instruction.OpCode)
             {
+                case WarpManagedInvocationOpCode.LoadLogicalWorker:
+                    il.Emit(OpCodes.Ldarg_2);
+                    return;
                 case WarpIrOpCode.LoadInput:
                     il.Emit(OpCodes.Ldarg_0);
                     Constant(checked((int)instruction.Immediate));

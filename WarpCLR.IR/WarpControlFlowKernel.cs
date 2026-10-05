@@ -22,7 +22,7 @@ public sealed class WarpControlFlowKernel
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         WarpCompilationAdmission.Require("<IR-entry>", WarpCompilationResourceKind.IdentityCharacters, name.Length, WarpCompilationAdmission.MaximumIdentityCharacters);
-        ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(inputBufferCount, execution?.LogicalWorkerAccess == true ? 0 : 1);
         ArgumentOutOfRangeException.ThrowIfNegative(scalarArgumentCount);
         ArgumentNullException.ThrowIfNull(blocks);
         if (reduction.HasValue && !Enum.IsDefined(reduction.Value))
@@ -81,6 +81,11 @@ public sealed class WarpControlFlowKernel
     private static void ValidateRuntimeCapabilities(WarpBasicBlock[] blocks, WarpControlFlowFunction[] functions, WarpLogicalExecutionMetadata? execution)
     {
         WarpBasicBlock[] bodies = blocks.Concat(functions.SelectMany(function => function.Blocks)).ToArray();
+        if (execution?.LogicalWorkerAccess != true && bodies.SelectMany(block => block.Instructions)
+            .Any(instruction => instruction.OpCode == WarpManagedInvocationOpCode.LoadLogicalWorker))
+        {
+            throw new ArgumentException("Logical worker identity requires its immutable invocation admission.", nameof(execution));
+        }
         if (execution?.ManagedExceptionTermination != true && bodies.Any(block => block.Terminator is WarpManagedExceptionTerminator))
         {
             throw new ArgumentException("Managed exception termination requires its immutable execution admission.", nameof(execution));
@@ -412,6 +417,7 @@ public sealed class WarpControlFlowKernel
         {
             case WarpManagedMemoryOpCode.WordCount:
             case WarpManagedAtomicOpCode.Fence:
+            case WarpManagedInvocationOpCode.LoadLogicalWorker:
                 ValidateWordQueryInstruction(instruction);
                 break;
 
