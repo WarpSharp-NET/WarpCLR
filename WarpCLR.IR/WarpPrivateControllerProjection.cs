@@ -4,15 +4,20 @@ namespace WarpCLR.IR;
 
 // This immutable compiler contract describes a private channel. It does not
 // authorize execution; only the runtime's opaque source registry may do that.
-internal sealed class WarpPrivateControllerProjection
+internal sealed partial class WarpPrivateControllerProjection
 {
-    internal WarpPrivateControllerProjection(IEnumerable<WarpPrivateControllerUse> uses)
+    internal WarpPrivateControllerProjection(IEnumerable<WarpPrivateControllerUse> uses, bool requiresHelperBoundaries = false,
+        bool requiresHelperReturnFences = false)
     {
         ArgumentNullException.ThrowIfNull(uses);
+        if (requiresHelperReturnFences && !requiresHelperBoundaries)
+        { throw new ArgumentException("Private helper return fences require exact private helper entry boundaries.", nameof(requiresHelperReturnFences)); }
+        RequiresHelperBoundaries = requiresHelperBoundaries;
+        RequiresHelperReturnFences = requiresHelperReturnFences;
         Uses = Array.AsReadOnly(WarpCompilationAdmission.Materialize(uses, "<private-controller-uses>",
             WarpCompilationResourceKind.Instructions, WarpCompilationAdmission.MaximumInstructionsPerEntry));
         if (Uses.Count == 0 || Uses.Any(use => use is null || use.Function < 0 || use.Block < 0 || use.Value < 0 ||
-            use.Callee < 0 || use.Argument < 0 || use.CallValue < 0 || string.IsNullOrWhiteSpace(use.ServiceIdentity)) ||
+            use.Callee < 0 || use.Argument < 0 || use.CallValue < -1 || string.IsNullOrWhiteSpace(use.ServiceIdentity)) ||
             Uses.Select(use => (use.Function, use.Block, use.Value)).Distinct().Count() != Uses.Count)
         {
             throw new ArgumentException("A private controller channel needs unique exact service-use sites.", nameof(uses));
@@ -32,6 +37,7 @@ internal sealed class WarpPrivateControllerProjection
             IReadOnlyList<WarpBasicBlock> body = function == 0 ? blocks : functions[function - 1].Blocks;
             foreach (WarpBasicBlock block in body)
             {
+                if (RequiresHelperBoundaries) { ValidateHelperBridge(function, block, metadata); }
                 ValidateBlock(function, block, sites, observed, functions, metadata, helpers);
             }
         }
@@ -78,7 +84,8 @@ internal sealed class WarpPrivateControllerProjection
             int value = instruction.Arguments[argument];
             if (!loaded.TryGetValue(value, out WarpPrivateControllerUse? use)) { continue; }
             if (instruction.OpCode != WarpIrOpCode.Call || instruction.Callee != use.Callee ||
-                argument != use.Argument || instruction.Result != use.CallValue)
+                argument != use.Argument || instruction.Result != use.CallValue ||
+                use.CallValue == -1 && instruction.ResultWordCount != 0)
             { throw new ArgumentException("A private controller word changed its exact service or parameter.", nameof(instruction)); }
             references[value]++;
         }

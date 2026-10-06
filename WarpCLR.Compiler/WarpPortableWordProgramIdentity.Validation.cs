@@ -57,6 +57,13 @@ internal sealed partial class WarpPortableWordProgramIdentity
         {
             throw Invalid("A source program's physical controller scalar is separate from its original guest arguments and requires its sealed binding.");
         }
+        if (program.Kernel.Execution.PrivateControllerProjection?.RequiresHelperBoundaries == true &&
+            !services.Contains(WarpPrivateControllerProjection.HelperBoundarySemantics, StringComparer.Ordinal))
+        { throw Invalid("Private helper boundaries require their exact compiler service semantics."); }
+        if (program.Kernel.Execution.PrivateControllerProjection?.RequiresHelperReturnFences == true &&
+            (!services.Contains(WarpPrivateControllerProjection.HelperReturnFenceSemantics, StringComparer.Ordinal) ||
+            !services.Contains(WarpLogicalMachineLayout.PrivateHelperScopeVersion, StringComparer.Ordinal)))
+        { throw Invalid("Private helper return fences require their exact compiler service semantics."); }
         if ((program.ExecutionBindingHash is null) != (program.ExecutionPlanHash is null)) { throw Invalid("The source binding and completed execution plan must appear together."); }
         if (program.ExecutionPlanHash is { } plan)
         {

@@ -70,6 +70,7 @@ internal sealed partial class WarpCompiledSourceContext
             CompilerIdentity = context.Plan.CompilerIdentity.IdentityHash;
             PlanIdentity = context.Plan.Identity;
             ContextIdentity = context.Identity;
+            Completion = SourceCompletionReceipt.TryCapture(context, ticket, source, this, words, authority);
         }
 
         internal ulong Ordinal => words.Ordinal;
@@ -83,6 +84,7 @@ internal sealed partial class WarpCompiledSourceContext
         internal string ContextIdentity { get; }
         internal string RequestHash => words.RequestHash;
         internal string ResponseHash => words.ResponseHash;
+        internal SourceCompletionReceipt? Completion { get; }
 
         internal void Validate(WarpCompiledSourceContext exactContext, WarpCompiledWorkerTicket exactTicket, WarpCoreCLRWorkerLease exactSource)
         {

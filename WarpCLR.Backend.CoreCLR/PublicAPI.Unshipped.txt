@@ -1,14 +1,10 @@
 #nullable enable
-const WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.MaximumAdmittedFrameBytes = 32768 -> int
-static WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.Backend.CoreCLR.CoreCLRJitKernel!
-static WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.Compile(WarpCLR.IR.WarpLogicalMachineLayout! layout) -> WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel!
-static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Deserialize(System.ReadOnlySpan<byte> content, string! name, int inputBufferCount, int scalarArgumentCount) -> WarpCLR.IR.WarpControlFlowKernel!
-static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Serialize(WarpCLR.IR.WarpControlFlowKernel! kernel) -> byte[]!
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Backend.get -> WarpCLR.IR.WarpBackendKind
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.IR.WarpBackendArtifact!
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.Contract.get -> WarpCLR.IR.WarpBackendContract!
 WarpCLR.Backend.CoreCLR.CoreCLRBackendCompiler.CoreCLRBackendCompiler() -> void
+WarpCLR.Backend.CoreCLR.CoreCLRCallUseObservation
 WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException
 WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException.BodyName.get -> string!
 WarpCLR.Backend.CoreCLR.CoreCLRCompilationResourceException.CoreCLRCompilationResourceException(string! bodyName, long estimatedFrameBytes, long frameLimitBytes) -> void
@@ -52,3 +48,9 @@ WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator
 WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.Execute(WarpCLR.IR.WarpBackendArtifact! artifact, WarpCLR.IR.WarpControlFlowKernel! kernel, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint[]!
 WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.ExecuteReduction(WarpCLR.IR.WarpBackendArtifact! artifact, WarpCLR.IR.WarpControlFlowKernel! kernel, System.Collections.Generic.IReadOnlyList<uint[]!>! inputs, System.Collections.Generic.IReadOnlyList<uint>? scalarArguments = null) -> uint
 WarpCLR.Backend.CoreCLR.WarpIntegerMapSemanticEmulator.WarpIntegerMapSemanticEmulator() -> void
+const WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.MaximumAdmittedFrameBytes = 32768 -> int
+static WarpCLR.Backend.CoreCLR.CoreCLRCallUseObservation.Record(object! token, uint[]![]! inputs, uint[]! scalars, int worker, uint[]! state, uint[]! arena, int frame) -> void
+static WarpCLR.Backend.CoreCLR.CoreCLRJitKernel.Compile(WarpCLR.IR.WarpControlFlowKernel! kernel) -> WarpCLR.Backend.CoreCLR.CoreCLRJitKernel!
+static WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel.Compile(WarpCLR.IR.WarpLogicalMachineLayout! layout) -> WarpCLR.Backend.CoreCLR.CoreCLRResumableKernel!
+static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Deserialize(System.ReadOnlySpan<byte> content, string! name, int inputBufferCount, int scalarArgumentCount) -> WarpCLR.IR.WarpControlFlowKernel!
+static WarpCLR.Backend.CoreCLR.WarpCoreCLRPlanCodec.Serialize(WarpCLR.IR.WarpControlFlowKernel! kernel) -> byte[]!

@@ -284,65 +284,86 @@ internal sealed class WarpHipNativeDriver : IWarpNativeDriver
         public uint[] DispatchUInt32(IReadOnlyList<uint[]> inputs, IReadOnlyList<uint> scalars,
             int itemCount, bool reduction, CancellationToken cancellationToken = default)
         {
-            Image.ValidateArguments(inputs, scalars, reduction);
-            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction, scalars.Count);
-            lock (owner.gate)
+            using var bankUse = WarpNativeBankRetention.Acquire(inputs, scalars, []);
+            try
             {
-                owner.EnsureUsable();
-                ObjectDisposedException.ThrowIf(released, this);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (launch.GridX == 0) { return []; }
-                using var device = owner.EnterDevice();
-                Check(owner.api.StreamCreate(out IntPtr stream, 1), "hipStreamCreateWithFlags");
-                List<ulong> allocations = [];
-                bool launched = false;
-                try
+                Image.ValidateArguments(bankUse.Inputs, bankUse.Scalars, reduction);
+                WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, bankUse.Inputs, itemCount, reduction, bankUse.Scalars.Count);
+                lock (owner.gate)
                 {
-                    List<ulong> inputPointers = UploadInputs(inputs, itemCount, allocations, cancellationToken);
-
-                    nuint outputBytes = checked((nuint)Math.Max(launch.OutputCount, 1) * sizeof(uint));
-                    Check(owner.api.MemoryAllocate(out IntPtr output, outputBytes), "hipMalloc(output)");
-                    allocations.Add(unchecked((ulong)output.ToInt64()));
-                    using var arguments = new WarpNativeKernelArguments(inputPointers, unchecked((ulong)output.ToInt64()),
-                        checked((uint)itemCount), scalars);
+                    owner.EnsureUsable();
+                    ObjectDisposedException.ThrowIf(released, this);
                     cancellationToken.ThrowIfCancellationRequested();
-                    Check(owner.api.LaunchKernel(function, launch.GridX, 1, 1, launch.WorkgroupSize, 1, 1,
-                        0, stream, arguments.Pointer, IntPtr.Zero), "hipModuleLaunchKernel");
-                    launched = true;
-                    Check(owner.api.StreamSynchronize(stream), "hipStreamSynchronize");
-                    var result = new uint[launch.OutputCount];
-                    using var resultPin = new WarpPinnedUInt32(result);
-                    Check(owner.api.MemoryCopy(resultPin.Pointer, output, outputBytes, 2), "hipMemcpy(DtoH)");
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return result;
+                    if (launch.GridX == 0) { bankUse.PreparePublication(); return []; }
+                    using var device = owner.EnterDevice();
+                    Check(owner.api.StreamCreate(out IntPtr stream, 1), "hipStreamCreateWithFlags");
+                    return DispatchAdmittedUInt32(bankUse, launch, itemCount, stream, cancellationToken);
                 }
-                catch (WarpHostException)
-                {
-                    if (launched) { owner.faulted = true; }
-                    throw;
-                }
-                finally
-                {
-                    foreach (ref readonly ulong allocation in CollectionsMarshal.AsSpan(allocations)) { owner.api.MemoryFree(new IntPtr(unchecked((long)allocation))); }
-                    owner.api.StreamDestroy(stream);
-                }
+            }
+            catch (Exception failure) { bankUse.RecordFailure(failure); throw; }
+            finally
+            {
+                bankUse.ReleaseIfNoAllocationAttempt();
+                bankUse.ThrowFirstFailure();
             }
         }
 
-        private List<ulong> UploadInputs(IReadOnlyList<uint[]> inputs, int itemCount, List<ulong> allocations, CancellationToken cancellationToken)
+        private uint[] DispatchAdmittedUInt32(WarpNativeBankRetention bankUse, WarpNativeLaunch launch, int itemCount,
+            IntPtr stream, CancellationToken cancellationToken)
         {
-            var inputPointers = new List<ulong>(inputs.Count);
-            foreach (uint[] input in inputs)
+            bool launched = false;
+            try
+            {
+                List<ulong> inputPointers = UploadInputs(bankUse, itemCount, cancellationToken);
+                nuint outputBytes = checked((nuint)Math.Max(launch.OutputCount, 1) * sizeof(uint));
+                ulong output = bankUse.Allocate(outputBytes, bytes =>
+                {
+                    Check(owner.api.MemoryAllocate(out IntPtr pointer, bytes), "hipMalloc(output)");
+                    return unchecked((ulong)pointer.ToInt64());
+                });
+                using var arguments = new WarpNativeKernelArguments(inputPointers, output,
+                    checked((uint)itemCount), bankUse.Scalars);
+                cancellationToken.ThrowIfCancellationRequested();
+                Check(owner.api.LaunchKernel(function, launch.GridX, 1, 1, launch.WorkgroupSize, 1, 1,
+                    0, stream, arguments.Pointer, IntPtr.Zero), "hipModuleLaunchKernel");
+                launched = true;
+                Check(owner.api.StreamSynchronize(stream), "hipStreamSynchronize");
+                var result = new uint[launch.OutputCount];
+                using var resultPin = new WarpPinnedUInt32(result);
+                Check(owner.api.MemoryCopy(resultPin.Pointer, new IntPtr(unchecked((long)output)), outputBytes, 2), "hipMemcpy(DtoH)");
+                cancellationToken.ThrowIfCancellationRequested();
+                bankUse.PreparePublication();
+                return result;
+            }
+            catch (Exception failure)
+            {
+                bankUse.RecordFailure(failure);
+                if (launched && failure is not OperationCanceledException) { owner.faulted = true; }
+                throw;
+            }
+            finally
+            {
+                bankUse.Retire(pointer => Check(owner.api.MemoryFree(new IntPtr(unchecked((long)pointer))), "hipFree(dispatch)"), () => owner.faulted = true);
+                bankUse.AttemptAdditionalCleanup(() => Check(owner.api.StreamDestroy(stream), "hipStreamDestroy(dispatch)"));
+            }
+        }
+
+        private List<ulong> UploadInputs(WarpNativeBankRetention bankUse, int itemCount, CancellationToken cancellationToken)
+        {
+            var inputPointers = new List<ulong>(bankUse.Inputs.Count);
+            foreach (uint[] input in bankUse.Inputs)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
-                Check(owner.api.MemoryAllocate(out IntPtr pointer, bytes), "hipMalloc");
-                allocations.Add(unchecked((ulong)pointer.ToInt64()));
-                inputPointers.Add(unchecked((ulong)pointer.ToInt64()));
-                using var pinned = new WarpPinnedUInt32((uint[])input.Clone());
-                if (itemCount > 0) { Check(owner.api.MemoryCopy(pointer, pinned.Pointer, bytes, 1), "hipMemcpy(HtoD)"); }
+                ulong pointer = bankUse.Allocate(bytes, requested =>
+                {
+                    Check(owner.api.MemoryAllocate(out IntPtr allocation, requested), "hipMalloc");
+                    return unchecked((ulong)allocation.ToInt64());
+                });
+                inputPointers.Add(pointer);
+                using var pin = new WarpPinnedUInt32((uint[])input.Clone());
+                if (itemCount > 0) { Check(owner.api.MemoryCopy(new IntPtr(unchecked((long)pointer)), pin.Pointer, bytes, 1), "hipMemcpy(HtoD)"); }
             }
-
             return inputPointers;
         }
 

@@ -7,6 +7,9 @@ internal sealed class WarpLogicalExecutionMetadata
     internal const string Version = "warp.logical-source-frames/0.6";
     internal const string PrivateControllerVersion = "warp.logical-source-frames/private-controller-service-projection/0.7";
 
+    internal const string PrivateHelperBoundaryVersion = "warp.logical-source-frames/private-controller-zero-charge-helper-boundaries/0.8";
+    internal const string PrivateHelperReturnFenceVersion = "warp.logical-source-frames/private-controller-helper-return-scoped-publication-fence/0.10";
+
     internal WarpLogicalExecutionMetadata(IEnumerable<WarpLogicalBodyMetadata> bodies, bool recursiveCalls = true,
         bool frameOwners = false, bool runtimeStateAccess = false, bool nonlocalStateDispatch = false,
         bool managedExceptionTermination = false, bool logicalWorkerAccess = false,
@@ -48,7 +51,9 @@ internal sealed class WarpLogicalExecutionMetadata
     internal bool ManagedExceptionTermination { get; }
     internal bool LogicalWorkerAccess { get; }
     internal WarpPrivateControllerProjection? PrivateControllerProjection { get; }
-    internal string IdentityVersion => PrivateControllerProjection is null ? Version : PrivateControllerVersion;
+    internal string IdentityVersion => PrivateControllerProjection is null ? Version :
+        PrivateControllerProjection.RequiresHelperReturnFences ? PrivateHelperReturnFenceVersion :
+        PrivateControllerProjection.RequiresHelperBoundaries ? PrivateHelperBoundaryVersion : PrivateControllerVersion;
 
     internal int Validate(IReadOnlyList<WarpBasicBlock> blocks, IReadOnlyList<WarpControlFlowFunction> functions)
     {

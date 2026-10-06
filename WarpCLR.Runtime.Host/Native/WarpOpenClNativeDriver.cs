@@ -397,52 +397,71 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
         public uint[] DispatchUInt32(IReadOnlyList<uint[]> inputs, IReadOnlyList<uint> scalars,
             int itemCount, bool reduction, CancellationToken cancellationToken = default)
         {
-            Image.ValidateArguments(inputs, scalars, reduction);
-            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction, scalars.Count);
-            lock (owner.gate)
+            using var bankUse = WarpNativeBankRetention.Acquire(inputs, scalars, []);
+            try
             {
-                owner.EnsureUsable();
-                ObjectDisposedException.ThrowIf(released, this);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (launch.GridX == 0) { return []; }
-                var buffers = new List<IntPtr>();
-                bool launched = false;
-                try
+                Image.ValidateArguments(bankUse.Inputs, bankUse.Scalars, reduction);
+                WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, bankUse.Inputs, itemCount, reduction, bankUse.Scalars.Count);
+                lock (owner.gate)
                 {
-                    uint argument = UploadInputs(inputs, itemCount, buffers, cancellationToken);
+                    owner.EnsureUsable();
+                    ObjectDisposedException.ThrowIf(released, this);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (launch.GridX == 0) { bankUse.PreparePublication(); return []; }
+                    return DispatchAdmittedUInt32(bankUse, launch, itemCount, cancellationToken);
+                }
+            }
+            catch (Exception failure) { bankUse.RecordFailure(failure); throw; }
+            finally
+            {
+                bankUse.ReleaseIfNoAllocationAttempt();
+                bankUse.ThrowFirstFailure();
+            }
+        }
 
-                    nuint outputBytes = checked((nuint)Math.Max(launch.OutputCount, 1) * sizeof(uint));
-                    IntPtr output = owner.api.CreateBuffer(owner.context, 2, outputBytes, IntPtr.Zero, out int outputError);
-                    Check(outputError, "clCreateBuffer(output)");
-                    buffers.Add(output);
-                    SetPointer(argument++, output);
-                    SetInteger(argument++, checked((uint)itemCount));
-                    foreach (uint scalar in scalars) { SetInteger(argument++, scalar); }
-                    using var global = new WarpNativeBlock(IntPtr.Size);
-                    using var local = new WarpNativeBlock(IntPtr.Size);
-                    Marshal.WriteInt64(global.Pointer, checked((long)launch.GridX * launch.WorkgroupSize));
-                    Marshal.WriteInt64(local.Pointer, launch.WorkgroupSize);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    Check(owner.api.EnqueueKernel(owner.queue, kernel, 1, IntPtr.Zero, global.Pointer, local.Pointer,
-                        0, IntPtr.Zero, IntPtr.Zero), "clEnqueueNDRangeKernel");
-                    launched = true;
-                    Check(owner.api.Finish(owner.queue), "clFinish");
-                    var result = new uint[launch.OutputCount];
-                    using var resultPin = new WarpPinnedUInt32(result);
-                    Check(owner.api.EnqueueReadBuffer(owner.queue, output, 1, 0, outputBytes, resultPin.Pointer,
-                        0, IntPtr.Zero, IntPtr.Zero), "clEnqueueReadBuffer");
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return result;
-                }
-                catch (WarpHostException)
+        private uint[] DispatchAdmittedUInt32(WarpNativeBankRetention bankUse, WarpNativeLaunch launch, int itemCount,
+            CancellationToken cancellationToken)
+        {
+            bool launched = false;
+            try
+            {
+                uint argument = UploadInputs(bankUse, itemCount, cancellationToken);
+                nuint outputBytes = checked((nuint)Math.Max(launch.OutputCount, 1) * sizeof(uint));
+                ulong output = bankUse.Allocate(outputBytes, bytes =>
                 {
-                    if (launched) { owner.faulted = true; }
-                    throw;
-                }
-                finally
-                {
-                    foreach (ref readonly IntPtr buffer in CollectionsMarshal.AsSpan(buffers)) { owner.api.ReleaseBuffer(buffer); }
-                }
+                    IntPtr buffer = owner.api.CreateBuffer(owner.context, 2, bytes, IntPtr.Zero, out int error);
+                    Check(error, "clCreateBuffer(output)");
+                    return unchecked((ulong)buffer.ToInt64());
+                });
+                SetPointer(argument++, new IntPtr(unchecked((long)output)));
+                SetInteger(argument++, checked((uint)itemCount));
+                foreach (uint scalar in bankUse.Scalars) { SetInteger(argument++, scalar); }
+                using var global = new WarpNativeBlock(IntPtr.Size);
+                using var local = new WarpNativeBlock(IntPtr.Size);
+                Marshal.WriteInt64(global.Pointer, checked((long)launch.GridX * launch.WorkgroupSize));
+                Marshal.WriteInt64(local.Pointer, launch.WorkgroupSize);
+                cancellationToken.ThrowIfCancellationRequested();
+                Check(owner.api.EnqueueKernel(owner.queue, kernel, 1, IntPtr.Zero, global.Pointer, local.Pointer,
+                    0, IntPtr.Zero, IntPtr.Zero), "clEnqueueNDRangeKernel");
+                launched = true;
+                Check(owner.api.Finish(owner.queue), "clFinish");
+                var result = new uint[launch.OutputCount];
+                using var resultPin = new WarpPinnedUInt32(result);
+                Check(owner.api.EnqueueReadBuffer(owner.queue, new IntPtr(unchecked((long)output)), 1, 0, outputBytes, resultPin.Pointer,
+                    0, IntPtr.Zero, IntPtr.Zero), "clEnqueueReadBuffer");
+                cancellationToken.ThrowIfCancellationRequested();
+                bankUse.PreparePublication();
+                return result;
+            }
+            catch (Exception failure)
+            {
+                bankUse.RecordFailure(failure);
+                if (launched && failure is not OperationCanceledException) { owner.faulted = true; }
+                throw;
+            }
+            finally
+            {
+                bankUse.Retire(pointer => Check(owner.api.ReleaseBuffer(new IntPtr(unchecked((long)pointer))), "clReleaseMemObject(dispatch)"), () => owner.faulted = true);
             }
         }
 
@@ -460,26 +479,27 @@ internal sealed class WarpOpenClNativeDriver : IWarpNativeDriver
             Check(owner.api.SetKernelArgument(kernel, index, sizeof(uint), value.Pointer), "clSetKernelArg(integer)");
         }
 
-        private uint UploadInputs(IReadOnlyList<uint[]> inputs, int itemCount, List<IntPtr> buffers, CancellationToken cancellationToken)
+        private uint UploadInputs(WarpNativeBankRetention bankUse, int itemCount, CancellationToken cancellationToken)
         {
             uint argument = 0;
-            foreach (uint[] input in inputs)
+            foreach (uint[] input in bankUse.Inputs)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
-                IntPtr buffer = owner.api.CreateBuffer(owner.context, 4, bytes, IntPtr.Zero, out int error);
-                Check(error, "clCreateBuffer(input)");
-                buffers.Add(buffer);
+                ulong buffer = bankUse.Allocate(bytes, requested =>
+                {
+                    IntPtr allocation = owner.api.CreateBuffer(owner.context, 4, requested, IntPtr.Zero, out int error);
+                    Check(error, "clCreateBuffer(input)");
+                    return unchecked((ulong)allocation.ToInt64());
+                });
                 using var pin = new WarpPinnedUInt32((uint[])input.Clone());
                 if (itemCount > 0)
                 {
-                    Check(owner.api.EnqueueWriteBuffer(owner.queue, buffer, 1, 0, bytes, pin.Pointer,
+                    Check(owner.api.EnqueueWriteBuffer(owner.queue, new IntPtr(unchecked((long)buffer)), 1, 0, bytes, pin.Pointer,
                         0, IntPtr.Zero, IntPtr.Zero), "clEnqueueWriteBuffer");
                 }
-
-                SetPointer(argument++, buffer);
+                SetPointer(argument++, new IntPtr(unchecked((long)buffer)));
             }
-
             return argument;
         }
 

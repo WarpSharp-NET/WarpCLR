@@ -12,6 +12,7 @@ internal abstract class WarpPortableWordInstructionContext
     internal abstract WarpPortableMethodGraphInstruction SourceInstruction { get; }
     internal abstract WarpPortableTypedInstruction Instruction { get; }
     internal abstract WarpPortableWordBody Body { get; }
+    internal abstract bool PrivateHelperBoundaries { get; }
     internal abstract WarpPortableGeneratedServiceImporter Services { get; }
     internal abstract int Block { get; }
     internal int Function => Body.Function - 1;
@@ -29,6 +30,20 @@ internal abstract class WarpPortableWordInstructionContext
     internal abstract void EmitGeneratedBlock(int block, Func<WarpPortableWordInstructionContext, WarpBlockTerminator> emitter);
     internal abstract void RecordReturnedRoots(int resultWord, string typeIdentity);
     internal abstract void RequireService(string identity);
+
+    internal int EmitPrivateHelperBridge(Func<WarpPortableWordInstructionContext, int, WarpBlockTerminator> emitter)
+    {
+        ArgumentNullException.ThrowIfNull(emitter);
+        if (!PrivateHelperBoundaries) { throw new InvalidOperationException("The private helper bridge requires its separately admitted consistency profile."); }
+        int block = ReserveGeneratedBlock();
+        EmitGeneratedBlock(block, stage =>
+        {
+            int controller = stage.Emit(WarpPrivateControllerOpCode.LoadController);
+            stage.RequireService(WarpPrivateControllerProjection.HelperBoundarySemantics);
+            return emitter(stage, controller);
+        });
+        return block;
+    }
 
     internal WarpBranchTerminator Next() => Instruction.Successors.Length == 1 ? new(new(SourceBlock(Instruction.Successors[0]), [])) :
         throw new WarpVerificationException("WRPCLR2300", "This source operation needs an explicit generated control continuation.", Instruction.Offset);

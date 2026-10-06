@@ -61,13 +61,18 @@ public sealed partial class CoreCLRResumableKernel
         MethodBuilder method = type.DefineMethod("ExecuteQuantum", MethodAttributes.Public | MethodAttributes.Static,
             typeof(void),
             [typeof(uint[][]), typeof(uint[]), typeof(int), typeof(uint[]), typeof(int), typeof(int), typeof(CancellationToken), typeof(uint[])]);
-        new QuantumEmitter(layout, method.GetILGenerator(), maximumParallelCopies).Emit();
-        MethodInfo compiledMethod = type.CreateType()!.GetMethod(method.Name)!;
+        FieldBuilder callUseSites = type.DefineField("callUseSites", typeof(object[]), FieldAttributes.Private | FieldAttributes.Static);
+        new QuantumEmitter(layout, method.GetILGenerator(), maximumParallelCopies, callUseSites).Emit();
+        Type compiledType = type.CreateType()!;
+        MethodInfo compiledMethod = compiledType.GetMethod(method.Name)!;
+        CoreCLRCallUseObservation.RegisterEmission(layout, compiledMethod,
+            compiledType.GetField(callUseSites.Name, BindingFlags.NonPublic | BindingFlags.Static)!);
         return compiledMethod;
     }
 
     internal static CoreCLRResumableKernel PrepareCompilation(WarpLogicalMachineLayout layout, MethodInfo method)
     {
+        CoreCLRCallUseObservation.RequireEmission(layout, method);
         RuntimeHelpers.PrepareMethod(method.MethodHandle);
         return new CoreCLRResumableKernel(layout, method);
     }
@@ -100,7 +105,9 @@ public sealed partial class CoreCLRResumableKernel
         {
             throw new InvalidOperationException("A private controller program requires an opaque registry-owned source-segment invocation.");
         }
-        ValidateInvocation(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum);
+        using WarpOrdinaryArrayAdmission admission = WarpOrdinaryArrayAdmission.Acquire(inputs, scalarArguments, state, managedArena);
+        uint[][] capturedInputs = CoreCLROrdinaryArrayEmission.CaptureInputReferences(admission, inputs.Length);
+        ValidateInvocation(capturedInputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum);
         if (state[WarpLogicalMachineLayout.StatusOffset] != WarpLogicalMachineLayout.Runnable)
         {
             return;
@@ -117,7 +124,7 @@ public sealed partial class CoreCLRResumableKernel
                 CoreCLRResourceLimitKind.StackExhausted, 0, depth: checked((int)state[Layout.HasLogicalAccounting ? WarpLogicalMachineLayout.LogicalDepthOffset : WarpLogicalMachineLayout.DepthOffset]));
         }
 
-        entryPoint(inputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum, cancellationToken, managedArena);
+        entryPoint(capturedInputs, scalarArguments, workerIndex, state, maximumCallDepth, quantum, cancellationToken, managedArena);
     }
 
     private void ValidateInvocation(uint[][] inputs, uint[] scalars, int workerIndex, uint[] state, int maximumCallDepth, int quantum)
@@ -225,6 +232,7 @@ public sealed partial class CoreCLRResumableKernel
             .GetMethod(nameof(CancellationToken.ThrowIfCancellationRequested))!;
         private readonly WarpLogicalMachineLayout layout;
         private readonly ILGenerator il;
+        private readonly FieldBuilder callUseSites;
         private readonly LocalBuilder frame;
         private readonly LocalBuilder depth;
         private readonly LocalBuilder nextFrame;
@@ -234,15 +242,18 @@ public sealed partial class CoreCLRResumableKernel
         private readonly LocalBuilder nextOperations;
         private readonly LocalBuilder aliasOwnerFrame;
         private readonly LocalBuilder aliasCursor;
+        private readonly LocalBuilder privateScopeTopDepth;
         private int emittedFunction;
         private readonly LocalBuilder[] edgeCopies;
         private readonly Label loop;
         private readonly Label[] nodes;
 
-        public QuantumEmitter(WarpLogicalMachineLayout layout, ILGenerator il, int maximumParallelCopies)
+        public QuantumEmitter(WarpLogicalMachineLayout layout, ILGenerator il, int maximumParallelCopies, FieldBuilder callUseSites)
         {
             this.layout = layout;
             this.il = il;
+            this.callUseSites = callUseSites;
+            ordinary = new(il);
             frame = il.DeclareLocal(typeof(int));
             depth = il.DeclareLocal(typeof(int));
             nextFrame = il.DeclareLocal(typeof(int));
@@ -252,6 +263,7 @@ public sealed partial class CoreCLRResumableKernel
             nextOperations = il.DeclareLocal(typeof(ulong));
             aliasOwnerFrame = il.DeclareLocal(typeof(int));
             aliasCursor = il.DeclareLocal(typeof(int));
+            privateScopeTopDepth = layout.HasPrivateHelperReturnFences ? il.DeclareLocal(typeof(int)) : depth;
             edgeCopies = Enumerable.Range(0, maximumParallelCopies).Select(_ => il.DeclareLocal(typeof(uint))).ToArray();
             loop = il.DefineLabel();
             nodes = layout.Nodes.Select(_ => il.DefineLabel()).ToArray();
@@ -259,6 +271,8 @@ public sealed partial class CoreCLRResumableKernel
 
         public void Emit()
         {
+            ordinary.Begin(scalarArgument: 1, stateArgument: 3, arenaArgument: 7);
+            EmitOrdinaryTerminalReturn();
             LoadState(WarpLogicalMachineLayout.RemainingStepsLowOffset);
             il.Emit(OpCodes.Conv_U8);
             LoadState(WarpLogicalMachineLayout.RemainingStepsHighOffset);
@@ -272,6 +286,7 @@ public sealed partial class CoreCLRResumableKernel
             il.MarkLabel(loop);
             il.Emit(OpCodes.Ldarga_S, (byte)6);
             il.Emit(OpCodes.Call, CancellationCheck);
+            if (layout.HasPrivateHelperBoundaries) { EmitPrivateHelperDispatchGuard(); }
             LoadState(WarpLogicalMachineLayout.DepthOffset);
             il.Emit(OpCodes.Stloc, depth);
             il.Emit(OpCodes.Ldloc, depth);
@@ -292,6 +307,8 @@ public sealed partial class CoreCLRResumableKernel
                 il.MarkLabel(nodes[node.ProgramCounter]);
                 EmitNode(node);
             }
+            ordinary.End();
+            il.Emit(OpCodes.Ret);
         }
 
         private void EmitNode(WarpLogicalMachineNode node)
@@ -339,7 +356,7 @@ public sealed partial class CoreCLRResumableKernel
             il.Emit(OpCodes.Ldloc, remainingQuantum);
             Constant(node.BlockCost);
             il.Emit(OpCodes.Bge, quantumAdmitted);
-            il.Emit(OpCodes.Ret);
+            EmitQuantumReturn();
             il.MarkLabel(quantumAdmitted);
             il.Emit(OpCodes.Ldloc, remainingSteps);
             Constant(node.SourceCost);
@@ -368,6 +385,7 @@ public sealed partial class CoreCLRResumableKernel
         private void EmitCall(WarpLogicalMachineNode node, WarpIrInstruction call)
         {
             EmitCallCapacity(node, call);
+            EmitCallUseObservation(node);
             il.Emit(OpCodes.Ldloc, frame);
             Constant(layout.FrameWords);
             il.Emit(OpCodes.Add);
@@ -390,6 +408,7 @@ public sealed partial class CoreCLRResumableKernel
                 ChangeLogicalDepth(1);
             }
             StoreFrame(frame, WarpLogicalMachineLayout.FrameProgramCounterOffset, () => Constant(node.Continuation));
+            EmitPrivateHelperScopeStart(node);
             StoreState(WarpLogicalMachineLayout.DepthOffset, () =>
             {
                 il.Emit(OpCodes.Ldloc, depth);
@@ -464,10 +483,11 @@ public sealed partial class CoreCLRResumableKernel
                 }
 
                 StoreState(WarpLogicalMachineLayout.StatusOffset, () => Constant((int)WarpLogicalMachineLayout.Completed));
-                il.Emit(OpCodes.Ret);
+                EmitQuantumReturn();
                 return;
             }
 
+            EmitPrivateHelperReturnWordGuard();
             for (int word = 0; word < values.Count; word++)
             {
                 il.Emit(OpCodes.Ldarg_3);
@@ -492,6 +512,7 @@ public sealed partial class CoreCLRResumableKernel
                 Constant(1);
                 il.Emit(OpCodes.Sub);
             });
+            EmitPrivateHelperReturnFence();
             il.Emit(OpCodes.Br, loop);
         }
 
@@ -519,7 +540,7 @@ public sealed partial class CoreCLRResumableKernel
             StoreState(WarpLogicalMachineLayout.FaultKindOffset, () => Constant((int)kind));
             StoreState(WarpLogicalMachineLayout.FaultFunctionOffset, () => Constant(node.Function));
             StoreState(WarpLogicalMachineLayout.FaultBlockOffset, () => Constant(node.Block));
-            il.Emit(OpCodes.Ret);
+            EmitQuantumReturn();
         }
 
         private void EmitInstruction(WarpIrInstruction instruction)
@@ -537,9 +558,7 @@ public sealed partial class CoreCLRResumableKernel
                     il.Emit(OpCodes.Ldarg_2);
                     return;
                 case WarpIrOpCode.LoadInput:
-                    il.Emit(OpCodes.Ldarg_0);
-                    Constant(checked((int)instruction.Immediate));
-                    il.Emit(OpCodes.Ldelem_Ref);
+                    LoadCapturedInput(checked((int)instruction.Immediate));
                     il.Emit(OpCodes.Ldarg_2);
                     il.Emit(OpCodes.Ldelem_U4);
                     return;

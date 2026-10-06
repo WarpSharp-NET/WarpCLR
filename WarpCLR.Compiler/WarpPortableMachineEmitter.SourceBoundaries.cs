@@ -15,6 +15,7 @@ public sealed partial class WarpPortableMachineEmitter
 
         private void AppendSourceBoundary(WarpLogicalMachineNode node)
         {
+            if (layout.IsPrivateHelperBoundary(node)) { AppendPrivateHelperBoundary(node); return; }
             if (!layout.HasLogicalAccounting || node.SourceCost == 0 || layout.IsRuntimeHelper(node.Function)) { return; }
             string suffix = N(node.ProgramCounter);
             string enabled = Assign($"icmp ne i32 {LoadHeader(WarpLogicalMachineLayout.SourceBoundaryModeOffset)}, 0");

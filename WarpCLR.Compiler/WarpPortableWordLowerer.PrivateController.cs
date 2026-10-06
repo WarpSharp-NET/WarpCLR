@@ -27,7 +27,15 @@ internal static partial class WarpPortableWordLowerer
                 }
             }
             services.Add(WarpPrivateControllerOpCode.Version);
-            return new(uses);
+            bool boundaries = binding?.Capabilities.PrivateHelperBoundaries == true;
+            bool returns = binding?.Capabilities.PrivateHelperReturnFences == true;
+            if (returns)
+            {
+                services.Add(WarpPrivateControllerProjection.HelperReturnFenceSemantics);
+                services.Add(WarpLogicalMachineLayout.PrivateHelperScopeVersion);
+            }
+            if (boundaries) { services.Add(WarpPrivateControllerProjection.HelperBoundarySemantics); }
+            return new(uses, boundaries, returns);
         }
     }
 }

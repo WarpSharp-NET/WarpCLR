@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 
 namespace WarpCLR.IR;
 
-public sealed class WarpLogicalMachineLayout
+public sealed partial class WarpLogicalMachineLayout
 {
     public const string Version = "warp.logical-machine/0.8";
     public const int HeaderWords = 64;
@@ -88,6 +88,7 @@ public sealed class WarpLogicalMachineLayout
 
         blockEntries = entries.ToFrozenDictionary();
         Nodes = nodes.AsReadOnly();
+        privateHelperReturnSites = CapturePrivateHelperReturnSites(kernel);
         MaximumBlockCost = Nodes.Max(node => node.BlockCost);
     }
 
@@ -208,7 +209,7 @@ public sealed class WarpLogicalMachineLayout
     internal bool HasValidRuntimeHeader(ReadOnlySpan<uint> state)
     {
         if (state.Length < HeaderWords || !HasValidManagedExceptionHeader(state) || state[FrameStrideOffset] != FrameWords || state[PrivateBaseOffset] != PrivateOffset ||
-            state[SourceBoundaryModeOffset] > 1 || state[SourceBoundaryStateOffset] > AcknowledgedSourceBoundary ||
+            state[SourceBoundaryModeOffset] > 1 || state[SourceBoundaryStateOffset] > MaximumSourceBoundaryPhase ||
             state[SourceBoundaryModeOffset] == 0 && state[SourceBoundaryStateOffset] != 0 ||
             !HasLogicalAccounting && state[SourceBoundaryModeOffset] != 0)
         {
@@ -219,10 +220,13 @@ public sealed class WarpLogicalMachineLayout
         {
             return false;
         }
+        if (!HasValidPrivateHelperScope(state)) { return false; }
         if (state[SourceBoundaryStateOffset] == 0) { return true; }
         uint depth = state[DepthOffset];
         if (depth == 0 || depth > (uint)((state.Length - HeaderWords) / FrameWords)) { return false; }
         uint pc = state[HeaderWords + checked((int)(depth - 1) * FrameWords) + FrameProgramCounterOffset];
+        if (state[SourceBoundaryStateOffset] >= AwaitingRootRelease) { return HasValidPrivateHelperReturnFrame(state, depth, pc); }
+        if (state[SourceBoundaryStateOffset] >= NeedsPrivateHelper) { return HasValidPrivateHelperFrame(state, depth, pc); }
         return pc < Nodes.Count && Nodes[(int)pc].StartsBlock && Nodes[(int)pc].SourceCost != 0 &&
             !IsRuntimeHelper(Nodes[(int)pc].Function);
     }

@@ -348,3 +348,7 @@ WarpCLR.IR.WarpRuntimeAbi
 ~override WarpCLR.IR.WarpIrInstruction.ToString() -> string
 ~override WarpCLR.IR.WarpReductionDescriptor.Equals(object obj) -> bool
 ~override WarpCLR.IR.WarpReductionDescriptor.ToString() -> string
+WarpCLR.IR.WarpOrdinaryArrayAdmission
+WarpCLR.IR.WarpOrdinaryArrayAdmission.Dispose() -> void
+WarpCLR.IR.WarpOrdinaryArrayAdmission.GetInput(int index) -> uint[]!
+static WarpCLR.IR.WarpOrdinaryArrayAdmission.Acquire(uint[]![]! inputs, uint[]! scalars, uint[]! state, uint[]! arena) -> WarpCLR.IR.WarpOrdinaryArrayAdmission!

@@ -36,6 +36,7 @@ internal static partial class WarpPortableWordLowerer
             internal override WarpPortableTypedInstruction Instruction { get { Check(); return typed; } }
             internal override WarpPortableWordBody Body { get { Check(); return emitter.Body; } }
             internal override int Block { get { Check(); return block; } }
+            internal override bool PrivateHelperBoundaries { get { Check(); return emitter.owner.Binding?.Capabilities.PrivateHelperBoundaries == true; } }
             internal override WarpPortableGeneratedServiceImporter Services { get { Check(); return emitter.owner.RuntimeImporter; } }
             internal override int SourceBlock(int sourceOffset) { Check(); return emitter.sourceBlocks[sourceOffset]; }
             internal override int SourceFunction(string methodIdentity)

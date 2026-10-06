@@ -23,7 +23,7 @@ public sealed partial class CoreCLRResumableKernel
             StoreState(WarpLogicalMachineLayout.FaultFunctionOffset, () => Constant(node.Function));
             StoreState(WarpLogicalMachineLayout.FaultBlockOffset, () => Constant(node.Block));
             StoreState(WarpLogicalMachineLayout.StatusOffset, () => Constant((int)WarpLogicalMachineLayout.Faulted));
-            il.Emit(OpCodes.Ret);
+            EmitQuantumReturn();
             il.MarkLabel(invalid);
             EmitFault(node, 3);
         }

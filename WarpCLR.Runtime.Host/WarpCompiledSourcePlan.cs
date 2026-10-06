@@ -14,6 +14,7 @@ internal sealed partial class WarpCompiledSourcePlan
 {
     internal const string Semantics = "warp.runtime-host.compiler-sealed-source-controller-exact-frame-owner-root-projection/0.6";
     private readonly Lazy<CoreCLRResumableKernel> kernel;
+    private readonly WarpPortableMethodGraph completionGraph;
     private readonly FrozenDictionary<int, WarpPortableWordBody> bodies;
     private readonly FrozenDictionary<(int Function, int Block), WarpPortableWordSourceBlock> sourceBlocks;
     private readonly FrozenDictionary<(int Function, int PC), uint> maps;
@@ -29,6 +30,7 @@ internal sealed partial class WarpCompiledSourcePlan
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumDepth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSteps);
         CompilerIdentity = WarpPortableWordLowerer.RequireRuntimeCompilerSeal(graph, typeSchema, program);
+        completionGraph = graph;
         TypeSchema = typeSchema;
         Program = program;
         FrameSchema = program.RequiredServices.Contains(WarpPortableSourceFrameSchema.Semantics, StringComparer.Ordinal) ||
@@ -70,6 +72,14 @@ internal sealed partial class WarpCompiledSourcePlan
         uint[] outputs = ResultRootWords.Select(offset => checked((uint)(RootBankWords + offset))).ToArray();
         Schema = new(workers, residents, checked((uint)Quantum), checked((uint)maximumDepth),
             unchecked((uint)maximumSteps), checked((uint)((ulong)maximumSteps >> 32)), checked((uint)StateWords), rootMaps, [], outputs);
+        Identity = ComputeIdentity(program, services, workers, residents, maximumDepth, maximumSteps);
+        services.PrepareCleanup();
+        kernel = new(() => CoreCLRResumableKernel.Compile(Layout));
+    }
+
+    private string ComputeIdentity(WarpPortableWordLoweredProgram program, WarpCompiledRuntimeServices services,
+        uint workers, uint residents, int maximumDepth, long maximumSteps)
+    {
         string canonical = string.Join('\n', Semantics, CompilerIdentity.IdentityHash, program.GraphHash, program.VerifiedHash, program.LoweredHash, program.MapsHash,
             WarpIrHash.Compute(program.Kernel), WarpLogicalMachineLayout.Version, WarpPortableHeapLayout.Semantics,
             WarpPortableSchedulerLayout.Semantics, WarpManagedAtomicKernels.Semantics, WarpPortableHostPublicationServices.Semantics, services.Identity,
@@ -81,9 +91,7 @@ internal sealed partial class WarpCompiledSourcePlan
             string.Join(';', sourceLoans.OrderBy(pair => pair.Key.Function).ThenBy(pair => pair.Key.Block)
                 .Select(pair => pair.Key.Function.ToString(CultureInfo.InvariantCulture) + ":" +
                     pair.Key.Block.ToString(CultureInfo.InvariantCulture) + ":" + pair.Value.ToString(CultureInfo.InvariantCulture))));
-        Identity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
-        services.PrepareCleanup();
-        kernel = new(() => CoreCLRResumableKernel.Compile(Layout));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 
     internal WarpPortableWordProgramIdentity CompilerIdentity { get; }

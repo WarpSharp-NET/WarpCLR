@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -12,7 +13,7 @@ internal static partial class WarpPortableMethodGraphIntrinsics
         type == typeof(Array) || type == typeof(ValueType) || type == typeof(Enum) || type == typeof(Type) || type == typeof(MemberInfo) ||
         type == typeof(RuntimeTypeHandle) || type == typeof(RuntimeFieldHandle) || type == typeof(RuntimeMethodHandle) ||
         type == typeof(Delegate) || type == typeof(MulticastDelegate) || IsDelegate(type) ||
-        type == typeof(Math) || type == typeof(MathF) || type == typeof(BitConverter) ||
+        type == typeof(Math) || type == typeof(MathF) || type == typeof(BitConverter) || type == typeof(BitOperations) ||
         type == typeof(Interlocked) || type == typeof(Volatile) || type == typeof(Monitor) ||
         type == typeof(Thread) || type == typeof(RuntimeHelpers) || type == typeof(Activator) ||
         type.Assembly == typeof(object).Assembly && (type.IsEnum || type.IsInterface || typeof(Exception).IsAssignableFrom(type));
@@ -34,7 +35,7 @@ internal static partial class WarpPortableMethodGraphIntrinsics
 
         ParameterInfo[] parameters = method.GetParameters();
         string? operation = ResolveObjectOperation(method, type, parameters) ?? ResolveNullableOperation(method, type, parameters) ?? ResolveNumericOperation(method, type, parameters) ??
-            ResolveMemoryOperation(method, type, parameters) ?? ResolveDataOperation(method, type, parameters) ??
+            ResolveBitOperationsOperation(method) ?? ResolveMemoryOperation(method, type, parameters) ?? ResolveDataOperation(method, type, parameters) ??
             ResolveStringOperation(method, type, parameters) ?? ResolveManagedOperation(method, type, parameters);
         if (operation is null)
         {

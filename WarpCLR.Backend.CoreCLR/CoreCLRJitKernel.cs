@@ -112,6 +112,8 @@ public sealed class CoreCLRJitKernel
         ArgumentNullException.ThrowIfNull(inputs);
         ArgumentNullException.ThrowIfNull(scalarArguments);
         ArgumentNullException.ThrowIfNull(budget);
+        using WarpOrdinaryArrayAdmission admission = WarpOrdinaryArrayAdmission.Acquire(inputs, scalarArguments, [], []);
+        uint[][] capturedInputs = CoreCLROrdinaryArrayEmission.CaptureInputReferences(admission, inputs.Length);
         if (inputs.Length != Kernel.InputBufferCount)
         {
             throw new ArgumentException("The input buffer count does not match the verified kernel.", nameof(inputs));
@@ -123,7 +125,7 @@ public sealed class CoreCLRJitKernel
         }
 
         ArgumentOutOfRangeException.ThrowIfNegative(workerIndex);
-        foreach (uint[] input in inputs)
+        foreach (uint[] input in capturedInputs)
         {
             if (input is null)
             {
@@ -140,7 +142,7 @@ public sealed class CoreCLRJitKernel
         try
         {
             budget.CheckNativeStack();
-            return entryPoint(inputs, scalarArguments, workerIndex, budget);
+            return entryPoint(capturedInputs, scalarArguments, workerIndex, budget);
         }
         finally
         {
@@ -196,6 +198,10 @@ public sealed class CoreCLRJitKernel
         LocalBuilder returnValue = il.DeclareLocal(typeof(uint));
         Label[] labels = blocks.Select(_ => il.DefineLabel()).ToArray();
 
+        // Pure compiled functions have only budget/UInt32 arguments and cannot load array banks.
+        CoreCLROrdinaryArrayEmission? ordinary = budgetArgument == 3 ? new(il) : null;
+        ordinary?.Begin(scalarArgument: 1);
+
         EmitArgument(il, budgetArgument);
         il.Emit(OpCodes.Callvirt, EnterCallMethod);
         Label exit = il.BeginExceptionBlock();
@@ -207,42 +213,50 @@ public sealed class CoreCLRJitKernel
             il.Emit(OpCodes.Callvirt, ChargeMethod);
             foreach (WarpIrInstruction instruction in block.Instructions)
             {
-                EmitInstruction(il, instruction, values, functions, budgetArgument);
+                EmitInstruction(il, instruction, values, functions, budgetArgument, ordinary);
                 il.Emit(OpCodes.Stloc, values[instruction.Result]);
             }
 
-            switch (block.Terminator)
-            {
-                case WarpBranchTerminator branch:
-                    EmitEdge(il, branch.Target, blocks, values, edgeArguments, labels);
-                    break;
-
-                case WarpConditionalBranchTerminator conditional:
-                    Label whenZero = il.DefineLabel();
-                    il.Emit(OpCodes.Ldloc, values[conditional.Condition]);
-                    il.Emit(OpCodes.Brfalse, whenZero);
-                    EmitEdge(il, conditional.WhenNonZero, blocks, values, edgeArguments, labels);
-                    il.MarkLabel(whenZero);
-                    EmitEdge(il, conditional.WhenZero, blocks, values, edgeArguments, labels);
-                    break;
-
-                case WarpReturnTerminator @return:
-                    il.Emit(OpCodes.Ldloc, values[@return.Value]);
-                    il.Emit(OpCodes.Stloc, returnValue);
-                    il.Emit(OpCodes.Leave, exit);
-                    break;
-
-                default:
-                    throw new InvalidOperationException("The CoreCLR JIT received an unregistered terminator.");
-            }
+            EmitBodyTerminator(il, block.Terminator, blocks, values, edgeArguments, labels, returnValue, exit);
         }
 
         il.BeginFinallyBlock();
         EmitArgument(il, budgetArgument);
         il.Emit(OpCodes.Callvirt, ExitCallMethod);
         il.EndExceptionBlock();
+        ordinary?.End();
         il.Emit(OpCodes.Ldloc, returnValue);
         il.Emit(OpCodes.Ret);
+    }
+
+    private static void EmitBodyTerminator(ILGenerator il, WarpBlockTerminator terminator,
+        IReadOnlyList<WarpBasicBlock> blocks, LocalBuilder[] values, LocalBuilder[] edgeArguments,
+        Label[] labels, LocalBuilder returnValue, Label exit)
+    {
+        switch (terminator)
+        {
+            case WarpBranchTerminator branch:
+                EmitEdge(il, branch.Target, blocks, values, edgeArguments, labels);
+                break;
+
+            case WarpConditionalBranchTerminator conditional:
+                Label whenZero = il.DefineLabel();
+                il.Emit(OpCodes.Ldloc, values[conditional.Condition]);
+                il.Emit(OpCodes.Brfalse, whenZero);
+                EmitEdge(il, conditional.WhenNonZero, blocks, values, edgeArguments, labels);
+                il.MarkLabel(whenZero);
+                EmitEdge(il, conditional.WhenZero, blocks, values, edgeArguments, labels);
+                break;
+
+            case WarpReturnTerminator @return:
+                il.Emit(OpCodes.Ldloc, values[@return.Value]);
+                il.Emit(OpCodes.Stloc, returnValue);
+                il.Emit(OpCodes.Leave, exit);
+                break;
+
+            default:
+                throw new InvalidOperationException("The CoreCLR JIT received an unregistered terminator.");
+        }
     }
 
     private static void EmitInstruction(
@@ -250,14 +264,14 @@ public sealed class CoreCLRJitKernel
         WarpIrInstruction instruction,
         LocalBuilder[] values,
         IReadOnlyList<MethodBuilder> functions,
-        int budgetArgument)
+        int budgetArgument,
+        CoreCLROrdinaryArrayEmission? ordinary)
     {
         switch (instruction.OpCode)
         {
             case WarpIrOpCode.LoadInput:
-                il.Emit(OpCodes.Ldarg_0);
-                EmitConstant(il, checked((int)instruction.Immediate));
-                il.Emit(OpCodes.Ldelem_Ref);
+                if (ordinary is null) { throw new InvalidOperationException("A value-only function cannot load an input bank."); }
+                ordinary.LoadInput(checked((int)instruction.Immediate));
                 il.Emit(OpCodes.Ldarg_2);
                 il.Emit(OpCodes.Ldelem_U4);
                 return;

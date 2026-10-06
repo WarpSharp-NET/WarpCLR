@@ -8,7 +8,7 @@ namespace WarpCLR.Compiler;
 
 internal static class WarpPortableSourceServiceBanks
 {
-    internal const string Semantics = "warp.source-runtime-banks/closed-module-exact-eh-alias-owner-logical-trace-original-constructor-retirement-private-fault-ticket-and-source-initializer-exact-signatures/0.9";
+    internal const string Semantics = "warp.source-runtime-banks/closed-module-exact-eh-alias-owner-logical-trace-original-constructor-retirement-private-fault-ticket-source-initializer-and-cached-failure-exact-signatures-raw-utf16-identities/0.10";
 
     internal static ImmutableDictionary<MethodInfo, IReadOnlyList<WarpRuntimeWordBank>> Capture(MethodInfo entry)
     {
@@ -52,7 +52,8 @@ internal static class WarpPortableSourceServiceBanks
             method.DeclaringType == typeof(WarpPortableHeapServices) && method.Name is "SourceStateReadByte" or "SourceStateWriteByte";
         bool mixed = method.DeclaringType == typeof(WarpPortableHeapServices) && method.Name is
             nameof(WarpPortableHeapServices.ReadSourceFrameValue) or nameof(WarpPortableHeapServices.WriteSourceFrameValue) or "ValidateSourceFrameOwner" or
-            nameof(WarpPortableHeapServices.BeginSourceTypeInitialization) or nameof(WarpPortableHeapServices.CompleteSourceTypeInitialization) or "RequireSourceInitializerState";
+            nameof(WarpPortableHeapServices.BeginSourceTypeInitialization) or nameof(WarpPortableHeapServices.CompleteSourceTypeInitialization) or "RequireSourceInitializerState" or
+            nameof(WarpPortableHeapServices.CacheSourceInitializerFailure) or "RequireInitializerFailureOwner";
         if (state ? count != 1 : mixed ? count != 2 || parameters[0].ParameterType != typeof(uint[]) || parameters[1].ParameterType != typeof(uint[]) :
             method.DeclaringType != typeof(WarpPortableHeapServices) || count != 1)
         {

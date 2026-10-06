@@ -1,5 +1,4 @@
 using WarpCLR.IR;
-using System.Runtime.InteropServices;
 
 namespace WarpCLR.Runtime.Host.Native;
 
@@ -15,49 +14,54 @@ internal static class WarpNativeReductionDispatch
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(operations);
-        uint identity = operation switch
-        {
-            WarpReductionOperation.WrappingSum => 0,
-            WarpReductionOperation.Minimum => uint.MaxValue,
-            WarpReductionOperation.Maximum => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(operation)),
-        };
-        if (!image.SupportsScalableReduction)
-        {
-            throw new WarpHostException("WRPNATIVE1008", "The image does not contain the portable parallel reduction-pass kernel.");
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        if (values.Length == 0) { return identity; }
-        if (values.Length == 1) { return values[0]; }
-        (uint group, int maximumOutput) = Admit(image, values.Length);
-
-        var allocations = new List<ulong>();
+        using var bankUse = WarpNativeBankRetention.Acquire([values], [], []);
         bool launched = false;
         try
         {
-            ulong input = operations.Allocate(checked((nuint)values.Length * sizeof(uint)));
-            allocations.Add(input);
-            ulong output = operations.Allocate(checked((nuint)maximumOutput * sizeof(uint)));
-            allocations.Add(output);
-            using var pin = new WarpPinnedUInt32(values);
-            operations.Upload(input, pin.Pointer, checked((nuint)values.Length * sizeof(uint)));
-            launched = true;
-            input = RunPasses(input, output, values.Length, group, operation, operations, cancellationToken);
-
-            using var result = new WarpPinnedUInt32(new uint[1]);
-            operations.Readback(result.Pointer, input, sizeof(uint));
+            uint identity = operation switch
+            {
+                WarpReductionOperation.WrappingSum => 0,
+                WarpReductionOperation.Minimum => uint.MaxValue,
+                WarpReductionOperation.Maximum => 0,
+                _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+            };
+            if (!image.SupportsScalableReduction)
+            {
+                throw new WarpHostException("WRPNATIVE1008", "The image does not contain the portable parallel reduction-pass kernel.");
+            }
             cancellationToken.ThrowIfCancellationRequested();
-            return result.Data[0];
+            uint[] admittedValues = bankUse.Inputs[0];
+            if (admittedValues.Length == 0) { bankUse.PreparePublication(); return identity; }
+            if (admittedValues.Length == 1)
+            {
+                uint result = admittedValues[0];
+                bankUse.PreparePublication();
+                return result;
+            }
+            (uint group, int maximumOutput) = Admit(image, admittedValues.Length);
+            ulong input = bankUse.Allocate(checked((nuint)admittedValues.Length * sizeof(uint)), operations.Allocate);
+            ulong output = bankUse.Allocate(checked((nuint)maximumOutput * sizeof(uint)), operations.Allocate);
+            using var pin = new WarpPinnedUInt32(admittedValues);
+            operations.Upload(input, pin.Pointer, checked((nuint)admittedValues.Length * sizeof(uint)));
+            launched = true;
+            input = RunPasses(input, output, admittedValues.Length, group, operation, operations, cancellationToken);
+            using var readback = new WarpPinnedUInt32(new uint[1]);
+            operations.Readback(readback.Pointer, input, sizeof(uint));
+            cancellationToken.ThrowIfCancellationRequested();
+            uint resultValue = readback.Data[0];
+            bankUse.PreparePublication();
+            return resultValue;
         }
-        catch (WarpHostException)
+        catch (Exception failure)
         {
-            if (launched) { operations.Quarantine(); }
+            bankUse.RecordFailure(failure);
+            if (launched && failure is not OperationCanceledException) { bankUse.RequestQuarantine(operations.Quarantine); }
             throw;
         }
         finally
         {
-            foreach (ref readonly ulong allocation in CollectionsMarshal.AsSpan(allocations)) { operations.Free(allocation); }
+            bankUse.Retire(operations.Free, operations.Quarantine);
+            bankUse.ThrowFirstFailure();
         }
     }
 

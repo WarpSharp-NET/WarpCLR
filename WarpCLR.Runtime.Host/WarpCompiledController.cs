@@ -3,7 +3,7 @@ using WarpCLR.IR;
 
 namespace WarpCLR.Runtime.Host;
 
-internal sealed class WarpCompiledController
+internal sealed partial class WarpCompiledController
 {
     private readonly WarpCompiledWordService compareExchange;
     private readonly uint[] arena;
@@ -84,6 +84,8 @@ internal sealed class WarpCompiledController
     {
         lock (gate)
         {
+            if (sourceFreeze is not null)
+            { throw new InvalidOperationException("A Source freeze requires its exact owner authority and issued handle."); }
             if (!suspended || capturedGrant is null && (active is not null || arena[word] != 0))
             { throw new InvalidOperationException("The exact remote ownership domain changed its controller grant."); }
             if (capturedGrant is not null) { Validate(capturedGrant); }

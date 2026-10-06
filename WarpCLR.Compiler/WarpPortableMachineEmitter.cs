@@ -259,6 +259,7 @@ public sealed partial class WarpPortableMachineEmitter
             string runnable = Assign($"icmp eq i32 {status}, {N(WarpLogicalMachineLayout.Runnable)}");
             Line($"  br i1 {runnable}, label %dispatch_frame, label %done");
             Line("dispatch_frame:");
+            if (layout.HasPrivateHelperBoundaries) { AppendPrivateHelperDispatchGuard(); }
             Line($"  %depth = load i32, ptr addrspace(1) {HeaderPointer(WarpLogicalMachineLayout.DepthOffset)}, align 4");
             Line("  %frame_number = sub i32 %depth, 1");
             Line("  %frame_number64 = zext i32 %frame_number to i64");
@@ -599,6 +600,7 @@ public sealed partial class WarpPortableMachineEmitter
             }
 
             AppendPrivateInitialization(callee, call.Callee + 1);
+            AppendPrivateHelperScopeStart(node, callee);
             if (layout.HasLogicalAccounting && layout.CountsSourceDepth(call.Callee + 1))
             {
                 ChangeLogicalDepth(1);
@@ -671,6 +673,7 @@ public sealed partial class WarpPortableMachineEmitter
 
             string returnValue = LoadFrame(WarpLogicalMachineLayout.FrameReturnValueOffset);
             string caller = Assign($"getelementptr i32, ptr addrspace(1) %frame, i64 -{N(layout.FrameWords)}");
+            AppendPrivateHelperReturnWordGuard();
             for (int word = 0; word < values.Length; word++)
             {
                 string offset = Assign($"add i32 {returnValue}, {N(WarpLogicalMachineLayout.FrameHeaderWords + word)}");
@@ -684,6 +687,7 @@ public sealed partial class WarpPortableMachineEmitter
                 ChangeLogicalDepth(-1);
             }
             StoreHeader(WarpLogicalMachineLayout.DepthOffset, Assign("sub i32 %depth, 1"));
+            AppendPrivateHelperReturnFence(node);
             Line("  br label %dispatch");
         }
 

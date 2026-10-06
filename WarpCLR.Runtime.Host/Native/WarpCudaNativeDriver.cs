@@ -275,64 +275,83 @@ internal sealed class WarpCudaNativeDriver : IWarpNativeDriver
         public uint[] DispatchUInt32(IReadOnlyList<uint[]> inputs, IReadOnlyList<uint> scalars,
             int itemCount, bool reduction, CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull(scalars);
-            Image.ValidateArguments(inputs, scalars, reduction);
-            WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, inputs, itemCount, reduction, scalars.Count);
-            lock (owner.gate)
+            using var bankUse = WarpNativeBankRetention.Acquire(inputs, scalars, []);
+            try
             {
-                owner.EnsureUsable();
-                ObjectDisposedException.ThrowIf(released, this);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (launch.GridX == 0) { return []; }
-                using var scope = owner.EnterContext();
-                List<ulong> allocations = [];
-                bool launched = false;
-                try
+                Image.ValidateArguments(bankUse.Inputs, bankUse.Scalars, reduction);
+                WarpNativeLaunch launch = WarpNativeLaunch.Admit(owner.Target, bankUse.Inputs, itemCount, reduction, bankUse.Scalars.Count);
+                lock (owner.gate)
                 {
-                    List<ulong> inputPointers = UploadInputs(inputs, itemCount, allocations, cancellationToken);
-
-                    nuint outputBytes = checked((nuint)Math.Max(launch.OutputCount, 1) * sizeof(uint));
-                    Check(owner.api.MemoryAllocate(out ulong output, outputBytes), "cuMemAlloc(output)");
-                    allocations.Add(output);
-                    using var arguments = new WarpNativeKernelArguments(inputPointers, output, checked((uint)itemCount), scalars);
+                    owner.EnsureUsable();
+                    ObjectDisposedException.ThrowIf(released, this);
                     cancellationToken.ThrowIfCancellationRequested();
-                    Check(owner.api.LaunchKernel(function, launch.GridX, 1, 1, launch.WorkgroupSize, 1, 1,
-                        0, IntPtr.Zero, arguments.Pointer, IntPtr.Zero), "cuLaunchKernel");
-                    launched = true;
-                    Check(owner.api.ContextSynchronize(), "cuCtxSynchronize");
-                    var result = new uint[launch.OutputCount];
-                    using var resultPin = new WarpPinnedUInt32(result);
-                    Check(owner.api.CopyDeviceToHost(resultPin.Pointer, output, outputBytes), "cuMemcpyDtoH");
-                    // Cancellation is observed only after completion; it cannot interrupt a device kernel.
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return result;
+                    if (launch.GridX == 0) { bankUse.PreparePublication(); return []; }
+                    using var scope = owner.EnterContext();
+                    return DispatchAdmittedUInt32(bankUse, launch, itemCount, cancellationToken);
                 }
-                catch (WarpHostException)
-                {
-                    if (launched) { owner.faulted = true; }
-                    throw;
-                }
-                finally
-                {
-                    foreach (ref readonly ulong allocation in CollectionsMarshal.AsSpan(allocations)) { owner.api.MemoryFree(allocation); }
-                }
+            }
+            catch (Exception failure) { bankUse.RecordFailure(failure); throw; }
+            finally
+            {
+                bankUse.ReleaseIfNoAllocationAttempt();
+                bankUse.ThrowFirstFailure();
             }
         }
 
-        private List<ulong> UploadInputs(IReadOnlyList<uint[]> inputs, int itemCount, List<ulong> allocations, CancellationToken cancellationToken)
+        private uint[] DispatchAdmittedUInt32(WarpNativeBankRetention bankUse, WarpNativeLaunch launch, int itemCount,
+            CancellationToken cancellationToken)
         {
-            var inputPointers = new List<ulong>(inputs.Count);
-            foreach (uint[] input in inputs)
+            bool launched = false;
+            try
+            {
+                List<ulong> inputPointers = UploadInputs(bankUse, itemCount, cancellationToken);
+                nuint outputBytes = checked((nuint)Math.Max(launch.OutputCount, 1) * sizeof(uint));
+                ulong output = bankUse.Allocate(outputBytes, bytes =>
+                {
+                    Check(owner.api.MemoryAllocate(out ulong pointer, bytes), "cuMemAlloc(output)");
+                    return pointer;
+                });
+                using var arguments = new WarpNativeKernelArguments(inputPointers, output, checked((uint)itemCount), bankUse.Scalars);
+                cancellationToken.ThrowIfCancellationRequested();
+                Check(owner.api.LaunchKernel(function, launch.GridX, 1, 1, launch.WorkgroupSize, 1, 1,
+                    0, IntPtr.Zero, arguments.Pointer, IntPtr.Zero), "cuLaunchKernel");
+                launched = true;
+                Check(owner.api.ContextSynchronize(), "cuCtxSynchronize");
+                var result = new uint[launch.OutputCount];
+                using var resultPin = new WarpPinnedUInt32(result);
+                Check(owner.api.CopyDeviceToHost(resultPin.Pointer, output, outputBytes), "cuMemcpyDtoH");
+                cancellationToken.ThrowIfCancellationRequested();
+                bankUse.PreparePublication();
+                return result;
+            }
+            catch (Exception failure)
+            {
+                bankUse.RecordFailure(failure);
+                if (launched && failure is not OperationCanceledException) { owner.faulted = true; }
+                throw;
+            }
+            finally
+            {
+                bankUse.Retire(pointer => Check(owner.api.MemoryFree(pointer), "cuMemFree(dispatch)"), () => owner.faulted = true);
+            }
+        }
+
+        private List<ulong> UploadInputs(WarpNativeBankRetention bankUse, int itemCount, CancellationToken cancellationToken)
+        {
+            var inputPointers = new List<ulong>(bankUse.Inputs.Count);
+            foreach (uint[] input in bankUse.Inputs)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 nuint bytes = checked((nuint)Math.Max(itemCount, 1) * sizeof(uint));
-                Check(owner.api.MemoryAllocate(out ulong pointer, bytes), "cuMemAlloc");
-                allocations.Add(pointer);
+                ulong pointer = bankUse.Allocate(bytes, requested =>
+                {
+                    Check(owner.api.MemoryAllocate(out ulong allocation, requested), "cuMemAlloc");
+                    return allocation;
+                });
                 inputPointers.Add(pointer);
                 using var pin = new WarpPinnedUInt32((uint[])input.Clone());
                 if (itemCount > 0) { Check(owner.api.CopyHostToDevice(pointer, pin.Pointer, bytes), "cuMemcpyHtoD"); }
             }
-
             return inputPointers;
         }
 

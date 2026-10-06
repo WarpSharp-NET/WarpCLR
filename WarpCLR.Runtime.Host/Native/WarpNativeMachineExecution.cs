@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using WarpCLR.IR;
 
 namespace WarpCLR.Runtime.Host.Native;
@@ -7,10 +6,10 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
 {
     private readonly WarpNativeImage image;
     private readonly WarpMachineMemoryOperations operations;
-    private readonly List<ulong> allocations = [];
+    private readonly WarpNativeBankRetention bankUse;
     private uint[] stateSnapshot;
     private readonly uint[] scalars;
-    private readonly uint[][] inputs;
+    private readonly IReadOnlyList<uint[]> inputs;
     private readonly List<ulong> inputPointers = [];
     private readonly int maximumItemCount;
     private readonly ulong[] previousBudgets;
@@ -32,24 +31,25 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
     {
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(image);
-        int minimumQuantum = image.MachineLayout?.MaximumBlockCost ?? 1;
-        launch = WarpNativeMachineLaunch.Admit(image, states, inputs, scalars, itemCount, inputBase, maximumCallDepth,
-            minimumQuantum, managedArena?.WordCount);
+        bankUse = WarpNativeBankRetention.Acquire(inputs, scalars, states);
         this.image = image;
         this.operations = operations;
         maximumItemCount = itemCount;
         this.itemCount = itemCount;
         this.inputBase = inputBase;
         this.maximumCallDepth = maximumCallDepth;
-        stateSnapshot = (uint[])states.Clone();
-        previousBudgets = new ulong[itemCount];
-        previousOperations = new ulong[itemCount];
-        previousBoundaries = new uint[itemCount];
-        CaptureBudgets(stateSnapshot, itemCount);
-        this.scalars = scalars.ToArray();
-        this.inputs = inputs.ToArray();
         try
         {
+            int minimumQuantum = image.MachineLayout?.MaximumBlockCost ?? 1;
+            launch = WarpNativeMachineLaunch.Admit(image, bankUse.State, bankUse.Inputs, bankUse.Scalars,
+                itemCount, inputBase, maximumCallDepth, minimumQuantum, managedArena?.WordCount);
+            stateSnapshot = (uint[])bankUse.State.Clone();
+            previousBudgets = new ulong[itemCount];
+            previousOperations = new ulong[itemCount];
+            previousBoundaries = new uint[itemCount];
+            CaptureBudgets(stateSnapshot, itemCount);
+            this.scalars = bankUse.Scalars.ToArray();
+            this.inputs = bankUse.Inputs;
             arenaLease = managedArena?.Acquire(image.Target, operations);
             if (itemCount == 0) { return; }
             using var state = new WarpPinnedUInt32(stateSnapshot);
@@ -58,35 +58,53 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
             operations.Upload(statePointer, state.Pointer, bytes);
             UploadInputs(this.inputs);
         }
-        catch { Dispose(); throw; }
+        catch (Exception failure)
+        {
+            bankUse.RecordFailure(failure);
+            Dispose();
+            throw;
+        }
     }
 
     public void ResetBatch(uint[] states, int itemCount, int inputBase)
     {
         EnsureUsable();
-        if (itemCount > maximumItemCount)
-        {
-            throw new WarpHostException("WRPNATIVE1005", "The batch exceeds the logical execution's initially admitted resident capacity.");
-        }
-
-        WarpNativeMachineLaunch nextLaunch = WarpNativeMachineLaunch.Admit(image, states, inputs, scalars,
-            itemCount, inputBase, maximumCallDepth, image.MachineLayout!.MaximumBlockCost, arenaLease?.WordCount);
-        uint[] nextSnapshot = (uint[])states.Clone();
+        using var nextUse = WarpNativeBankRetention.Acquire([], [], states);
+        bool attached = false;
         try
         {
+            if (itemCount > maximumItemCount)
+            {
+                throw new WarpHostException("WRPNATIVE1005", "The batch exceeds the logical execution's initially admitted resident capacity.");
+            }
+            WarpNativeMachineLaunch nextLaunch = WarpNativeMachineLaunch.Admit(image, nextUse.State, inputs, scalars,
+                itemCount, inputBase, maximumCallDepth, image.MachineLayout!.MaximumBlockCost, arenaLease?.WordCount);
+            uint[] nextSnapshot = (uint[])nextUse.State.Clone();
+            // This upload reuses the original physical state buffer. Keep every
+            // original batch bank until that exact buffer is positively freed.
+            bankUse.AttachState(nextUse);
+            attached = true;
             if (nextSnapshot.Length != 0)
             {
                 using var state = new WarpPinnedUInt32(nextSnapshot);
                 operations.Upload(statePointer, state.Pointer, checked((nuint)nextSnapshot.Length * sizeof(uint)));
             }
+            stateSnapshot = nextSnapshot;
+            CaptureBudgets(stateSnapshot, itemCount);
+            this.itemCount = itemCount;
+            this.inputBase = inputBase;
+            launch = nextLaunch;
         }
-        catch (WarpHostException) { Quarantine(); throw; }
-
-        stateSnapshot = nextSnapshot;
-        CaptureBudgets(stateSnapshot, itemCount);
-        this.itemCount = itemCount;
-        this.inputBase = inputBase;
-        launch = nextLaunch;
+        catch (Exception failure)
+        {
+            if (attached) { Quarantine(); }
+            else
+            {
+                nextUse.RecordFailure(failure);
+                nextUse.Retire(operations.Free, Quarantine);
+            }
+            throw;
+        }
     }
 
     public uint[] Resume(int quantum, CancellationToken cancellationToken = default)
@@ -114,7 +132,9 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
             WarpNativeMachineLaunch.ValidateReturnedStates(image.MachineLayout!, stateSnapshot, itemCount, maximumCallDepth);
             observedLogicalFault = ValidateBudgetsAndCheckForFault();
             cancellationToken.ThrowIfCancellationRequested();
-            return (uint[])stateSnapshot.Clone();
+            uint[] result = (uint[])stateSnapshot.Clone();
+            bankUse.RequirePublishable();
+            return result;
         }
         catch (WarpHostException)
         {
@@ -133,29 +153,18 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
     {
         if (disposed) { return; }
         disposed = true;
-        var cleanup = new WarpNativeCleanup();
-        foreach (ref readonly ulong pointer in CollectionsMarshal.AsSpan(allocations))
-        {
-            ulong allocation = pointer;
-            cleanup.Attempt(() => FreeAllocation(allocation));
-        }
-        allocations.Clear();
-        if (arenaLease is not null) { cleanup.Attempt(arenaLease.Dispose); }
+        bankUse.Retire(operations.Free, Quarantine);
+        if (arenaLease is not null) { bankUse.AttemptAdditionalCleanup(arenaLease.Dispose); }
         arenaLease = null;
-        cleanup.Complete();
-    }
-
-    private void FreeAllocation(ulong pointer)
-    {
-        try { operations.Free(pointer); }
-        catch (WarpHostException) { Quarantine(); throw; }
+        bankUse.Dispose();
+        bankUse.ThrowFirstFailure();
     }
 
     private void Quarantine()
     {
         faulted = true;
         arenaLease?.Quarantine();
-        operations.Quarantine();
+        bankUse.RequestQuarantine(operations.Quarantine);
     }
 
     private void UploadInputs(IReadOnlyList<uint[]> inputs)
@@ -165,19 +174,14 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
             nuint bytes = checked((nuint)Math.Max(input.Length, 1) * sizeof(uint));
             ulong pointer = Allocate(bytes);
             inputPointers.Add(pointer);
-            // Runtime-owned immutable snapshots remain pinned only for the synchronous upload.
+            // The exact admitted original bank stays retained through physical retirement;
+            // pinning is needed only for this synchronous upload.
             using var pin = new WarpPinnedUInt32(input);
             if (input.Length != 0) { operations.Upload(pointer, pin.Pointer, bytes); }
         }
     }
 
-    private ulong Allocate(nuint bytes)
-    {
-        ulong pointer = operations.Allocate(bytes);
-        if (pointer == 0) { throw new WarpHostException("WRPNATIVE1007", "The native allocator returned a null buffer capability."); }
-        allocations.Add(pointer);
-        return pointer;
-    }
+    private ulong Allocate(nuint bytes) => bankUse.Allocate(bytes, operations.Allocate);
 
     private void EnsureUsable()
     {
@@ -185,6 +189,7 @@ internal sealed class WarpNativeMachineExecution : IWarpNativeMachineExecution
         arenaLease?.EnsureUsable();
         if (faulted) { throw new WarpHostException("WRPNATIVE1006", "The native logical execution has been quarantined."); }
         if (cancelled) { throw new OperationCanceledException("The logical execution was cancelled."); }
+        bankUse.RequirePublishable();
     }
 
     private void CaptureBudgets(uint[] states, int count)

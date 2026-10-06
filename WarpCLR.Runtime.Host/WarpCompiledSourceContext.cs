@@ -33,7 +33,7 @@ internal sealed partial class WarpCompiledSourceContext
         inputs = ValidateArguments(arguments);
         Arena = plan.Schema.AttachToEmptyHeap(unusedHeap);
         Scheduler = Arena[WarpPortableSchedulerLayout.HeapDescriptor];
-        controller = new(Arena, Scheduler);
+        controller = new(Arena, Scheduler, sourceCheckpointAuthority);
         tickets = new WarpCompiledWorkerTicket?[plan.Workers];
         helpers = new WarpCompiledServiceContinuation?[plan.Workers];
         allocations = new uint[plan.Workers];

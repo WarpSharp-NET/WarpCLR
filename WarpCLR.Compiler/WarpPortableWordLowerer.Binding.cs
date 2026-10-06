@@ -80,6 +80,10 @@ internal static partial class WarpPortableWordLowerer
         private WarpLogicalExecutionMetadata Execution(WarpLogicalBodyMetadata[] described)
         {
             WarpPortableWordExecutionCapabilities? flags = binding?.Capabilities;
+            if (flags?.PrivateHelperReturnFences == true && !flags.PrivateHelperBoundaries)
+            { throw Error(graph.EntryIdentity, "Private helper return fences require exact helper entry boundaries.", 0); }
+            if (flags?.PrivateHelperBoundaries == true && !flags.PrivateController)
+            { throw Error(graph.EntryIdentity, "Private helper boundaries require the private controller projection.", 0); }
             return new(described, frameOwners: flags?.FrameOwners == true, runtimeStateAccess: flags?.RuntimeStateAccess == true,
                 nonlocalStateDispatch: flags?.NonlocalStateDispatch == true, managedExceptionTermination: flags?.ManagedExceptionTermination == true,
                 logicalWorkerAccess: flags?.LogicalWorkerAccess == true,

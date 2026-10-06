@@ -57,6 +57,12 @@ public static class WarpIrHash
 
     private static void AppendPrivateController(IncrementalHash hash, WarpPrivateControllerProjection projection)
     {
+        if (projection.RequiresHelperReturnFences)
+        {
+            AppendString(hash, WarpPrivateControllerProjection.HelperReturnFenceSemantics);
+            AppendString(hash, WarpLogicalMachineLayout.PrivateHelperScopeVersion);
+        }
+        if (projection.RequiresHelperBoundaries) { AppendString(hash, WarpPrivateControllerProjection.HelperBoundarySemantics); }
         AppendString(hash, WarpPrivateControllerOpCode.Version);
         AppendInt32(hash, projection.Uses.Count);
         foreach (WarpPrivateControllerUse use in projection.Uses)

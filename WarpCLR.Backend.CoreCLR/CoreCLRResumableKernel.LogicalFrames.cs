@@ -47,7 +47,7 @@ public sealed partial class CoreCLRResumableKernel
             il.MarkLabel(invalid);
             EmitFault(node, 3);
             il.MarkLabel(terminal);
-            il.Emit(OpCodes.Ret);
+            EmitQuantumReturn();
         }
 
         private void EmitStateDispatchStatus(Label runnable, Label invalid, Label terminal)

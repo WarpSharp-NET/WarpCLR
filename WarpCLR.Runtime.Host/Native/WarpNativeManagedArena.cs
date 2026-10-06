@@ -1,3 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
+
 namespace WarpCLR.Runtime.Host.Native;
 
 internal sealed class WarpNativeManagedArena : IDisposable
@@ -12,10 +15,12 @@ internal sealed class WarpNativeManagedArena : IDisposable
     private readonly HashSet<Lease> leases = [];
     private readonly ulong pointer;
     private readonly nuint bytes;
+    private readonly WarpNativeOriginalArenaUse originalUse;
     private bool disposeRequested;
     private bool disposed;
     private bool quarantined;
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A failed constructor must preserve its exact original exception and retain the original bank whenever allocation retirement is unconfirmed.")]
     internal WarpNativeManagedArena(WarpNativeTarget target, WarpMachineMemoryOperations operations, uint[] initial,
         Action<Action> withContext, Action<Action> withCleanupContext, Action<WarpNativeManagedArena> released)
     {
@@ -25,26 +30,33 @@ internal sealed class WarpNativeManagedArena : IDisposable
         ArgumentNullException.ThrowIfNull(withContext);
         ArgumentNullException.ThrowIfNull(withCleanupContext);
         ArgumentNullException.ThrowIfNull(released);
+        originalUse = WarpNativeOriginalArenaUse.Acquire(initial);
         this.target = target;
         this.operations = operations;
         this.withContext = withContext;
         this.withCleanupContext = withCleanupContext;
         this.released = released;
         ownerIdentity = operations.ContextIdentity ?? operations;
-        WordCount = checked((uint)initial.Length);
-        bytes = checked((nuint)Math.Max(initial.Length, 1) * sizeof(uint));
-        if ((ulong)bytes > target.GlobalMemoryBytes)
-        {
-            throw new WarpHostException("WRPNATIVE1005", "The persistent managed arena exceeds the concrete device's memory admission.");
-        }
-        pointer = operations.Allocate(bytes);
-        if (pointer == 0) { throw new WarpHostException("WRPNATIVE1007", "The native allocator returned a null arena capability."); }
+        bool allocationAttempted = false;
         try
         {
+            WordCount = checked((uint)initial.Length);
+            bytes = checked((nuint)Math.Max(initial.Length, 1) * sizeof(uint));
+            if ((ulong)bytes > target.GlobalMemoryBytes)
+            {
+                throw new WarpHostException("WRPNATIVE1005", "The persistent managed arena exceeds the concrete device's memory admission.");
+            }
+            allocationAttempted = true;
+            pointer = operations.Allocate(bytes);
+            if (pointer == 0) { throw new WarpHostException("WRPNATIVE1007", "The native allocator returned a null arena capability."); }
             using var pin = new WarpPinnedUInt32(initial);
             if (initial.Length != 0) { operations.Upload(pointer, pin.Pointer, bytes); }
         }
-        catch { operations.Free(pointer); throw; }
+        catch (Exception failure)
+        {
+            DrainFailedConstruction(allocationAttempted, failure);
+            throw;
+        }
     }
 
     internal uint WordCount { get; }
@@ -145,11 +157,59 @@ internal sealed class WarpNativeManagedArena : IDisposable
         }
     });
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "All retirement and release-callback failures must be collected without losing the first exception or releasing original-bank admission after unconfirmed retirement.")]
     private void ReleaseIfDrained()
     {
         if (!disposeRequested || leases.Count != 0 || disposed) { return; }
-        try { operations.Free(pointer); }
-        finally { disposed = true; released(this); }
+        ExceptionDispatchInfo? failure = null;
+        try
+        {
+            operations.Free(pointer);
+            originalUse.ReleaseAfterConfirmedRetirement();
+        }
+        catch (Exception exception)
+        {
+            failure = ExceptionDispatchInfo.Capture(exception);
+            originalUse.RecordFailure(exception);
+            QuarantineAfterFailedRetirement();
+        }
+        disposed = true;
+        try { released(this); }
+        catch (Exception exception)
+        {
+            originalUse.RecordFailure(exception);
+            failure ??= ExceptionDispatchInfo.Capture(exception);
+        }
+        failure?.Throw();
+    }
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Constructor cleanup preserves the original failure and retains every cleanup failure and original bank when physical retirement cannot be confirmed.")]
+    private void DrainFailedConstruction(bool allocationAttempted, Exception originalFailure)
+    {
+        originalUse.RecordFailure(originalFailure);
+        try
+        {
+            if (pointer != 0)
+            {
+                operations.Free(pointer);
+                originalUse.ReleaseAfterConfirmedRetirement();
+            }
+            else if (!allocationAttempted) { originalUse.ReleaseAfterConfirmedRetirement(); }
+            else { QuarantineAfterFailedRetirement(); }
+        }
+        catch (Exception cleanupFailure)
+        {
+            originalUse.RecordFailure(cleanupFailure);
+            QuarantineAfterFailedRetirement();
+        }
+    }
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A quarantine callback failure must be retained without masking the exact allocation or retirement failure; original bank admission remains live.")]
+    private void QuarantineAfterFailedRetirement()
+    {
+        quarantined = true;
+        try { operations.Quarantine(); }
+        catch (Exception failure) { originalUse.RecordFailure(failure); }
     }
 
     internal sealed class Lease(WarpNativeManagedArena arena) : IDisposable

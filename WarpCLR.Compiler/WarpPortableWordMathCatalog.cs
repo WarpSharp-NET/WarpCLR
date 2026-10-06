@@ -8,6 +8,12 @@ internal static partial class WarpPortableWordMathCatalog
 {
     internal static WarpPortableWordMathBinding? Resolve(MethodInfo source)
     {
+        int rotateWidth = WarpPortableMethodGraphIntrinsics.RotateLeftWordWidth(source);
+        if (rotateWidth != 0)
+        {
+            return Bind(source, typeof(WarpPortableBitOperations), WarpPortableBitOperations.Semantics,
+                rotateWidth == 32 ? nameof(WarpPortableBitOperations.RotateLeft32) : "RotateLeft64");
+        }
         string? intrinsic = WarpPortableMethodGraphIntrinsics.Resolve(source);
         if (intrinsic?.Contains("math.strict.", StringComparison.Ordinal) != true) { return null; }
         Type input = source.GetParameters()[0].ParameterType;

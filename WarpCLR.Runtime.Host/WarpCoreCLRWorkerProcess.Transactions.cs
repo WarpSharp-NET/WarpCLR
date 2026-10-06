@@ -39,26 +39,32 @@ internal sealed partial class WarpCoreCLRWorkerProcess
         WarpCoreCLRAsyncGate.Lease? transaction = null;
         WarpCoreCLRWordTransaction.Lease? buffers = null;
         WarpCoreCLRTransferAdmission.Lease? storage = null;
+        WarpOrdinaryArrayAdmission? ordinary = null;
         WarpCoreCLRStoppedCommands.Command? command = null;
         try
         {
+            // Legacy command/recovery/controller metadata never bypasses original-array denial.
+            ordinary = WarpOrdinaryArrayAdmission.Acquire(inputs, scalars, state, arena);
+            uint[][] capturedInputs = CaptureOrdinaryInputs(ordinary, inputs.Length);
             buffers = recovery is null ? await WarpCoreCLRWordTransaction.AcquireAsync(state, arena, deadline.Token).ConfigureAwait(false) :
                 await WarpCoreCLRWordTransaction.AcquireQuarantinedAsync(state, arena, recovery, deadline.Token).ConfigureAwait(false);
-            recovery?.Validate(this, IrHash, inputs, scalars, state, arena, RegistryAuthority);
-            ValidateAliases(inputs, scalars, state, arena);
+            recovery?.Validate(this, IrHash, capturedInputs, scalars, state, arena, RegistryAuthority);
+            ValidateAliases(capturedInputs, scalars, state, arena);
             transaction = await transactions.AcquireAsync(deadline.Token).ConfigureAwait(false);
-            long bytes = WarpCoreCLRWorkerWords.Estimate(inputs, scalars, state, arena);
+            long bytes = WarpCoreCLRWorkerWords.Estimate(capturedInputs, scalars, state, arena);
             storage = await WarpCoreCLRTransferAdmission.AcquireAsync(bytes * 8 + 4096, deadline.Token).ConfigureAwait(false);
-            byte[] request = WarpCoreCLRWorkerWords.Request(inputs, scalars, worker, state, depth, quantum, arena);
-            (ulong current, WarpCoreCLRStoppedCommands.Command startedCommand) = BeginWordCommand(request, state, arena, admission, inputs, scalars,
+            byte[] request = WarpCoreCLRWorkerWords.Request(capturedInputs, scalars, worker, state, depth, quantum, arena);
+            (ulong current, WarpCoreCLRStoppedCommands.Command startedCommand) = BeginWordCommand(request, state, arena, admission, capturedInputs, scalars,
                 controller, controllerRelease, recovery, deadline.Token);
             command = startedCommand;
             started = true;
             await WarpCoreCLRWorkerProtocol.WriteAsync(process.StandardInput.BaseStream, key, WarpCoreCLRWorkerProtocol.Execute, current, request, deadline.Token).ConfigureAwait(false);
             WarpCoreCLRWorkerProtocol.Frame frame = await WarpCoreCLRWorkerProtocol.ReadAsync(process.StandardOutput.BaseStream, key, current, deadline.Token).ConfigureAwait(false);
             if (frame.Kind != WarpCoreCLRWorkerProtocol.Executed) { throw new InvalidDataException("Worker quantum result missing."); }
-            (uint[] returnedState, uint[] returnedArena) = WarpCoreCLRWorkerWords.ReadResponse(frame.Payload, request, state.Length, arena.Length);
-            CommitResponse(layout, state, arena, depth, returnedState, returnedArena, command, recovery, frame.Payload, request, deadline.Token);
+            WarpCoreCLRAuthenticatedResponse authenticated = WarpCoreCLRAuthenticatedResponse.Capture(frame, key,
+                WarpCoreCLRWorkerProtocol.Executed, current, out byte[] response);
+            (uint[] returnedState, uint[] returnedArena) = WarpCoreCLRWorkerWords.ReadResponse(response, request, state.Length, arena.Length);
+            CommitResponse(layout, inputs, capturedInputs, scalars, state, arena, depth, returnedState, returnedArena, command, recovery, authenticated, response, request, deadline.Token);
         }
         catch (Exception error)
         {
@@ -69,7 +75,11 @@ internal sealed partial class WarpCoreCLRWorkerProcess
             }
             throw WordFailure(cause, started ? command : null, cancellationToken);
         }
-        finally { storage?.Dispose(); transaction?.Dispose(); buffers?.Dispose(); }
+        finally
+        {
+            try { storage?.Dispose(); transaction?.Dispose(); buffers?.Dispose(); }
+            finally { ordinary?.Dispose(); }
+        }
     }
 
     private async Task<Exception> StopOwnedCommandAsync(Exception failure, uint[] state, uint[] arena,
@@ -109,9 +119,10 @@ internal sealed partial class WarpCoreCLRWorkerProcess
         }
     }
 
-    private void CommitResponse(WarpLogicalMachineLayout layout, uint[] state, uint[] arena, int depth,
+    private void CommitResponse(WarpLogicalMachineLayout layout, uint[][] inputs, uint[][] capturedInputs, uint[] scalars, uint[] state, uint[] arena, int depth,
         uint[] returnedState, uint[] returnedArena, WarpCoreCLRStoppedCommands.Command command,
-        WarpCoreCLRQuarantineRecovery? recovery, byte[] response, byte[] request, CancellationToken cancellationToken)
+        WarpCoreCLRQuarantineRecovery? recovery, WarpCoreCLRAuthenticatedResponse authenticated,
+        byte[] response, byte[] request, CancellationToken cancellationToken)
     {
         ValidateResult(layout, state, returnedState, depth);
         if (command.Controller is not null)
@@ -123,7 +134,7 @@ internal sealed partial class WarpCoreCLRWorkerProcess
             cancellationToken.ThrowIfCancellationRequested();
             recovery?.ObserveGeneratedCompletion(state, returnedState, RegistryAuthority);
             (WarpCoreCLRGenerationTransition? transition, WarpCoreCLRControllerCheckpoint? checkpoint) = ObserveGenerationCommit(command, returnedState, returnedArena, response);
-            WordCheckpoint wordCheckpoint = PrepareWordCheckpoint(command, returnedState, returnedArena, response, request);
+            WordCheckpoint wordCheckpoint = PrepareWordCheckpoint(command, returnedState, returnedArena, authenticated, response, request, inputs, capturedInputs, scalars);
             returnedState.CopyTo(state, 0); returnedArena.CopyTo(arena, 0);
             Committed(command, transition, checkpoint);
             PublishWordCheckpoint(command, wordCheckpoint);

@@ -18,6 +18,7 @@ public sealed partial class CoreCLRResumableKernel
 
         private void EmitSourceBoundary(WarpLogicalMachineNode node)
         {
+            if (layout.IsPrivateHelperBoundary(node)) { EmitPrivateHelperBoundary(); return; }
             if (!layout.HasLogicalAccounting || node.SourceCost == 0 || layout.IsRuntimeHelper(node.Function)) { return; }
             Label execute = il.DefineLabel();
             LoadState(WarpLogicalMachineLayout.SourceBoundaryModeOffset);
@@ -27,7 +28,7 @@ public sealed partial class CoreCLRResumableKernel
             Constant((int)WarpLogicalMachineLayout.AcknowledgedSourceBoundary);
             il.Emit(OpCodes.Beq, acknowledged);
             StoreState(WarpLogicalMachineLayout.SourceBoundaryStateOffset, () => Constant((int)WarpLogicalMachineLayout.BeforeSourceBoundary));
-            il.Emit(OpCodes.Ret);
+            EmitQuantumReturn();
             il.MarkLabel(acknowledged);
             StoreState(WarpLogicalMachineLayout.SourceBoundaryStateOffset, () => Constant(0));
             il.MarkLabel(execute);

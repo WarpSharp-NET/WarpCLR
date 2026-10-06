@@ -13,7 +13,14 @@ internal static partial class WarpCoreCLRBinaryPlanCodec
         if (execution.LogicalWorkerAccess) { WriteString(writer, WarpManagedInvocationOpCode.Version); }
         if (execution.PrivateControllerProjection is { } projection)
         {
-            WriteString(writer, WarpPrivateControllerOpCode.Version); writer.Write(projection.Uses.Count);
+            WriteString(writer, WarpPrivateControllerOpCode.Version);
+            if (projection.RequiresHelperReturnFences)
+            {
+                WriteString(writer, WarpPrivateControllerProjection.HelperReturnFenceSemantics);
+                WriteString(writer, WarpLogicalMachineLayout.PrivateHelperScopeVersion);
+            }
+            if (projection.RequiresHelperBoundaries) { WriteString(writer, WarpPrivateControllerProjection.HelperBoundarySemantics); }
+            writer.Write(projection.Uses.Count);
             foreach (WarpPrivateControllerUse use in projection.Uses)
             {
                 writer.Write(use.Function); writer.Write(use.Block); writer.Write(use.Value);
@@ -40,8 +47,10 @@ internal static partial class WarpCoreCLRBinaryPlanCodec
         bool managedException = Flag(reader), logicalWorker = Flag(reader);
         if (logicalWorker && !string.Equals(ReadString(reader), WarpManagedInvocationOpCode.Version, StringComparison.Ordinal))
         { throw new InvalidDataException("The logical-worker invocation capability version is unsupported."); }
-        WarpPrivateControllerProjection? projection = string.Equals(version, WarpLogicalExecutionMetadata.PrivateControllerVersion, StringComparison.Ordinal) ?
-            ReadPrivateControllerProjection(reader) : null;
+        bool returnFences = string.Equals(version, WarpLogicalExecutionMetadata.PrivateHelperReturnFenceVersion, StringComparison.Ordinal);
+        bool helperBoundaries = returnFences || string.Equals(version, WarpLogicalExecutionMetadata.PrivateHelperBoundaryVersion, StringComparison.Ordinal);
+        WarpPrivateControllerProjection? projection = helperBoundaries || string.Equals(version, WarpLogicalExecutionMetadata.PrivateControllerVersion, StringComparison.Ordinal) ?
+            ReadPrivateControllerProjection(reader, helperBoundaries, returnFences) : null;
         if (Count(reader, WarpCompilationAdmission.MaximumFunctionsPerEntry + 1) != bodies) { throw new InvalidDataException("Execution body count mismatch."); }
         var metadata = new WarpLogicalBodyMetadata[bodies];
         foreach (ref WarpLogicalBodyMetadata body in metadata.AsSpan())
@@ -59,10 +68,15 @@ internal static partial class WarpCoreCLRBinaryPlanCodec
         return new(metadata, recursive, owners, stateAccess, nonlocal, managedException, logicalWorker, projection);
     }
 
-    private static WarpPrivateControllerProjection ReadPrivateControllerProjection(BinaryReader reader)
+    private static WarpPrivateControllerProjection ReadPrivateControllerProjection(BinaryReader reader, bool helperBoundaries, bool returnFences)
     {
         if (!string.Equals(ReadString(reader), WarpPrivateControllerOpCode.Version, StringComparison.Ordinal))
         { throw new InvalidDataException("The private controller capability version is unsupported."); }
+        if (returnFences && (!string.Equals(ReadString(reader), WarpPrivateControllerProjection.HelperReturnFenceSemantics, StringComparison.Ordinal) ||
+            !string.Equals(ReadString(reader), WarpLogicalMachineLayout.PrivateHelperScopeVersion, StringComparison.Ordinal)))
+        { throw new InvalidDataException("The private helper-return-fence semantics are unsupported."); }
+        if (helperBoundaries && !string.Equals(ReadString(reader), WarpPrivateControllerProjection.HelperBoundarySemantics, StringComparison.Ordinal))
+        { throw new InvalidDataException("The private helper-boundary semantics are unsupported."); }
         int count = Count(reader, WarpCompilationAdmission.MaximumInstructionsPerEntry);
         if (count * 28L > reader.BaseStream.Length - reader.BaseStream.Position)
         { throw new InvalidDataException("Private controller uses are truncated."); }
@@ -72,13 +86,13 @@ internal static partial class WarpCoreCLRBinaryPlanCodec
             use = new(reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32(),
                 reader.ReadInt32(), reader.ReadInt32(), ReadString(reader));
         }
-        return new(uses);
+        return new(uses, helperBoundaries, returnFences);
     }
 
     private static WarpControlFlowKernel ReadPlan(BinaryReader reader, string expectedIrHash)
     {
-        if (reader.ReadUInt32() != Magic || !string.Equals(ReadString(reader), Version, StringComparison.Ordinal) ||
-            !string.Equals(ReadString(reader), WarpProfileCatalog.ProfileId, StringComparison.Ordinal) ||
+        bool returnFences = ReadWireProfile(reader);
+        if (!string.Equals(ReadString(reader), WarpProfileCatalog.ProfileId, StringComparison.Ordinal) ||
             !string.Equals(ReadString(reader), WarpRuntimeAbi.Version, StringComparison.Ordinal) ||
             !string.Equals(ReadString(reader), WarpRuntimeAbi.SafepointPolicy, StringComparison.Ordinal) ||
             !string.Equals(ReadString(reader), WarpLogicalMachineLayout.Version, StringComparison.Ordinal))
@@ -86,8 +100,12 @@ internal static partial class WarpCoreCLRBinaryPlanCodec
             throw new InvalidDataException("The binary plan profile/ABI/metadata schema is unsupported.");
         }
         string executionVersion = ReadString(reader);
+        if (returnFences != string.Equals(executionVersion, WarpLogicalExecutionMetadata.PrivateHelperReturnFenceVersion, StringComparison.Ordinal))
+        { throw new InvalidDataException("The private helper-return-fence metadata and wire profile must match exactly."); }
         if (!string.Equals(executionVersion, WarpLogicalExecutionMetadata.Version, StringComparison.Ordinal) &&
-            !string.Equals(executionVersion, WarpLogicalExecutionMetadata.PrivateControllerVersion, StringComparison.Ordinal))
+            !string.Equals(executionVersion, WarpLogicalExecutionMetadata.PrivateControllerVersion, StringComparison.Ordinal) &&
+            !string.Equals(executionVersion, WarpLogicalExecutionMetadata.PrivateHelperBoundaryVersion, StringComparison.Ordinal) &&
+            !string.Equals(executionVersion, WarpLogicalExecutionMetadata.PrivateHelperReturnFenceVersion, StringComparison.Ordinal))
         { throw new InvalidDataException("The binary logical metadata version is unsupported."); }
         string hash = ReadString(reader), name = ReadString(reader);
         if (!string.Equals(hash, expectedIrHash, StringComparison.Ordinal)) { throw new InvalidDataException("The binary plan changes its admitted IR identity."); }

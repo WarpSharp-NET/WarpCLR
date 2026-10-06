@@ -1,0 +1,2750 @@
+{
+  "format": "warp.owner-paused-wip/0.1",
+  "owner_instruction": "Commit your current work as wip and sign off for now.",
+  "generated_unix_seconds": 1791319857.1447978,
+  "base_core_commit": "2bef8d9409c70d0319623e2b03ba4334b5fc360c",
+  "unchanged_sdk_commit": "41e37cd20c66f2eb592a0eb9d4db2626f6a14418",
+  "source_boundary": "root-cumulative-private-guards-1082-gate9-abi08",
+  "retained_interruption_manifest": ".supervisor-evidence/root-cumulative-private-guards-1082-gate9-abi08/retained-complete-owner-interrupted-validation-1.json",
+  "retained_interruption_manifest_sha256": "fa8d94a4d9090367119448aa2a615dfce5a0e34a9a141e810af67a843cd14af4",
+  "validation": {
+    "linked_release_build_exit_code": 0,
+    "enabled_analyzer_diagnostics": 0,
+    "original_resolved_cil_methods_unchanged": 19,
+    "targeted_rows_planned": 408,
+    "observed_failed_test_entries": 60,
+    "targeted_run_completed": false,
+    "full_rows_planned": 1585,
+    "full_tests_executed": false,
+    "actual_validation_driver_exit_code": 1,
+    "owner_cancelled": true,
+    "checkout_rebuilt_after_materialization": false,
+    "review_handoff": false,
+    "production_readiness": false,
+    "staged_whitespace_check_exit_code": 2,
+    "staged_whitespace_findings": [
+      "WarpCLR.Compiler/WarpPortableSourceSegment.cs:16: new blank line at EOF.",
+      "WarpCLR.Runtime.Host/WarpSourceArenaRoute.cs:11: new blank line at EOF.",
+      "WarpCLR.Tests/WarpPrivateHelperReturnFenceBindingTests.cs:95: new blank line at EOF."
+    ],
+    "frozen_source_bytes_preserved_without_style_correction": true
+  },
+  "applied_source": [
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRCallUseObservation.Scope.cs",
+      "sha256": "c5370ceba00e65fe63a90d46e70493a7a35c87361017af47fc3b0d4e26683dca",
+      "bytes": 4954,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRCallUseObservation.cs",
+      "sha256": "d954803820b44d4821a9abae1cae86da1a70e9e0c94d4a9f1115ba7554f67e6e",
+      "bytes": 4948,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRJitKernel.cs",
+      "sha256": "1e38bedf9ef3b90160a96e894b68759a8a8058ffb80bf6d16fb889bb4aa66d21",
+      "bytes": 16187,
+      "baseline_sha256": "0bc34f6e850f885787542e5f8f601da2f7d36bf69fce79ed1dbe34e931483f0b"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLROrdinaryArrayEmission.cs",
+      "sha256": "5e579ef2f8490898decfe35a955724d1a6eb0e710fcefd736366d374f7c086cd",
+      "bytes": 2616,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.CallUseObservation.cs",
+      "sha256": "647dc087cdd56603a87b2d5d97ced3d1d55ecbdbdac9f736d1b9655fbe4bd5c8",
+      "bytes": 1075,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.LogicalFrames.cs",
+      "sha256": "3cb9171331094efe248ea9b5490f46d645138fc454186fec4197c6057228bdd9",
+      "bytes": 7021,
+      "baseline_sha256": "06412a75f87f84e62669287f6357381f5237c0b1ebd261d3bc5eec38ef38e083"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.ManagedExceptions.cs",
+      "sha256": "e8bca470515be7161d3cd7d3add1a72161e54ee253eb0d4af7083462c0290a55",
+      "bytes": 1581,
+      "baseline_sha256": "22c639ba30c60a65378e5caa4f87df070fa900482e7b3bd9067c3b9655ffd0e4"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.OrdinaryArrays.cs",
+      "sha256": "0f2d20e5a7d2c584db4bcc073a0b2b95c7d1c7200da010c4da4975a964008836",
+      "bytes": 1218,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.PrivateHelperBoundaries.cs",
+      "sha256": "67000563c3c528e1232b58cca01720743245f910f257030aa86d875053716fc4",
+      "bytes": 6887,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.PrivateHelperReturns.cs",
+      "sha256": "2796d79eef4e270d1a81b92a87dc10b97a8f1a4a2713e455195a95768055549b",
+      "bytes": 3253,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.PrivateHelperScopes.cs",
+      "sha256": "488535e2f1469ed45cf6f81e724aeb766ed974bff8a57470983f80d2018bd8f9",
+      "bytes": 11226,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.SourceBoundaries.cs",
+      "sha256": "96d25027c0cc9127e85a63dbae398a267b0533fbb8d29148edd90d1843e70dfe",
+      "bytes": 5010,
+      "baseline_sha256": "6d93dabf3e5c6eebbc2dd8657aac274766720d6bb47bee149aa2272fee3a0db2"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.cs",
+      "sha256": "21f4235502524aa5ac07ffb6085115545f9a69073b84dcc7af74562d529813da",
+      "bytes": 34952,
+      "baseline_sha256": "467b0ddd3b1b3b8c1d81db4d653c4b16053970121df41225df277aa04ec5c622"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/PublicAPI.Unshipped.txt",
+      "sha256": "43709963750e4a877c76e674c1c286277087ac0896848b6b86c28ddb3163d2e2",
+      "bytes": 5878,
+      "baseline_sha256": "4e77ac3a9e99de7e11585c394a0f17933904821e6bb2e94926cb15d0b8977e6f"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/WarpCoreCLRBinaryPlanCodec.Metadata.cs",
+      "sha256": "22704544b444f27779bbd9d63b8bea83420825c64a6e7d373e2321407367d44b",
+      "bytes": 9802,
+      "baseline_sha256": "def5c1b14e676c6fa6584663cc4d0bb802433bba0c133ab99c847e220d4a873f"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/WarpCoreCLRBinaryPlanCodec.PrivateHelperReturns.cs",
+      "sha256": "55584baa912680e283db750add9e7ce1461fb104cae1e52288bc78a48f30727e",
+      "bytes": 925,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/WarpCoreCLRBinaryPlanCodec.cs",
+      "sha256": "94bb5dee10039d088a1c2451cf52b89a035d0a85a7f2438a7ee095bcd139c3a6",
+      "bytes": 6601,
+      "baseline_sha256": "fccc5f523e5820a634c648294e155130e03326c98b95b53f5918783d4fd34c46"
+    },
+    {
+      "path": "WarpCLR.Backend.CoreCLR/WarpCoreCLRWorkerCallObservations.cs",
+      "sha256": "b4211425408f13fe40c10e7b80b2d7c4b2c43cb7985612cad14d828d52698e51",
+      "bytes": 3892,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableBitOperations.cs",
+      "sha256": "2566f3591103869128e8dee300459298e3c843a7f74bccfce304651bd8836068",
+      "bytes": 1067,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableHeapServices.SourceInitializerFailure.Descriptor.cs",
+      "sha256": "aa088f54217ff9829f0eec214c44f89a5b1734589efca8ec69400301c6cb5046",
+      "bytes": 6855,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableHeapServices.SourceInitializerFailure.Resources.cs",
+      "sha256": "215a41ff0f9c367792be877dfa686936dad50b07ee8b49e0f70537d8e2e229fe",
+      "bytes": 4696,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableHeapServices.SourceInitializerFailure.Validation.cs",
+      "sha256": "dc4d04eadc16ad74807104bdd511459a2264e2c6957a0aec7cae5ef50eb69942",
+      "bytes": 4985,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableHeapServices.SourceInitializerFailure.cs",
+      "sha256": "7d69d76650bf79254ceac62bca20436a1b0f6176bb10fa5fe5e249439a99853a",
+      "bytes": 7601,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableMachineEmitter.PrivateHelperBoundaries.cs",
+      "sha256": "cc30c5ec2fa3245b07e1cfdf3d772a731c76d73a1d572510405f75992b4184db",
+      "bytes": 12219,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableMachineEmitter.PrivateHelperReturns.cs",
+      "sha256": "dc2472a0a102b29f09e1c40fa45511b75709d55ae9abb1f67dea973fd57d6fb3",
+      "bytes": 3288,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableMachineEmitter.PrivateHelperScopeFrames.cs",
+      "sha256": "5ea972769a47eb2351adbe491c10730918ceba6cdf27fcc697d833ea262815ca",
+      "bytes": 5056,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableMachineEmitter.PrivateHelperScopes.cs",
+      "sha256": "61662ceb7fc1b78202be77c5a7d195dd8aa9761cc41f37eeab5f097dd233d64d",
+      "bytes": 14681,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableMachineEmitter.SourceBoundaries.cs",
+      "sha256": "f0c45a6a47f6f0c7a530de72ed5f58f3d55fbf47f0a839af7865ade6305c60fc",
+      "bytes": 5160,
+      "baseline_sha256": "5f7b5b908c3bae3a540c4da923cafa52f85e8478cfa860a2501ac39b6c58098f"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableMachineEmitter.cs",
+      "sha256": "249a64ee08d96f2602053e4f4e34e6a6b4bdee9f7a2bd828a5040e87497f6fc5",
+      "bytes": 35109,
+      "baseline_sha256": "1a9eccba51a182733adebb1580a33a208da2e56d393f1e0a128ddda863d440c2"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceGuardedFrontier.cs",
+      "sha256": "6193fa3cb3052ca9557a1ce715889d7408c80d319c4efc610f2919b396d15972",
+      "bytes": 268,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerCandidate.cs",
+      "sha256": "f7df009dba678ec22f8ca6602a51a958aabcf6ce087546a52bf852d9c40c887e",
+      "bytes": 1563,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutablePoint.cs",
+      "sha256": "fb9540985c3265b195cd089edccf24b3decb085821ddd79f9a2a11e54a9b3fc1",
+      "bytes": 581,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutableProjection.Capture.cs",
+      "sha256": "fe6fbd46c686d51137d252f5eeb00cacda3f62900e3ba5d43277361c7c44ee72",
+      "bytes": 9013,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutableProjection.Graph.cs",
+      "sha256": "a3d7c1dfb155a18c2ac4bfdb8d281b249a906b43b23cecffee63aceaf248e368",
+      "bytes": 7427,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutableProjection.Validation.cs",
+      "sha256": "3002cb68bae5ac07880314669310a526b52277b53815722e47e54a4f484baeb8",
+      "bytes": 2933,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutableProjection.cs",
+      "sha256": "33535bf13dd79f653ffa6a402b0c8699c77087212ff9dd880cb4502b88a98736",
+      "bytes": 4103,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutableSite.cs",
+      "sha256": "633741251c7f393770d17d7ad91380c0508a39ce82513c69ccfe4ca25f02a9fc",
+      "bytes": 537,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerExecutableStep.cs",
+      "sha256": "aee3e47e76fd7e078bcb3aaf26a22408cebbf8a3020f66f04a62ec772caca135",
+      "bytes": 645,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFailureLayout.cs",
+      "sha256": "3032b93c8fae45da02830a39ef7fc64481e04e6208bc27453e44555a2bf6e179",
+      "bytes": 2381,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFailurePlan.Arena.cs",
+      "sha256": "dba14c62261504196d8a78adda24576848fc3994d3d795d7f018343a2c736130",
+      "bytes": 9733,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFailurePlan.cs",
+      "sha256": "9b9cb2dab20f2d089816f9b88e250785a3b744f8ede5428151ac17c3281f7195",
+      "bytes": 5420,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFailureRow.cs",
+      "sha256": "f46d2ce89fa69e578703050181f8b765127a55f0dadf2d8af85167e2225e6fff",
+      "bytes": 191,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFailureType.cs",
+      "sha256": "3200f783a877ff7bea4374e20ed4d1a78d17f888fbafdd7a84850aae493c9718",
+      "bytes": 276,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFrontier.cs",
+      "sha256": "64389051ab100e382f12309f1ae9689e41fbab842535aed5abccad24b2ec8439",
+      "bytes": 363,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerFrontierKind.cs",
+      "sha256": "587154ce680700ff6a98243658ed9df2acad54f1abe284f39141638976a0e4c7",
+      "bytes": 286,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInitializerMessage.cs",
+      "sha256": "c77147878761eba42ba14414c5fa8bdd90698ddfe3c680f5e0bf93225d4d77f8",
+      "bytes": 1884,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceInvocation.cs",
+      "sha256": "37ea7b70d15fd0594509e722f26e80e20a1dcc045f12bbe9e39faad342d641e2",
+      "bytes": 1317,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceOperand.cs",
+      "sha256": "57754cd7b31804f077f410d23563110c805967c54b4fc1346ea1811ce13cffa5",
+      "bytes": 173,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceOperationOrigin.cs",
+      "sha256": "09673229560f1b8115db7d6f63149f36e4ddf0fe54f46c8d850bddd26e3d1a8e",
+      "bytes": 5324,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceOperationOriginKind.cs",
+      "sha256": "d16baa9c5e7ef25092cf9050408fe8a5b26e1bad825ea626ae8aec56ae258934",
+      "bytes": 138,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegment.cs",
+      "sha256": "3250470c7975750f9f6b1ce1583557a36e80a84ab04ad2495d915b2870eac12e",
+      "bytes": 800,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentEndKind.cs",
+      "sha256": "eb95b6180f065f261d8a15c689d18ca90a73453e8f62ac2cd29c821660390e0c",
+      "bytes": 204,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentFrontier.cs",
+      "sha256": "d70b0d89a9e959125f702794f9dd997975937b9476f509b8f961ddfdd6336b40",
+      "bytes": 160,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentMap.Boundaries.cs",
+      "sha256": "2729afc8585ecc4d0aacafff72d57d4f5ecb10418c8bf183e7b56bb32c662577",
+      "bytes": 1588,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentMap.Ends.cs",
+      "sha256": "bc00c8dac8a47bef7e25eed0da652572e68165d367792cb2fb6ecb68e0d69f00",
+      "bytes": 4696,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentMap.Frontiers.cs",
+      "sha256": "caba3db32f1525c188b9e0a90497d975b33e0b2d897262970a35c8999b792233",
+      "bytes": 4058,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentMap.cs",
+      "sha256": "fc218f668ed107cb39fb8e7a3cc0e3fab579c1f71f0a011ec035f96ceb1ac721",
+      "bytes": 7770,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceSegmentStorage.cs",
+      "sha256": "3c4fce503ee720544f5f147c66fd6adbf8edfe80407118e0e6d87979ebe533e9",
+      "bytes": 511,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableSourceServiceBanks.cs",
+      "sha256": "4ce36174db4f3933906819f4a07999bf90b409baa6cfb473e0710798efcbdfb9",
+      "bytes": 4757,
+      "baseline_sha256": "368bc669fed344947ece2d5ecc4e9012df4a0af9f17c6b4a60f22f1be7f20900"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordExecutionCapabilities.cs",
+      "sha256": "65352091811ed21915f623b96bca0273591a30eb7de54d3de9d9cba3515742f6",
+      "bytes": 573,
+      "baseline_sha256": "03ed9c87b837da1181a5079033d972ff84f36adfd3b97d9e2008931e96c1f2ba"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordInstructionContext.cs",
+      "sha256": "5c2982e6f2adde3b88aeb74d920cc3fb7083d80f6f229432591d9c676a067b6b",
+      "bytes": 2897,
+      "baseline_sha256": "5025066074ce351ee652c58abee423cb6067dd4d83972bd75bcbb7b99e263c1e"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordLowerer.Binding.cs",
+      "sha256": "daf7ac33a5c2081a248b8ff7c926673815d896090433f2d0b0234a50901a9c05",
+      "bytes": 10510,
+      "baseline_sha256": "d107aeb00d11cb8c7726f516867373aba69e018e8235e0ba3e9826d7cfe9b109"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordLowerer.BindingInstructions.cs",
+      "sha256": "a547e39cbdbb9b82bd1a104a2106263e3bbedae2733e06b21187850d586c9e0a",
+      "bytes": 7201,
+      "baseline_sha256": "ed6094e487ef8b71548cd37ac3b814f05b31db6c06349446a78013ca3a8824bd"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordLowerer.Calls.cs",
+      "sha256": "458cba592d23f324b3a23b209bc09b4524568be3b8551163a8fec2082a4323da",
+      "bytes": 7204,
+      "baseline_sha256": "8aea3ba7e4e3db074752fd07755966772e0635bc0a8805b4856bbc1db789551b"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordLowerer.PrivateController.cs",
+      "sha256": "4ad0eda1a668a119abf4f9375c44dd91e42db039b53ff812824aa7330ef88740",
+      "bytes": 2085,
+      "baseline_sha256": "3666ed24e3a7132b59cede55b93d9d4a3871ae54975dab68238004d322db6199"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordMathCatalog.cs",
+      "sha256": "f7358bad17c5496177d34e92a5a16f8583dbdde9cf2c94c55d57f0473237b299",
+      "bytes": 1855,
+      "baseline_sha256": "8ad4ce013901f48182fc2c1b2a79eede635538389054e57b79d4a4cf3b72139d"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordProgramIdentity.Validation.cs",
+      "sha256": "8b4f7abd1af466aa9a9a37d61300ed564db15953b089875b1b5f45f80f5bc9dc",
+      "bytes": 5848,
+      "baseline_sha256": "418b1a9c921ff068ff07d305ef63db1eb525cd58feb287194d39e173fc7c39cb"
+    },
+    {
+      "path": "WarpCLR.Compiler/WarpPortableWordProgramIdentity.cs",
+      "sha256": "780f5a667909187b3079823ccc9e35a8aaa16107a315913525f3d21f5c8b74d5",
+      "bytes": 6688,
+      "baseline_sha256": "7595eed6637dc416e1a0e9674b1be606b59d874b06786f0c36b8100576999829"
+    },
+    {
+      "path": "WarpCLR.CoreCLR.Worker/Program.CallUseObservation.cs",
+      "sha256": "5f0f4d2315d75a2878e550f40e83de52459d0d24a84e2e7479dfb34017192d12",
+      "bytes": 820,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.CoreCLR.Worker/Program.cs",
+      "sha256": "dca5249a29df01ca15fb78d8a9c5ed80e0205f5cd0119aa7da86c08f35810850",
+      "bytes": 6777,
+      "baseline_sha256": "7d9bdcef9adfb1b8fa27ff48ab85a8cbf6f05ab9a923461d1a93b9a39d3f3c0a"
+    },
+    {
+      "path": "WarpCLR.IR/PublicAPI.Unshipped.txt",
+      "sha256": "b2b50a1662c01fa1ce0904555d51a985e6811e6bb8fb41857be1c27a8d077e06",
+      "bytes": 28754,
+      "baseline_sha256": "b6a284cebb71ebda6a68a4149fd2fe860232b33042b55f0f4c1b3aebafbc75b3"
+    },
+    {
+      "path": "WarpCLR.IR/WarpIrHash.cs",
+      "sha256": "27b335b351a337abd698648908a54dc2baf086f5758de811c04528022e8dfe3a",
+      "bytes": 8599,
+      "baseline_sha256": "3eaf966ae61313803c38352298539f535dc90d2d610e5b6a717a6598946dd749"
+    },
+    {
+      "path": "WarpCLR.IR/WarpLogicalExecutionMetadata.cs",
+      "sha256": "692dbd526c411870305e82d934f5e01906ff929091a8c8d6061be9a1f8b68d17",
+      "bytes": 8972,
+      "baseline_sha256": "2495fff8287b1b481663a328621a4aff5cd852bf4cd8cd76d76b1ed0467753c9"
+    },
+    {
+      "path": "WarpCLR.IR/WarpLogicalMachineLayout.PrivateHelperBoundaries.cs",
+      "sha256": "95a8a839863af5df6a9cd1da921208ad432ff38c3c65939614ebc678524208a8",
+      "bytes": 2246,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpLogicalMachineLayout.PrivateHelperReturns.cs",
+      "sha256": "28d2f6d0d465b508d3eee82b410ec18675f24b7c263cb8416ad5d27da19c08ff",
+      "bytes": 4672,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpLogicalMachineLayout.PrivateHelperScopes.cs",
+      "sha256": "b098e0f908667765a120ecc7b0745ca0e947db7ecbb6d4267bb88f5f44f401cd",
+      "bytes": 7132,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpLogicalMachineLayout.cs",
+      "sha256": "b598d2b6c5606804b2f9a5e7fd05a3c6dd9408181242e47f2b2acc774e4f90ca",
+      "bytes": 14907,
+      "baseline_sha256": "d0e2ed9bc88dc0267883ceea6c13d3119da392c90bb6e1a11c7ccf6601355264"
+    },
+    {
+      "path": "WarpCLR.IR/WarpOrdinaryArrayAdmission.cs",
+      "sha256": "bcf210067db40562c90af5c6e767d3995e466631a26267b010d8ae25dcc89af1",
+      "bytes": 2065,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpOrdinaryArrayOwner.cs",
+      "sha256": "8ae23fbe2db82f52ef768dc9a31b5eacbd5571b22f1ab78f6df545a603744169",
+      "bytes": 1536,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpOrdinaryArrayRegistry.Ordinary.cs",
+      "sha256": "c5184a62ea2241a08d3d0140ea2cba22597de260efcfaa30ed15e4313db31b48",
+      "bytes": 2389,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpOrdinaryArrayRegistry.Publication.cs",
+      "sha256": "84cfbc39d20834f883ed2effd51fa5dff9b0030318a8f1d51d865bc8cd29e4b7",
+      "bytes": 1579,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpOrdinaryArrayRegistry.cs",
+      "sha256": "e027c1d07af39c9d70aa70516668b9a30a1c6c8191fd811ce2ab1cfd07419dc1",
+      "bytes": 5596,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpPrivateControllerProjection.HelperBoundaries.cs",
+      "sha256": "be345e6b5bb144302791e620753207ae4b96dda9521d897fb93981ec08ea0cf2",
+      "bytes": 1980,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.IR/WarpPrivateControllerProjection.cs",
+      "sha256": "7af95ffaa38e2d585464fa12df3dd05258eb8a90425184c8f47785320a6ef6c9",
+      "bytes": 7467,
+      "baseline_sha256": "6bf56dc06e6d1fbfb69f4dda2953d568e57fb68e64a60b90275cb17319cc3506"
+    },
+    {
+      "path": "WarpCLR.IR/WarpPrivateHelperReturnSite.cs",
+      "sha256": "786b64f5b4ede4040fc9ae6be736eada77c466463c425e4847fa2d3d31935142",
+      "bytes": 441,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpCudaNativeDriver.cs",
+      "sha256": "68c221fb2491be0bcde662909b5f738024fe988ec500f66b0134b2007cac6b19",
+      "bytes": 23969,
+      "baseline_sha256": "6a859a3204eb4d8feab329f6d9b4ea2646ea1a1fb5e0bf4e7d9d233d90e48b86"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpHipNativeDriver.cs",
+      "sha256": "d4384abac983e06c90ea1df0796b6592c487ce940b449dd7dcc2360481a88855",
+      "bytes": 23288,
+      "baseline_sha256": "ccd195cbeca015648a58e34acca59cd84c6297adf653695238f55b8c2fd0f993"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeBankRetention.Allocations.cs",
+      "sha256": "b4cda5d1072da5c1fa8bd1d38260063f02035e4e830f88f4d4ccbe9bc51b6eb5",
+      "bytes": 2772,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeBankRetention.Retirement.cs",
+      "sha256": "872dd7f6d196bbd8e1cc13babcfac4ee44fcf180377aa7efe1cb79ff13d15645",
+      "bytes": 2364,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeBankRetention.cs",
+      "sha256": "9433155ad19fae64c27726ee3f9ef152a0f1a55b85efc47a4237c23e2add614d",
+      "bytes": 5247,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeMachineDispatch.cs",
+      "sha256": "5bad30aaed21d4ad0e30c20255a72076f608458a6c2065b7b8f9782daa32ace9",
+      "bytes": 3165,
+      "baseline_sha256": "64b9f0a9d4591fdfdf43109295c69fb00f67e29ff7caa38cdf504141454cad62"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeMachineExecution.cs",
+      "sha256": "113dfee08714bb15959d78c64377b2a3a8e4e14a7f9f8d7a084d7d449fca4edb",
+      "bytes": 10792,
+      "baseline_sha256": "fccec3520b6a72fbaa725e2135b2b033b36bdd31008ec19ebf2e91434468f387"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeManagedArena.cs",
+      "sha256": "53e5f9846e97dbbadf22771aaed567dea99b02d243bf6d57c20fb7179d795345",
+      "bytes": 9209,
+      "baseline_sha256": "fa7c0cc2ce4bf7c0fb9d58c10c4997ffcbee0e551d0ab8ac111e07901d7e0eed"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeOriginalArenaUse.cs",
+      "sha256": "1bd96037ca7891a52de4fe55c6d56f81216100a11962912b9d7da2ba6ccbaf04",
+      "bytes": 2721,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpNativeReductionDispatch.cs",
+      "sha256": "72ba61753a7ad528b4b3c071370bd294a963285135dcc05966d9dff2f04be43d",
+      "bytes": 5358,
+      "baseline_sha256": "fddb9a1464e2f69c656f114f9d9acd7278bf8374e7d9583f516328dad0b595c6"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpOpenClNativeDriver.cs",
+      "sha256": "0f50051a6b2457d15c45d211f34011d2f49f08d9a5a67fc53583a66e5cfe77e5",
+      "bytes": 32169,
+      "baseline_sha256": "f22ea3eb81b17579ef21a5a33079a817f71fd20afa54e8d3cd0b9ffee59b05ab"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/Native/WarpPinnedUInt32.cs",
+      "sha256": "bef77ceb07c95157fbc8fc0673032606aca50d077076e93c61d09e862758ede5",
+      "bytes": 1109,
+      "baseline_sha256": "39ab05bd1e44e3412859d45ebdd4285cb480986d640a84d218671c6833bacb84"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledController.SourceFreeze.cs",
+      "sha256": "a014aa849ed754cc5c3582c39b0de28a8dd606eceaa96f5a32b38eb26b78ae7c",
+      "bytes": 2254,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledController.cs",
+      "sha256": "d7c525a95641a47db6d866fe6ae6a097f2d760c4a94e164bac5913ac1a099ad1",
+      "bytes": 4820,
+      "baseline_sha256": "1989632b29bd2b501df925ecb1f5f9b0cfb9b3e59a64e54a3a45d2c5bb9b1cc0"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledSourceContext.Completions.cs",
+      "sha256": "738a16281042145eb8ef5c2c42476c32a6edc43b61b73041b7d65b7305e342da",
+      "bytes": 4866,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourceCheckpoints.cs",
+      "sha256": "4fe8ae7808ec1a6e35320a1534171d7d2375518da34ca7fb3df5388b96d2f709",
+      "bytes": 5678,
+      "baseline_sha256": "abd5b328fb048e815d064c946696062b7bcd0ddeabc39c13cb88755c6fa9155d"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledSourceContext.cs",
+      "sha256": "ec583345ff9813959e935ba2643b7291d443627f91827b39cd6d793dcf080ab0",
+      "bytes": 16423,
+      "baseline_sha256": "619477fe98ee368323537d1b67024b8b724f139bccb31709ad8a59ca44f4686d"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledSourcePlan.Completions.cs",
+      "sha256": "482c8f7bf5d2da7db50f9bba8ce3c6f8d2fe3dfcb3d8d0c91326220721a1e679",
+      "bytes": 510,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCompiledSourcePlan.cs",
+      "sha256": "221331115e5165aef0fd252e2def1f608dd1dcffdd63ec6152ed4ad6859924e6",
+      "bytes": 10420,
+      "baseline_sha256": "5e061fb8f24d9715347fc108ad6d9c43a21c994858b1908820c1f2d228347e35"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRAuthenticatedResponse.cs",
+      "sha256": "478fcf60d4eb19dc557e6bce6580dc8cdf33252a44de2002c249773e8e79c122",
+      "bytes": 1972,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRInputBinding.cs",
+      "sha256": "c030ffd85fa1b4b02e5cbcf8f52632954db08108bedcc2f47ecbdd541efb89af",
+      "bytes": 5573,
+      "baseline_sha256": "e6b9e2dcaa87be1292596e0d4c58b8739efac432cd00393fa79989435c3ae30a"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Batches.cs",
+      "sha256": "e5ed3f2ffe0127d55497a2bb5a022f12039cde4a162eb9bbe8defe80c81f592e",
+      "bytes": 3700,
+      "baseline_sha256": "1aa66bfc3d0437ac85dc3b21872b1ffb85387bcfddd1a49da6ac71c3cf2532d7"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Inputs.cs",
+      "sha256": "9a232755abd8a57b412faf97dcd02c3812041d851820d084d7b11b7904042baa",
+      "bytes": 4370,
+      "baseline_sha256": "df1b7436bccf395edce98243a08320639c2949016d611d7a5b17e1602311184d"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.OrdinaryArrays.cs",
+      "sha256": "e5be0acf178eeef7742a809dcbbfeee1bfdad1690f4f11c8603a1f949d424294",
+      "bytes": 2093,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Transactions.cs",
+      "sha256": "82775760d4e9e4759067ff1ed405e1bdd9545526bbc7609e0cd5d3cd226d0429",
+      "bytes": 14044,
+      "baseline_sha256": "e2794e4892112bcbf9b21e8310296585e15cbd55e29d7fd4b50fdb8a9c90e345"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.WordCheckpoints.cs",
+      "sha256": "c3a81320b153a28cffa8099132f49146224588442c9bcd1b52bb0875485482e9",
+      "bytes": 8027,
+      "baseline_sha256": "795c7d5d20c25f0f201974efa045fabe28fdc086744647b06f5c118c5c3c0b71"
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.WordHistory.cs",
+      "sha256": "415d07fcbc42e85a8b1bd33d203de73a18c39148eb1811cd23a781987a0d6a92",
+      "bytes": 3432,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceArenaDecision.cs",
+      "sha256": "f6380b5d9eb0475cd6d3a621bbb9201f6090405539b7b2b1993b4e79e91260c8",
+      "bytes": 210,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceArenaParticipation.cs",
+      "sha256": "6d388323c5eebce773d3103b8ed2b930f01e017d1404f72edf623c03fd323b4a",
+      "bytes": 1584,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceArenaPhase.cs",
+      "sha256": "249cfc1381f4f6c6831175a24db8bf550afd407abf2ef7eea0f35a218c9b740d",
+      "bytes": 123,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceArenaRoute.cs",
+      "sha256": "e2c8e2df0db1f831fc99338bcbaeafea86d303a7f2fc7343620484a38d0b5fae",
+      "bytes": 487,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceArenaStorageContract.cs",
+      "sha256": "b57494c657439cab4fbbc9653ca8e60b8f7909e265174d9a707e312cf76b503a",
+      "bytes": 3377,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceInvocationEndContract.cs",
+      "sha256": "8950eb14263cf376569ee07b6cdb7ffa17c79448143bd2f50573030da8fb7f66",
+      "bytes": 5522,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourcePublicationKind.cs",
+      "sha256": "5e25bed6eb0860c51f71f1bdbab762ad611a4a5a70a4eaf00a300303f7b66d85",
+      "bytes": 146,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourcePublicationStep.cs",
+      "sha256": "b94f341662128dd27955b79eb8ae9896cdff9baa0d705619daa93c64fe2a9444",
+      "bytes": 174,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentBankContract.cs",
+      "sha256": "7e9f6c1a877bd399b7bd291a10208f8f0af26235ee1f370994a9a0ba35fc5b37",
+      "bytes": 3196,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentCandidateResult.cs",
+      "sha256": "deed73b18e3e31a1a44d0fa5cad4fe207caac7928f1dc018a44753b01300df12",
+      "bytes": 132,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentCheckpointContract.cs",
+      "sha256": "8a41ca72a3917a16afd1b179796e0d5cf8e93341179058753a111243e6db7657",
+      "bytes": 5598,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentEndContract.cs",
+      "sha256": "85857e29168c02f4064ffb62551be863b235872ed6b1de0156ab2ce2b36f02e2",
+      "bytes": 3555,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentGuardedDisposition.cs",
+      "sha256": "b4ce5b0b74538f24b68f6027027b2d41a3cdd0a373b33b02d1f1e5ba31814fb0",
+      "bytes": 145,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentGuardedEndContract.cs",
+      "sha256": "123603fc54f27f508df2de2449f74c623e719f8531200cf4cb7e8ed2d3d700a9",
+      "bytes": 5710,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentPublication.cs",
+      "sha256": "f8b95e874007e84f3792f2a6786cab08f4d2d26d48a32a14e301cb52e845cdd8",
+      "bytes": 2824,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Runtime.Host/WarpSourceSegmentSnapshot.cs",
+      "sha256": "bc4136c0e4eeab263bc5b2477a98d9ef5c20e52bb694aadf03297a7b9db54029",
+      "bytes": 2389,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/AssemblyInfo.cs",
+      "sha256": "97f7ae48c08453e77d04def219e2f95dee07bd1e94182d44dee1773506ac2fe9",
+      "bytes": 1050,
+      "baseline_sha256": "284a8fb2f46c9eeff2fffa6f42c5d07abea9090367591234381de8eb1359d0c9"
+    },
+    {
+      "path": "WarpCLR.Tests/ManifestAssemblyFixture.cs",
+      "sha256": "6f2ab8bc199d018d58898b5da4acfc2bf3c4936fd5bab734cc32f4df51e49bf5",
+      "bytes": 1745,
+      "baseline_sha256": "5c9b2dafb0b15e95617268c5f6a75a88b7ac5dde6287784620296c5e52c341c1"
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCapturedVoidPrivateHelperTests.Binding.cs",
+      "sha256": "0dfa12045ee7c9a44255e17a3bba9ae184bba13f4c414fd69e2ec39aade31e55",
+      "bytes": 1935,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCapturedVoidPrivateHelperTests.cs",
+      "sha256": "fa81bb59cf7d015005e6b6ef7c4eda182726161770f187c9e9aec4cae19d46f0",
+      "bytes": 6209,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCompiledSourceSchedulerTests.Completions.cs",
+      "sha256": "d77461f9502462144b2b7983f4def5c30d7b5cb19cb1cf85d2a82d1637ca4534",
+      "bytes": 4981,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayEntryTests.Fixtures.cs",
+      "sha256": "e6c4202741feb8bc790a62ca0510e03136b92b9f479b64f8a5bd0806b0adcd16",
+      "bytes": 4863,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayEntryTests.Resumable.cs",
+      "sha256": "26e974df0b1f24e8faeef36c763049a65f728e8a4015eb7ae8abc912fefdbee4",
+      "bytes": 10576,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayEntryTests.Wide.cs",
+      "sha256": "7e3683a7c1951e96e96429e6a794e10e796978f4b1169b47e03ec99c0b36c46d",
+      "bytes": 3039,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayEntryTests.cs",
+      "sha256": "af809bd933ec7dd098d4b0eeddce6e9fe178893da9b7e0f533143ddbf58917d5",
+      "bytes": 5357,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayTests.Batches.cs",
+      "sha256": "d65c49a3c58f2a0b6b42895a9c1cb86a2b9639aa95d642dc71f90600fb7af1b9",
+      "bytes": 6635,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayTests.Bindings.cs",
+      "sha256": "d98e02a4a86f30f147aa66f3039b9643e9f192f8b7b78d38d9b1028867317d69",
+      "bytes": 5373,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLROrdinaryArrayTests.cs",
+      "sha256": "2555a42cf322d09dbb98435e12d61a1acc75ecaf213065a9038172ed307057c3",
+      "bytes": 6019,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLRWorkerTests.ZCallUseObservation.cs",
+      "sha256": "4b1b6501e8417c334dd48b16e7e055b43798ace085b5916ed06d1f7d89ee55ce",
+      "bytes": 11551,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpCoreCLRWorkerTests.ZWordHistory.cs",
+      "sha256": "636a830d26587019b932e13adab6eb868606e9f187aa7ad2d5ac619898b4459e",
+      "bytes": 5811,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpOrdinaryArrayAdmissionTests.Enrollment.cs",
+      "sha256": "3d9be92b47d9533cea08eeb6dde18979c9a3473adcc3402d8ecdce995cbc4434",
+      "bytes": 5035,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpOrdinaryArrayAdmissionTests.cs",
+      "sha256": "aaa98082b468c987c7c6ee88121ae39fe5df853b0f03bef06cf6175c26a907e1",
+      "bytes": 5120,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableInitializerProjectionExecution.cs",
+      "sha256": "13b43b9986ac443bd7067bf0d63d59326b5acdb7c3757e81ce9040f53106fd0b",
+      "bytes": 1471,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableInitializerProjectionFixtures.cs",
+      "sha256": "e36c0c73171ca61825c9419ba1316aded4ee976329234dc53a4637c58d258c3b",
+      "bytes": 7091,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableInitializerProjectionTests.cs",
+      "sha256": "74483a1e539bda2843244743b4e66c1278e81629c32907a39c062df870c10a7b",
+      "bytes": 18947,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableRotateLeftOracle.cs",
+      "sha256": "008440ec2427f4dd42ee46700136c2352e2cc7a8eb278db8a1da40fced9d6f92",
+      "bytes": 2227,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableRotateLeftSourceKernels.cs",
+      "sha256": "e543f0a98380fdad6443a6a316ae381b7cddf0b9bd987d5ae09018dfa10f7fc7",
+      "bytes": 906,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableRotateLeftTests.Capture.cs",
+      "sha256": "9dcf015efc1b58cd961ab6e6596210a523e7b7f93fa75f01c8f751d13706b7f5",
+      "bytes": 8223,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableRotateLeftTests.Emission.cs",
+      "sha256": "a9d03ca52662a334a3b32f2fdca2b694f7c57627a01a2eca54b789019cb99533",
+      "bytes": 2309,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableRotateLeftTests.Execution.cs",
+      "sha256": "760a926dd1764bb229cb237c4aea7dc772c8b3c41fc06fdb5f11d002db00686f",
+      "bytes": 7357,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableSourceInitializerFailureCases.Oracles.cs",
+      "sha256": "abd989db98a5f795de83e58c57de6acddf7e45a3fee9fd4b01c897bb63608011",
+      "bytes": 7465,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableSourceInitializerFailureCases.Runtime.cs",
+      "sha256": "1d51e27e64f01945f981f07036e6594f27a516a71784fcad797de807858121e7",
+      "bytes": 9187,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableSourceInitializerFailureCases.cs",
+      "sha256": "62bd6c6e8176769cc9e935bc27d66908c6f47b1b5233ef2a6bb2fa20ee8873d8",
+      "bytes": 17397,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPortableSourceMemoryTests.InitializerFailureCases.cs",
+      "sha256": "3968fb4a31ea5eda6e9d15e486ae9d149d95feaf6f280432820979db2b41cac4",
+      "bytes": 2407,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperBridgeBindingTests.Execution.cs",
+      "sha256": "8172edc832e4e49e7f9877c8cf42cebe08851f2090055ada5e92b0dad40325ec",
+      "bytes": 5570,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperBridgeBindingTests.cs",
+      "sha256": "0d982735d04bba1b6865022b6e046f05992db79a22f60a760df157d0fda05ad4",
+      "bytes": 4496,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperPhaseCodecTests.cs",
+      "sha256": "8e95c639c7f9c54b1f56d6b1fc17c2cce1de0d01c946727171a3291252bdb938",
+      "bytes": 4204,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperPhaseFixture.cs",
+      "sha256": "e3af39859d0c7a1c86824ffc9afac4d908678389aa3ab5d180d706fa3f25f81c",
+      "bytes": 4320,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperPhaseGuardTests.cs",
+      "sha256": "e78c3102815039d9cdd1bb46e3fbbff99183e22848a9f827e622847578f05ed5",
+      "bytes": 4374,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperPhaseTests.cs",
+      "sha256": "fe0d8c102cd7a74c30ea16d9c4dea052dfaeefa3687b8b33d3230fe0b446dae6",
+      "bytes": 4675,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnFenceBindingTests.cs",
+      "sha256": "c12c81cdc3aa8ba8b9fb01669cb5619ae286f14b9513f38d0f977349078ffccd",
+      "bytes": 5848,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnFenceCodecTests.cs",
+      "sha256": "9eb6f40caeb4b8a6c1af1ca1313b4d666b7d81cbc6a3e634cb2c45a6d768c069",
+      "bytes": 3998,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnFenceFixture.cs",
+      "sha256": "3c7d3fbd693622a5672d9cbd1daa2d5d21404721d2ae09a22f860e1791368f2c",
+      "bytes": 5630,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnFenceGuardTests.cs",
+      "sha256": "a82d13288c6373af0039b2867d1c59bd12fd4834ced6aaa48a4ba88e33a2f00d",
+      "bytes": 4158,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnFenceTests.cs",
+      "sha256": "71957b01f175615f5e3e4b7a4e2877c943081cf60608803287642385586d153f",
+      "bytes": 5887,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnScopeTests.cs",
+      "sha256": "e2efa39aeddbd644926d710357fa2de7c1bc85e2b611114d5550f513aa9a17ac",
+      "bytes": 7379,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpPrivateHelperReturnTupleTests.cs",
+      "sha256": "8fe43d12f9c58dd45c24176863a986920b1bb40b90b34285bde7955a0f18a7eb",
+      "bytes": 4769,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEndChildFixture.cs",
+      "sha256": "9794f0513a1685089dc069fcd81c03baa7080771a3e3fb3aa050757dd33441f2",
+      "bytes": 5092,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEndInitializer.cs",
+      "sha256": "b5674a852ea9622229aa1c1cb92c8f7d7ec891dc837f6471fd9f29c3af7704d9",
+      "bytes": 2226,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEndKernels.cs",
+      "sha256": "afcf1d3b5ac1e01d561321adf4aeef7001174cc2f56f08f14940043ccf428abf",
+      "bytes": 1232,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventCheckpointTests.cs",
+      "sha256": "b36c3de6209fffbeb48b43575c9905b0792f7444343c82b9e4aa34eb191da69e",
+      "bytes": 6346,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventChildTests.cs",
+      "sha256": "cf464de80531e79dd201bdc4113ead44df604ab9476cac2b0e7deb942042712b",
+      "bytes": 7259,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventEndTests.cs",
+      "sha256": "a830ed937456b4b1f3f292a50341cd3baae17f5c69fbb559dc9cbc1a667d80f2",
+      "bytes": 3934,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventFixture.cs",
+      "sha256": "49ca822cedc3d1cfef494d7fff0d31e4a9a63ffb1f2102e6257b08a4772a9067",
+      "bytes": 3720,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventKernels.cs",
+      "sha256": "cdb0b5120537a87dbcdf4ecd9b1f41263eafc516339f8103534440bb8ebbb93c",
+      "bytes": 816,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventMapTests.cs",
+      "sha256": "1aad9cf35e8d99149496e2e97763321c71e372079243a18ae21ba34c76855d2c",
+      "bytes": 5423,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventParticipationTests.cs",
+      "sha256": "c0f2452cfff79589cddb4b22b35c5bc4c4734fd847e17dbd48f95715013f7ead",
+      "bytes": 2801,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventPublicationTests.cs",
+      "sha256": "6102a4ddcc3e6547b7ac061406d371523719c60cc1eafce461e1d5f5751ff09c",
+      "bytes": 2879,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceEventStorageTests.cs",
+      "sha256": "e48c1a97171de3bc83b8410e17e6514ec1210e4a4de0d8620308c5079b586a11",
+      "bytes": 3897,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceGuardedChildDriver.Execution.cs",
+      "sha256": "4e5be1af50480be09cd1f4a7d710db32ec63daca2afe5c849f193cc833b1ca24",
+      "bytes": 6220,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceGuardedChildDriver.cs",
+      "sha256": "4238d83732e06a8823d3caa2b73222f9751fa06a670976c6174bc69c6defb105",
+      "bytes": 6291,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceGuardedEndChildTests.cs",
+      "sha256": "fbb7d2acd9dfe36b2363a3493db43d8de25e8b67aff77825efeefacb64f30948",
+      "bytes": 11763,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceInvocationChildTests.cs",
+      "sha256": "4c906cb51dc0b65bbb71b5eb3b94945ad21d61efc9181439070dbe778a5e8694",
+      "bytes": 6713,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceInvocationInitializerChildTests.cs",
+      "sha256": "91622d4a603030426649e930fedd002e21bb7b54afede5086eac077fea69c373",
+      "bytes": 5432,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpSourceUnsupportedEndTests.cs",
+      "sha256": "a373fbf0e7ec214116f72afbba40f3a763ddf7bc7c291c12c15ee0417a88bf6a",
+      "bytes": 5616,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/WarpTestCollectionAssertions.cs",
+      "sha256": "628346a8fd9d333ea20314814a62eb8c6f063388b7e5bf5fab11a8c88f4924d6",
+      "bytes": 1081,
+      "baseline_sha256": "fc8088846c017815d8e588508397668904676600e62fd362940ca64809eb2dde"
+    },
+    {
+      "path": "WarpCLR.Tests/ZAuthenticatedResponseRetentionTests.cs",
+      "sha256": "afcc5b79f58fe8c553888bf2ef6d46ae35f3149a74575db33d2fa0c5bf0d9b38",
+      "bytes": 8089,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/ZCompiledControllerSourceFreezeTests.cs",
+      "sha256": "f60d5e58a1cc53b33f963bc9635a98b8cc2e72ee934056e0362b0ae550937749",
+      "bytes": 10339,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/ZNativeArenaOriginalLifetimeTests.cs",
+      "sha256": "17260e764805cbacd9d8510ed06265325c1eaff2a220cb0624a11f5f4b246e3e",
+      "bytes": 13053,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/ZNativeBankRetentionTests.Transport.cs",
+      "sha256": "1fb0453670e34e8cd098f1af93406678fffe438df033f23f7f4488961ff8d904",
+      "bytes": 7457,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/ZNativeBankRetentionTests.cs",
+      "sha256": "30ad65d69d7b0097145922e5db4e922119380dfa69248fe816819bc6f587ab59",
+      "bytes": 19172,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Tests/ZNativePinAdmissionTests.cs",
+      "sha256": "f813060fb0d56077ad4af71130dfc024c5ace9eeb611e16bc3257a89b867b7e1",
+      "bytes": 5511,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Verifier/WarpPortableMethodGraphIntrinsics.BitOperations.cs",
+      "sha256": "6733457093c79debabf57b2e7dcdfc91040b7152cad41e07468da2ee3cb13572",
+      "bytes": 2188,
+      "baseline_sha256": null
+    },
+    {
+      "path": "WarpCLR.Verifier/WarpPortableMethodGraphIntrinsics.cs",
+      "sha256": "6090e3657a2275ca2160f59074d2987a146f84a758ae42eb13c2228b07967ae3",
+      "bytes": 9400,
+      "baseline_sha256": "b186c1b5e0d8fdc2b5621d3042d4e70675e8275399184bbe857e0b053802bf99"
+    }
+  ],
+  "unapplied_runtime_fixture_correction": "resumption-tools/prepare_cumulative1082_runtime_fixture_corrections_v1.py",
+  "pending_packets": [
+    {
+      "name": "observed-history",
+      "manifest": ".supervisor-evidence/delivery-source/observed-word-history-v5-source-only/prepared-source-application-manifest.json",
+      "sha256": "1e3d550da841efb07875c278e0cb26e97ff44402485f976b42fc9e523cf1dc97",
+      "included_source_files": 15,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "observed-history-struct-correction",
+      "manifest": ".supervisor-evidence/root-observed-call-struct-match-source-correction/prepared-source-application-manifest.json",
+      "sha256": "ba9f21d50079a5b8a09cb1c9328d2443e06899b24625c85dbbb17b5053b92475",
+      "included_source_files": 1,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "observed-history-nullable-correction",
+      "manifest": ".supervisor-evidence/root-observed-history-nullable-call-source-correction/prepared-source-application-manifest.json",
+      "sha256": "9d56b8ba788ac18c4435078cb6698dd84de86783da486144d3706f554f909d45",
+      "included_source_files": 2,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "initial-entry-bootstrap",
+      "manifest": ".supervisor-evidence/delivery-source/initial-before-body-entry-descriptor-source-only/prepared-source-application-manifest.json",
+      "sha256": "9133840e26fa82b65fd57421d7ba2b297d748c376d429550d484d1866b481866",
+      "included_source_files": 23,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "context-permit-preparation",
+      "manifest": ".supervisor-evidence/delivery-source/context-source-preparation-bootstrap-source-only/prepared-source-application-manifest.json",
+      "sha256": "669bc89b93aa823d91fe9f65a3a3319fdfd9d7422325bc604106c6b6af2d35d4",
+      "included_source_files": 8,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "numeric-harness",
+      "manifest": ".supervisor-evidence/root-numeric-harness-candidate-attempts-v1/prepared-harness-correction-manifest.json",
+      "sha256": "d5479fb88c5c6c6c632174de86b12e79f2acbb3bb21a95990d45491a25b45d73",
+      "included_source_files": 42,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "float16-conversions",
+      "manifest": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposal-manifest.json",
+      "sha256": "99cb4e12cfb1bba74facd2be176bbef1fe1c930fa241d59cec100091acd735cf",
+      "included_payload_files": 32,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "integer-divrem",
+      "manifest": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposal-manifest.json",
+      "sha256": "446aa56c56bd1186ef6092c375ab10b70bb0233daf3cb78493fbdf66490d8c75",
+      "included_payload_files": 31,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "implicit-integer-fault-binding-partial",
+      "manifest": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/paused-partial-manifest.json",
+      "sha256": "b548b3f37dd1a0c3492e83c96a82d07d38fadd3c14bb38a2293bd2ba7a43245e",
+      "included_payload_files": 16,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "private-helper-v4-comparison-harness",
+      "manifest": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/packet-manifest.json",
+      "sha256": "a5749924f5a90c09e4a15df97fac8796aa815d89108a3d06cbe09dba9e2ad75b",
+      "included_payload_files": 38,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    },
+    {
+      "name": "private-helper-v4-native-commands",
+      "manifest": ".supervisor-stage/numeric-worker/private-helper-v4-native-command-packet/packet-manifest.json",
+      "sha256": "656de0eda8f06ab4ca4b18b656eba53524452b13a9d7513883dc4583df5fd720",
+      "included_payload_files": 4,
+      "integrated": false,
+      "compiled": false,
+      "validated": false
+    }
+  ],
+  "pending_archive": {
+    "path": "pending-source-packets.tar.gz",
+    "sha256": "993b969612696eb420f222224ad1f13bea283090277738a5c72df09987c97d12",
+    "bytes": 354371,
+    "uncompressed_bytes": 1668334,
+    "files": [
+      {
+        "path": "context-permit-preparation/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialReceipt.cs",
+        "sha256": "b777b628a8605b9172b20be1c5d27838d43e54a018e3340ab76b9e0111a945e8",
+        "bytes": 4588,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialReceipt.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialSourcePreparation.cs",
+        "sha256": "d55548995c91057b521a4a7a59486d8358e1533837e5260f213ab6c0169d522b",
+        "bytes": 1090,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialSourcePreparation.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparation.cs",
+        "sha256": "eec05b5ab6b5e51dc985f14aa53b71d305c0c8ec65ff010e1da4f89337b6739b",
+        "bytes": 8208,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparation.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparationBanks.cs",
+        "sha256": "6c095f20c0512415012ae44ff0422345f5f80252106d5c1bc738109469a5fae3",
+        "bytes": 4588,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparationBanks.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparationNonce.cs",
+        "sha256": "8891fc2c899840b298bb7d21b093005a485ce3c2cf1ddda18ba690b805c03938",
+        "bytes": 3740,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparationNonce.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparations.cs",
+        "sha256": "4c3616d30d3f3daead6dc72d98db48dbc89ad609f8d73f37c265dcbbeabe30ae",
+        "bytes": 5021,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.SourcePreparations.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Tests/WarpCapturedVoidPrivateHelperTests.ZSourcePreparation.cs",
+        "sha256": "f231eac47e05cf879f9328ab60d025b7752152b720eb308b4a9245895a19fb82",
+        "bytes": 7018,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Tests/WarpCapturedVoidPrivateHelperTests.ZSourcePreparation.cs"
+      },
+      {
+        "path": "context-permit-preparation/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ZSourceSuccessorPreparation.cs",
+        "sha256": "0808e99b51e6029b35f6e0e3b230bf020f383406bcc039fd733f96880bc51f1d",
+        "bytes": 1929,
+        "original_workspace_path": ".supervisor-stage/delivery-source/context-source-preparation-bootstrap-source-only/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ZSourceSuccessorPreparation.cs"
+      },
+      {
+        "path": "context-permit-preparation/manifest.json",
+        "sha256": "669bc89b93aa823d91fe9f65a3a3319fdfd9d7422325bc604106c6b6af2d35d4",
+        "bytes": 8784,
+        "original_workspace_path": ".supervisor-evidence/delivery-source/context-source-preparation-bootstrap-source-only/prepared-source-application-manifest.json"
+      },
+      {
+        "path": "float16-conversions/README.md",
+        "sha256": "5fc04010fdf60414b3a285b6ae142bfb6662f91f68f2a19149909a997c45c247",
+        "bytes": 8223,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/README.md"
+      },
+      {
+        "path": "float16-conversions/application-contract.json",
+        "sha256": "551e5343574bc596a90443492627e671efe5c752c337d833d9cbe0424344198b",
+        "bytes": 3529,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/application-contract.json"
+      },
+      {
+        "path": "float16-conversions/callback.json",
+        "sha256": "1b1adb12706a6107f4f81befd0dbf2de253556fd62743b94b2b2fccd39512282",
+        "bytes": 1369,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/callback.json"
+      },
+      {
+        "path": "float16-conversions/classification-migration.json",
+        "sha256": "efde477293f61c7021ccb092d56b60d4500ae681592f15219ab86f946557c58f",
+        "bytes": 2906,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/classification-migration.json"
+      },
+      {
+        "path": "float16-conversions/future-proof-plan.json",
+        "sha256": "eaa66ff4d47ab0297dd058a383904308cd783ba5e236d24e2fd2701dc45133cb",
+        "bytes": 9137,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/future-proof-plan.json"
+      },
+      {
+        "path": "float16-conversions/input-provenance.json",
+        "sha256": "1e3fcf2cbb8cf1f61514fae57a47439a3fad9dd8fb7730856dcf5b94cc9f0006",
+        "bytes": 14123,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/input-provenance.json"
+      },
+      {
+        "path": "float16-conversions/original90-identities.json",
+        "sha256": "a863ac815eb48699429c129a2048eac08b36c6972802a743ea7b99b1fe97fdcc",
+        "bytes": 32437,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/original90-identities.json"
+      },
+      {
+        "path": "float16-conversions/preimages/WarpCLR.Compiler/WarpPortableWordLowerer.Conversions.cs",
+        "sha256": "bba571bb09c90c95d86777a4e0ddad2601892fc59a11923cc2b74be091a48f8d",
+        "bytes": 5045,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/preimages/WarpCLR.Compiler/WarpPortableWordLowerer.Conversions.cs"
+      },
+      {
+        "path": "float16-conversions/primary-source-audit.md",
+        "sha256": "7f7c4ce306af915e2587c562b2c6f686fd59485dbdb29633fd83ca533e3e1bd1",
+        "bytes": 4077,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/primary-source-audit.md"
+      },
+      {
+        "path": "float16-conversions/primary-source-pins.json",
+        "sha256": "644d9574c0b1f92d55717444b372036c3744a647f3c09898c60b625ed1f88aba",
+        "bytes": 4808,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/primary-source-pins.json"
+      },
+      {
+        "path": "float16-conversions/profile-questions.json",
+        "sha256": "bc74e39908e8943ae9ad3fee26bb0c037924d99d83c0f71f8924804468174a3c",
+        "bytes": 2877,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/profile-questions.json"
+      },
+      {
+        "path": "float16-conversions/proposal-manifest.json",
+        "sha256": "99cb4e12cfb1bba74facd2be176bbef1fe1c930fa241d59cec100091acd735cf",
+        "bytes": 8508,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposal-manifest.json"
+      },
+      {
+        "path": "float16-conversions/proposal.patch",
+        "sha256": "30dd34ed58f43fc02f1442b3e34219d0f9cc75b84e358cf15d8444a85e74e584",
+        "bytes": 46472,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposal.patch"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Compiler/WarpPortableFloating16Conversions.cs",
+        "sha256": "df12f7eeadead5f0988d04af77c53be7b3853fc9abf070992b6071017cfd2229",
+        "bytes": 1185,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableFloating16Conversions.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Compiler/WarpPortableWordLowerer.Conversions.cs",
+        "sha256": "a2468bdb79a1105245bed3f8adf00c1c10c6f004c3538696d143c94c6112f70d",
+        "bytes": 5402,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableWordLowerer.Conversions.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Oracle.cs",
+        "sha256": "ea1473da3262addfd6f815677378cd67735534ed2869f8401533a520f207a54b",
+        "bytes": 3174,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Oracle.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Seeds.cs",
+        "sha256": "5289e7a508c9e85c4048923068df11d2ca38c5a8ec171c7074841d4408287cd6",
+        "bytes": 8617,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Seeds.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16SourceKernels.cs",
+        "sha256": "dd39fdf125eeece704999fc9491b479c616d178e47eb7331e83b0e446cf41c13",
+        "bytes": 2499,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16SourceKernels.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Capture.cs",
+        "sha256": "cdf28399e362d8afa45c2fd03a548f5c830a712f490b6ab7c7fcd23207320278",
+        "bytes": 8575,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Capture.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Emission.cs",
+        "sha256": "3739d09a194bf3a6ae10b79cce2e15594165e6c42c0e9c21bd91fd8bf4350262",
+        "bytes": 2279,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Emission.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Evidence.cs",
+        "sha256": "34d95b8e0e657385031e9fcebbf06b8e5d75970e9afc4fbe3a568fc0311b3d17",
+        "bytes": 5161,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Evidence.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Execution.cs",
+        "sha256": "2d6ff9c387ccbdeeaa98e4a3e446b3c5bbe95f5b3c25acae92590805871e2361",
+        "bytes": 7322,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Execution.cs"
+      },
+      {
+        "path": "float16-conversions/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Oracles.cs",
+        "sha256": "84f910f52b6c0e75ecb962a73ddfbc4a10207da4c6b18a1b870be06573cba4f0",
+        "bytes": 4916,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableFloating16Tests.Oracles.cs"
+      },
+      {
+        "path": "float16-conversions/raw-seeds.json",
+        "sha256": "d64944eccb70fe98ae99926b7e08f92670790d9082b132aaa9765c1b3c01ff50",
+        "bytes": 10229,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/raw-seeds.json"
+      },
+      {
+        "path": "float16-conversions/replacement-preimages.json",
+        "sha256": "cce611b0fe1dc90967255a608ae7f4526968f1dc8231c3bbba7a715073a3d7a1",
+        "bytes": 1831,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/replacement-preimages.json"
+      },
+      {
+        "path": "float16-conversions/retained-preparation-failure-01/WarpPortableFloating16Seeds.cs",
+        "sha256": "19b632f5fff90ea5395b44c81a919053a0864e5854a9aed96ca15bddfc2b333b",
+        "bytes": 8769,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/retained-preparation-failure-01/WarpPortableFloating16Seeds.cs"
+      },
+      {
+        "path": "float16-conversions/retained-preparation-failure-01/failure.json",
+        "sha256": "85a980385b95373d70da0a99304fdd75f200cff1f41ce87c8d7f7ce698ea7d3a",
+        "bytes": 3022,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/retained-preparation-failure-01/failure.json"
+      },
+      {
+        "path": "float16-conversions/retained-preparation-failure-01/input-provenance.json",
+        "sha256": "1e3fcf2cbb8cf1f61514fae57a47439a3fad9dd8fb7730856dcf5b94cc9f0006",
+        "bytes": 14123,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/retained-preparation-failure-01/input-provenance.json"
+      },
+      {
+        "path": "float16-conversions/retained-preparation-failure-01/replacement-preimages.json",
+        "sha256": "cce611b0fe1dc90967255a608ae7f4526968f1dc8231c3bbba7a715073a3d7a1",
+        "bytes": 1831,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/retained-preparation-failure-01/replacement-preimages.json"
+      },
+      {
+        "path": "float16-conversions/retained-preparation-failure-01/test-inventory.json",
+        "sha256": "c0580e1d1c06c26db5f5bc4cc2dd74ee541da238c7392e3012e096a1c24f5482",
+        "bytes": 3762,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/retained-preparation-failure-01/test-inventory.json"
+      },
+      {
+        "path": "float16-conversions/source-review-notes.json",
+        "sha256": "69f2977ca2e53e7f8405ba65b1160362a933dcc85365de42a97a5f447dcc1d85",
+        "bytes": 2070,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/source-review-notes.json"
+      },
+      {
+        "path": "float16-conversions/storage-and-stop-contract.json",
+        "sha256": "8196ef30cdb86e600f950244adc2dbe46928065dcab987a1072b05802342d1b2",
+        "bytes": 2331,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/storage-and-stop-contract.json"
+      },
+      {
+        "path": "float16-conversions/test-inventory.json",
+        "sha256": "c0580e1d1c06c26db5f5bc4cc2dd74ee541da238c7392e3012e096a1c24f5482",
+        "bytes": 3762,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/floating16-conversion-source-only-proposal/test-inventory.json"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/README.md",
+        "sha256": "068ba01acc3af4b2018cda278e277f3aa2e7ee22a9fa5660461a989c76d5ed09",
+        "bytes": 4068,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/README.md"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/effective-source-pins.json",
+        "sha256": "ed7dc3a597a07354dce709931a6b0af313f65b94199863e8b9a5a92e36168c69",
+        "bytes": 17215,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/effective-source-pins.json"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/owner-pause-receipt.json",
+        "sha256": "f9e5084b175a3c69c6a4456eac16d9814d0cddf5c24b34a1501242f3a7a6aeb2",
+        "bytes": 4903,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/owner-pause-receipt.json"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/paused-partial-manifest.json",
+        "sha256": "b548b3f37dd1a0c3492e83c96a82d07d38fadd3c14bb38a2293bd2ba7a43245e",
+        "bytes": 4940,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/paused-partial-manifest.json"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/paused-partial-seal.json",
+        "sha256": "a2275d8d34431b7c840c7f48a5c33468639f167a5028f4fbbdc86515cd503bf2",
+        "bytes": 4964,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/paused-partial-seal.json"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticEmitter.cs",
+        "sha256": "38e51a3f1193b9b9302f14ab476785e36545c3a157216ee09c099a2f789c5c12",
+        "bytes": 5272,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticEmitter.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticPlan.Capture.cs",
+        "sha256": "a43eacd019fb007182952997a1c0c3ed836e721c134815328c3ba0220f5a9f2b",
+        "bytes": 7226,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticPlan.Capture.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticPlan.cs",
+        "sha256": "7e37bc2329d78db81bdab51653ec3ce4159ffff05e20cb2eb24311a86477e60d",
+        "bytes": 4478,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticPlan.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticSite.Services.cs",
+        "sha256": "ba36882b4f9b96709cad43b8c0b06f1db8b0fb3f0d3cc0d347699a4b9c4dd8ed",
+        "bytes": 1502,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticSite.Services.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticSite.cs",
+        "sha256": "5071af1322fdb1fb16a2c7fb4cf70c1a14c957f9fe6954069d91cc61c9909a59",
+        "bytes": 2520,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerArithmeticSite.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerFaultContinuation.cs",
+        "sha256": "81419269295a1aa31505ff69c0fd4362df77e03635ff47d52dc85ddf18d7c4fd",
+        "bytes": 1882,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableImplicitIntegerFaultContinuation.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerFaultBindingTests.Capture.cs",
+        "sha256": "5a8fa8a62096464e8db24b0b1d17e39fa2d8574b7308f1782629abbebdf2f174",
+        "bytes": 8320,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerFaultBindingTests.Capture.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerFaultBindingTests.Emission.cs",
+        "sha256": "df5fcc337f23e9f9ebda29086ecd19027bf27608152f5fd958b0b7b4b4c83b35",
+        "bytes": 5743,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerFaultBindingTests.Emission.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerFaultBindingTests.Recording.cs",
+        "sha256": "fa75ec37c8e6f470a4548972d3735457875261e7a407ef317cf07029f0e46496",
+        "bytes": 7326,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerFaultBindingTests.Recording.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerRootPrefixSourceKernels.cs",
+        "sha256": "150062f6b79e5f23325c9471f84c11a01eeccf27b7abae69b29667e90f10d019",
+        "bytes": 706,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableImplicitIntegerRootPrefixSourceKernels.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/retained-text-correction-01/WarpPortableImplicitIntegerFaultBindingTests.Emission.cs",
+        "sha256": "4309d043b883fe938b8c49f506d7b6aa1c39374d0f1743de76b25bc53cc7aaf8",
+        "bytes": 4744,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/retained-text-correction-01/WarpPortableImplicitIntegerFaultBindingTests.Emission.cs"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/retained-text-correction-01/note.json",
+        "sha256": "b318ea86d3110b40f865a677a4c51b3b89501b67b8da740c5fb10f95384af675",
+        "bytes": 452,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/retained-text-correction-01/note.json"
+      },
+      {
+        "path": "implicit-integer-fault-binding-partial/root-integration-contract.md",
+        "sha256": "934fd54be99b32a5ee61f89b68a999ad04fd7893cf9ca1b7ccbc34321ab99c51",
+        "bytes": 7022,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/implicit-integer-fault-binding-source-only-proposal/root-integration-contract.md"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Backend.CoreCLR/CoreCLRInitialEntryProbe.Scope.cs",
+        "sha256": "6b7bb39696fcba0dd65e16426ccd34071e31ba3459c19083f5ad2c9945228577",
+        "bytes": 4370,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Backend.CoreCLR/CoreCLRInitialEntryProbe.Scope.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Backend.CoreCLR/CoreCLRInitialEntryProbe.cs",
+        "sha256": "8cf1ee51ef7e9c19fd48329d4aecb22204eba0b98a0ba9785b0c8e15a4fffb9c",
+        "bytes": 4655,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Backend.CoreCLR/CoreCLRInitialEntryProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.InitialProbe.cs",
+        "sha256": "3af9e14e8e98aa88718c05a60aca13e6e9604964541d432d86a4bd5fd6a0fdc2",
+        "bytes": 3364,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.InitialProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.cs",
+        "sha256": "676f802835a0ffc1c092b4f1636966f86f8b4481b3e399a47b021e5b07a5e922",
+        "bytes": 35537,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Backend.CoreCLR/CoreCLRResumableKernel.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Backend.CoreCLR/PublicAPI.Unshipped.txt",
+        "sha256": "1e837cd1b406141bbf986a6468542af69f6b7ab9e12aa097b68ce8a8bad4f892",
+        "bytes": 6131,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Backend.CoreCLR/PublicAPI.Unshipped.txt"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Backend.CoreCLR/WarpCoreCLRInitialEntryProbeWords.cs",
+        "sha256": "515edfe3a5a866068283f431c1b98f04aec4b9651fe35ccf526227a87243c939",
+        "bytes": 3358,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Backend.CoreCLR/WarpCoreCLRInitialEntryProbeWords.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.CoreCLR.Worker/Program.InitialEntryProbe.cs",
+        "sha256": "60a8293dceade6f0d2430e4c37b1c16d329aa532fc4e5c00cddad854343b2b8a",
+        "bytes": 434,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.CoreCLR.Worker/Program.InitialEntryProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.CoreCLR.Worker/Program.cs",
+        "sha256": "e2c7514b8aff7bd0d49e038674bc3d3ec5b6852f85b96d962ce0da600b2a7d6c",
+        "bytes": 7184,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.CoreCLR.Worker/Program.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCompiledInitialEntryProjection.cs",
+        "sha256": "53f61fd4bc0bacd85d3fc5b7f76768f7df2390d585d8cbb363cc735fcb7677ee",
+        "bytes": 1484,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-entry-descriptor-source-only/WarpCLR.Runtime.Host/WarpCompiledInitialEntryProjection.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialProbe.cs",
+        "sha256": "8e8fdf14d10caffc7d0131f846399d982c7c54731b1b8cee0a23f92301282e43",
+        "bytes": 6964,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialReceipt.cs",
+        "sha256": "8f299d96c03398eb79d9c5846b0985d2c2e3859cec55eeb437e82308dba8b87f",
+        "bytes": 4580,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.InitialReceipt.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCompiledSourceContext.cs",
+        "sha256": "040d87c7b8c13789369cea7c6832e40507c588dad6f44314d233e8e8ebc169ad",
+        "bytes": 16649,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCompiledSourcePlan.InitialEntry.cs",
+        "sha256": "988d364c40297054a73fa86c569e7e71cb2fcbf9ec1f86bf5ea4a5cbf77b6fdf",
+        "bytes": 1779,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCompiledSourcePlan.InitialEntry.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRStoppedCommands.cs",
+        "sha256": "a2ed027b1f64b280fcf87b704b5b2e96f79242431f6cd71aed52bab2bc9164d0",
+        "bytes": 5214,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRStoppedCommands.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRWordTransaction.InitialProbes.cs",
+        "sha256": "a89d1c1a00a61246817ed28a7b12b318b5a9692c3da7082b84c03a1be5c38e86",
+        "bytes": 702,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWordTransaction.InitialProbes.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRWorkerKernel.cs",
+        "sha256": "51c4b672e5d599d95ac4d3b0db68e3bec332b4f32ea3abf55229c874587df153",
+        "bytes": 5424,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerKernel.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRWorkerLease.cs",
+        "sha256": "f0aa4450d459ff2619f984acb24b86af9800efca7361cff21f23cc5b7f72aaa6",
+        "bytes": 5243,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerLease.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.InitialProbe.cs",
+        "sha256": "53f26db49ff7f93bf573671249aa5bca8871af06a3e936ca34efc0356048322d",
+        "bytes": 5532,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.InitialProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.InitialProbeCheckpoint.cs",
+        "sha256": "3b98bcd11c8b0c819d84cc5b26892bb58f2950ab4cd51b264d8768d1b416a6c8",
+        "bytes": 8183,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.InitialProbeCheckpoint.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Registry.cs",
+        "sha256": "4188820e1377094b78e9180fbd65a6b3f683d57057bdaf933b190bda5a2a27ed",
+        "bytes": 6788,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Registry.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Tests/WarpCapturedVoidPrivateHelperTests.ZInitialProbe.cs",
+        "sha256": "a22c8ac9ca1c1a5d910a125f345b9f281dcc298f274cd8e91fff6f814a24f9d3",
+        "bytes": 4004,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Tests/WarpCapturedVoidPrivateHelperTests.ZInitialProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ZInitialBeforeBody.cs",
+        "sha256": "2e431e79e2e7ecb992ebfa91a918cdb6b9cf0e32dc7e723a7da76d20131a6dfa",
+        "bytes": 7641,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-entry-descriptor-source-only/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ZInitialBeforeBody.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/WarpCLR.Tests/WarpCoreCLRWorkerTests.ZInitialEntryProbe.cs",
+        "sha256": "d73bff7b03779fbbd8f58a56a4464278da37c14ddab0f9a6501f130a92f41d94",
+        "bytes": 15047,
+        "original_workspace_path": ".supervisor-stage/delivery-source/initial-before-body-probe-source-only/WarpCLR.Tests/WarpCoreCLRWorkerTests.ZInitialEntryProbe.cs"
+      },
+      {
+        "path": "initial-entry-bootstrap/manifest.json",
+        "sha256": "9133840e26fa82b65fd57421d7ba2b297d748c376d429550d484d1866b481866",
+        "bytes": 23024,
+        "original_workspace_path": ".supervisor-evidence/delivery-source/initial-before-body-entry-descriptor-source-only/prepared-source-application-manifest.json"
+      },
+      {
+        "path": "integer-divrem/README.md",
+        "sha256": "964c77b5e342d33b6c7a2695afabf5927827d10186fefe580c9b0bfce9f89d9a",
+        "bytes": 4235,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/README.md"
+      },
+      {
+        "path": "integer-divrem/application-contract.json",
+        "sha256": "4b73df5e3c169e487256444339145a1753c7c681117afd84b43d9f657e6be2ae",
+        "bytes": 2143,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/application-contract.json"
+      },
+      {
+        "path": "integer-divrem/callback.json",
+        "sha256": "ec3f4c22252ae29de61d8aa1c4285eec48d339a6eeec8c2e5c55bc0bdc75a26a",
+        "bytes": 1010,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/callback.json"
+      },
+      {
+        "path": "integer-divrem/classification-status.json",
+        "sha256": "7bacd62c55225d81a3cc290b3da0009fa9f0af88113b089e79681f0e54462a57",
+        "bytes": 1009,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/classification-status.json"
+      },
+      {
+        "path": "integer-divrem/fault-eh-blocker.md",
+        "sha256": "e082cb641d3b2116e97d11a368a3c4351a2021c3691ebb4c94aa1854769f8db6",
+        "bytes": 6913,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/fault-eh-blocker.md"
+      },
+      {
+        "path": "integer-divrem/future-proof-plan.json",
+        "sha256": "3abe4a526a2184453a4af5520150725670dd30c52b1ab7d51235029e85dc7d06",
+        "bytes": 4791,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/future-proof-plan.json"
+      },
+      {
+        "path": "integer-divrem/host-direct-symbol-scan.json",
+        "sha256": "784162bc0693473c885ad22c3a2995bd45d6c920d79324d90789413de8031bb8",
+        "bytes": 66307,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/host-direct-symbol-scan.json"
+      },
+      {
+        "path": "integer-divrem/input-provenance.json",
+        "sha256": "f54583abb2dbf4906315a7fbf5e50f85b584b085d175b15327d80219fb455777",
+        "bytes": 19669,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/input-provenance.json"
+      },
+      {
+        "path": "integer-divrem/original90-identities.json",
+        "sha256": "4f6dccbbc92940ca5229ce885e982197536690f9eab5257fbeaadf0ad1ddcf1c",
+        "bytes": 35248,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/original90-identities.json"
+      },
+      {
+        "path": "integer-divrem/primary-source-audit.md",
+        "sha256": "5e59ede6ab5cfc7a4bd1fe0cbf2eda9e88f61389b89520eef946289bb9d9e89c",
+        "bytes": 3935,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/primary-source-audit.md"
+      },
+      {
+        "path": "integer-divrem/primary-source-pins.json",
+        "sha256": "d3dd3cd969dcf946a56a389f645b9559652036ff586ead47f4bb5f277c7add2c",
+        "bytes": 5964,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/primary-source-pins.json"
+      },
+      {
+        "path": "integer-divrem/profile-questions.json",
+        "sha256": "96c1c8da429ebde03fea890616171cd3d32781768a589840f7e4d00d92b3ae8d",
+        "bytes": 1395,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/profile-questions.json"
+      },
+      {
+        "path": "integer-divrem/proposal-manifest.json",
+        "sha256": "446aa56c56bd1186ef6092c375ab10b70bb0233daf3cb78493fbdf66490d8c75",
+        "bytes": 10272,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposal-manifest.json"
+      },
+      {
+        "path": "integer-divrem/proposal.patch",
+        "sha256": "9c4fa3b10003586c562415d91af089ecf94005352dd9156cdb34faaaa92a2156",
+        "bytes": 55943,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposal.patch"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Compiler/WarpPortableCilIntegerDivision32.cs",
+        "sha256": "2ebbe3a3e571a0cd87393a73fc31def1e8ecea008451d2e8895dbe2920252f49",
+        "bytes": 3333,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableCilIntegerDivision32.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Compiler/WarpPortableCilIntegerDivision64.cs",
+        "sha256": "a106a0deccf27a54e6182225dd799846bacd3b2a274728a227f932d4cc4e2166",
+        "bytes": 5534,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Compiler/WarpPortableCilIntegerDivision64.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionOracle.cs",
+        "sha256": "4ba0e1402bcb011066ae80da42b74bf57db6aa908d19e1755db071cc5d71b9db",
+        "bytes": 3961,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionOracle.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionSeeds.cs",
+        "sha256": "23eb765966451bbb5efc157feed9f09405840b98b1f29c40c6535656be7bc865",
+        "bytes": 1611,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionSeeds.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionSourceKernels.cs",
+        "sha256": "46685750348e46f2eff9ad83ef120c1a252824dc921fba23e148aec9271398b9",
+        "bytes": 4521,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionSourceKernels.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Capture.cs",
+        "sha256": "17aaf029a230b8af20643c50a1244c0789a591c57a8922bc1cddc202d40eb20d",
+        "bytes": 11958,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Capture.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Emission.cs",
+        "sha256": "13f391c0e31534715718cb3d1e6064edfb9c3812331df34b7f231143b0229b04",
+        "bytes": 1900,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Emission.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Evidence.cs",
+        "sha256": "d0bbeafa339806a4d7184389d4913a0bde37d15a98b4a478f9dbbfe757fdb5c3",
+        "bytes": 5053,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Evidence.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Execution.cs",
+        "sha256": "6aac47b60c2912f33d5b17ae137a53bade5df4c83f87d91195e5d8f4e5d58f3a",
+        "bytes": 7466,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Execution.cs"
+      },
+      {
+        "path": "integer-divrem/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Oracles.cs",
+        "sha256": "69eed355ea9eff4a8f99ecf4892119138da61654a9dc9f7f9304ebaac0b9280b",
+        "bytes": 7185,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/proposed/WarpCLR.Tests/WarpPortableCilIntegerDivisionTests.Oracles.cs"
+      },
+      {
+        "path": "integer-divrem/provenance-inputs.json",
+        "sha256": "4c0891305838e666f285bfe0b2a77475ae77c10518fdef3551d78097d9095587",
+        "bytes": 77880,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/provenance-inputs.json"
+      },
+      {
+        "path": "integer-divrem/raw-seeds.json",
+        "sha256": "ce4875c8c5e265a3d52ab331a3fa94cbbb20efb98a9447bbe7b6cceff1bdec2d",
+        "bytes": 2034,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/raw-seeds.json"
+      },
+      {
+        "path": "integer-divrem/readonly-lookup-failures.json",
+        "sha256": "7edbc7394f3f9c04536cb289221791c2f022a3fb72c32d6e4856e9955d05c656",
+        "bytes": 1374,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/readonly-lookup-failures.json"
+      },
+      {
+        "path": "integer-divrem/replacement-preimages.json",
+        "sha256": "8776c56f93c5aad892e236df03e65b2ef2ae3193040f5bbb696d6a8538a4c1d2",
+        "bytes": 2972,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/replacement-preimages.json"
+      },
+      {
+        "path": "integer-divrem/retained-metadata-failure-01/failure.json",
+        "sha256": "0f10dfc9075ff00ce4a244b294861b4673100365f35d58cff4bc3778b9b8105e",
+        "bytes": 3773,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/retained-metadata-failure-01/failure.json"
+      },
+      {
+        "path": "integer-divrem/source-review-notes.json",
+        "sha256": "0be27c55328e265fda6a06c40221581c978fd9ab0ce3d781d3f688a3fe167bf8",
+        "bytes": 1723,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/source-review-notes.json"
+      },
+      {
+        "path": "integer-divrem/storage-and-stop-contract.json",
+        "sha256": "c4ef498df92afc918141933e4879ac432335ea395e7f6c193dc57ae8b438379a",
+        "bytes": 2490,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/storage-and-stop-contract.json"
+      },
+      {
+        "path": "integer-divrem/test-inventory.json",
+        "sha256": "d37285de88e8618e329d72976c44e3337315a86dc92976d1f2ef7e9aed22a30d",
+        "bytes": 23863,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/integer-divrem-source-only-proposal/test-inventory.json"
+      },
+      {
+        "path": "numeric-harness/BankTransport.cs",
+        "sha256": "c9f251bb52391cac6e248237bea0a8fa624ff26fe93bc1682e6c25d7cbf05865",
+        "bytes": 2475,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/BankTransport.cs"
+      },
+      {
+        "path": "numeric-harness/CaptureDenials.cs",
+        "sha256": "a0d0afbe130b00673ad8a5a31c5528cd18890875261d188045ffc868c8a4086f",
+        "bytes": 2551,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/CaptureDenials.cs"
+      },
+      {
+        "path": "numeric-harness/CapturedPlan.cs",
+        "sha256": "fe1875394743dcede152173ec3ca3f58f3c792c610fd27bd62e45b89b37dd156",
+        "bytes": 3557,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/CapturedPlan.cs"
+      },
+      {
+        "path": "numeric-harness/CaseSpec.cs",
+        "sha256": "5f73cb2d779d1234ab6cbea12fe5906d63c166895c2ff08e0a6f884d9ca6a47e",
+        "bytes": 3383,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/CaseSpec.cs"
+      },
+      {
+        "path": "numeric-harness/ChildStop.cs",
+        "sha256": "61c8cfa543eb6c098952281aaff1bf07f2496953565e3bcc34ed1243960de117",
+        "bytes": 1203,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/ChildStop.cs"
+      },
+      {
+        "path": "numeric-harness/CoreTrace.cs",
+        "sha256": "6553fed22c4aed44f0555d83df786c54384d9ac5165e5d21afed000313692228",
+        "bytes": 5868,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/CoreTrace.cs"
+      },
+      {
+        "path": "numeric-harness/CoreTraceWriter.cs",
+        "sha256": "880876b30accaeffdd3343a17c0ed96127eae52aa1950a6e0cd87db14db799b4",
+        "bytes": 7768,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/CoreTraceWriter.cs"
+      },
+      {
+        "path": "numeric-harness/FloatFormat.cs",
+        "sha256": "03954b18cc0247f76cb2974edb84fbb51dc0cbecbb67fc48888df3615969e868",
+        "bytes": 3143,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/FloatFormat.cs"
+      },
+      {
+        "path": "numeric-harness/FloatOracle.cs",
+        "sha256": "842d08c5becf441cc40dae18443a58b46e37c661e4a1dab34723b483c5b82f77",
+        "bytes": 3620,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/FloatOracle.cs"
+      },
+      {
+        "path": "numeric-harness/NumericOracle.cs",
+        "sha256": "2766dca897f9dd440267affa012950ba6fb81106f63a08f014b617be08fc8af2",
+        "bytes": 8991,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/NumericOracle.cs"
+      },
+      {
+        "path": "numeric-harness/OriginalCilReceipt.cs",
+        "sha256": "698135852bd220b8e9f0a8d6eda11fadfdad01190e74fe1e27ae0abdad84eb89",
+        "bytes": 3355,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/OriginalCilReceipt.cs"
+      },
+      {
+        "path": "numeric-harness/OriginalClrOracle.cs",
+        "sha256": "6095cd45ffb9a5079604e55f2e381bdab0708cb8e6a24e3350096aa9618fa3c7",
+        "bytes": 5351,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/OriginalClrOracle.cs"
+      },
+      {
+        "path": "numeric-harness/OriginalSources.cs",
+        "sha256": "f09ba80fc8e50fbe421f68185bef1916bd460f32b4db2b10c239a41ef5953f78",
+        "bytes": 5152,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/OriginalSources.cs"
+      },
+      {
+        "path": "numeric-harness/PlanArtifacts.cs",
+        "sha256": "f635e72477b66a89cb689e0775c63d9ce3e2b9cb73ec0fee45c9f9b19db5a4ba",
+        "bytes": 2286,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/PlanArtifacts.cs"
+      },
+      {
+        "path": "numeric-harness/Preparation.cs",
+        "sha256": "0390287f52c52fb7ff91deefd5bc596e8b6017f181237c7fe413bacdfc3a3195",
+        "bytes": 4939,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/Preparation.cs"
+      },
+      {
+        "path": "numeric-harness/PreparedVector.cs",
+        "sha256": "8f9868077470e2e7b6760fde1ea56a9534e73daaa0af2ee38b1b7202d2177451",
+        "bytes": 766,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/PreparedVector.cs"
+      },
+      {
+        "path": "numeric-harness/Program.cs",
+        "sha256": "184e5138c2da936ac758e3645fe938dc4056a78e96b22fdd1361ae0ec6766a75",
+        "bytes": 1493,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/Program.cs"
+      },
+      {
+        "path": "numeric-harness/ProofEvidence.cs",
+        "sha256": "6de7ba6b040964c7c8a54ea79dd106e9bde4ec88bd88ced631dc70e2727f87dd",
+        "bytes": 1847,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/ProofEvidence.cs"
+      },
+      {
+        "path": "numeric-harness/README.md",
+        "sha256": "00b172d36983484ba1ae953b6f9c758f4c97a88ee5d84572f3e70face0c48a76",
+        "bytes": 10424,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/README.md"
+      },
+      {
+        "path": "numeric-harness/RawVectors.cs",
+        "sha256": "2d5e0fac8b19300ab6063aee17310e0fac4f79786ab6ef89b7d59cfab363be51",
+        "bytes": 7382,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/RawVectors.cs"
+      },
+      {
+        "path": "numeric-harness/RootConsistency.cs",
+        "sha256": "bd1f5771770e55e93f1e9b692707acdf726f5b1e935b9f16db20ce53a8160c91",
+        "bytes": 2661,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-input-corrections-source-only/RootConsistency.cs"
+      },
+      {
+        "path": "numeric-harness/RootInputs.cs",
+        "sha256": "e6483995ca5c68751e51013c2994c7126cdafeff870057111bf01d50ebed0b91",
+        "bytes": 4226,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-input-corrections-source-only/RootInputs.cs"
+      },
+      {
+        "path": "numeric-harness/SourcePathAssertions.cs",
+        "sha256": "2857c2ff47707c2133fa1aed8bc18ef151469096e1585f8a1256f5ef414c0899",
+        "bytes": 4733,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/SourcePathAssertions.cs"
+      },
+      {
+        "path": "numeric-harness/StorageCensus.cs",
+        "sha256": "996c92f1cc22aaa209b219890c43b6b71fa43f1da25d44445c1a4f39c6cb276e",
+        "bytes": 3076,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/StorageCensus.cs"
+      },
+      {
+        "path": "numeric-harness/WarpCLR.Tests.csproj",
+        "sha256": "17ec5aa7e523b6f905a5e43a5255770dcbbb0ce297e30007bfc602f2694ff51e",
+        "bytes": 6643,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/WarpCLR.Tests.csproj"
+      },
+      {
+        "path": "numeric-harness/anticipated-commands.json",
+        "sha256": "52581fa4a65d53455c00ccab526f8e1a09ed149c270bbcb74e349ec0bc83e2ae",
+        "bytes": 3553,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/anticipated-commands.json"
+      },
+      {
+        "path": "numeric-harness/application-contract.json",
+        "sha256": "c4daf4ef4e48c2548526bf159c47125ce19e65878a019f584a5ba46a8be76d70",
+        "bytes": 17654,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/application-contract.json"
+      },
+      {
+        "path": "numeric-harness/build_plan.py",
+        "sha256": "9741dc15ff69c17f6731109177372eceb09725ef1035f98618a157fdfd330687",
+        "bytes": 3844,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/build_plan.py"
+      },
+      {
+        "path": "numeric-harness/callback.json",
+        "sha256": "e95811cac21a5e21c377283819e43a169cdec7e421c3823585e42f273026e3db",
+        "bytes": 1430,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/callback.json"
+      },
+      {
+        "path": "numeric-harness/case-inventory.json",
+        "sha256": "eef50f46f808a4eb4966c25fe70c84142d60af0f131fb6b1a5bd2c32b711f017",
+        "bytes": 64804,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/case-inventory.json"
+      },
+      {
+        "path": "numeric-harness/command_plan.py",
+        "sha256": "3a52230861a1ff0a91d2e9cfd0545868929977cec8a39b28dfb46a1ca77bd508",
+        "bytes": 6619,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/command_plan.py"
+      },
+      {
+        "path": "numeric-harness/compare_numeric_cpu.py",
+        "sha256": "ec5e3f2233d782bff21ac8436bde2ae55371c284544611e040b4ba9b98220c30",
+        "bytes": 536,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/compare_numeric_cpu.py"
+      },
+      {
+        "path": "numeric-harness/global.json",
+        "sha256": "1e3811718244a2aa32777b879dd8906bf2d37f4defce3526b6f3263e702390da",
+        "bytes": 105,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/global.json"
+      },
+      {
+        "path": "numeric-harness/join_numeric.py",
+        "sha256": "397327a9bfeb0917bdf2a5511a9ae30bd883c20b334e6d49194d9d0356e732d4",
+        "bytes": 4581,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/join_numeric.py"
+      },
+      {
+        "path": "numeric-harness/later-root-source-context.json",
+        "sha256": "969ff08abb98313852c943f362619eb2398664b80f289ea20b5f3e647024d073",
+        "bytes": 12768,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/later-root-source-context.json"
+      },
+      {
+        "path": "numeric-harness/manifest.json",
+        "sha256": "d5479fb88c5c6c6c632174de86b12e79f2acbb3bb21a95990d45491a25b45d73",
+        "bytes": 23545,
+        "original_workspace_path": ".supervisor-evidence/root-numeric-harness-candidate-attempts-v1/prepared-harness-correction-manifest.json"
+      },
+      {
+        "path": "numeric-harness/new-files-only.diff.json",
+        "sha256": "64c76c474306446fa65daa4cd10de9c66032e147d5943bda83d9f95c236b09b1",
+        "bytes": 1470,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/new-files-only.diff.json"
+      },
+      {
+        "path": "numeric-harness/proof_tools.py",
+        "sha256": "12dba7b7aa8200e0a27b2f30f75e21cd914a86f4037fdfc52fdf984f73e76eb5",
+        "bytes": 5848,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/proof_tools.py"
+      },
+      {
+        "path": "numeric-harness/provenance.json",
+        "sha256": "1f5e1b3313cc8eae13f5abc62cb3238acdf5a5354a1640bb3bd39c7768df7f3f",
+        "bytes": 24136,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/provenance.json"
+      },
+      {
+        "path": "numeric-harness/retarget_numeric.py",
+        "sha256": "60d8999a7663ae2221c43974b544c91c31c97eeebef6e5d0b38912da8ae7e11b",
+        "bytes": 533,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/retarget_numeric.py"
+      },
+      {
+        "path": "numeric-harness/root-inputs.template.json",
+        "sha256": "75995820f180651d59f8866e746910f7be94f9c0dad9698877a6c6d272224b50",
+        "bytes": 4718,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-input-corrections-source-only/root-inputs.template.json"
+      },
+      {
+        "path": "numeric-harness/seal_images.py",
+        "sha256": "ee8b2445a18b1083aa975a0cb47b66e7da657a88846cfb6b9dcfb80e3c5c1aeb",
+        "bytes": 528,
+        "original_workspace_path": ".supervisor-stage/root-numeric-harness-candidate-attempts-v1/seal_images.py"
+      },
+      {
+        "path": "numeric-harness/tools.template.json",
+        "sha256": "53f80fe0999bd1c03d3c29a2d6f17c99cb55b4f3f82245127a1bddd853db313f",
+        "bytes": 2827,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/tools.template.json"
+      },
+      {
+        "path": "numeric-source-fixtures/WarpCurrentNumericSourceCases.cs",
+        "sha256": "d462e702b431786ec04f168e8023c130db00d3cd984cc2239c3f02652e9a326e",
+        "bytes": 5273,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-coverage-plan/WarpCurrentNumericSourceCases.cs"
+      },
+      {
+        "path": "numeric-source-fixtures/WarpPortableMathOracle.cs",
+        "sha256": "c4dc627b1ccf8fa8a9915c50179158a5c690295b377bd4663cff021f9cb709ff",
+        "bytes": 7697,
+        "original_workspace_path": "WarpCLR/WarpCLR.Tests/WarpPortableMathOracle.cs"
+      },
+      {
+        "path": "observed-history-nullable-correction/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ObservedCalls.cs",
+        "sha256": "3fffdc0f27dcd4bb1421f192e0490ef328acce028cfbde5523a992218fbdbab0",
+        "bytes": 9942,
+        "original_workspace_path": ".supervisor-stage/root-observed-history-nullable-call-source-correction/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ObservedCalls.cs"
+      },
+      {
+        "path": "observed-history-nullable-correction/WarpCLR.Tests/WarpCoreCLRWorkerTests.ZObservedWordHistory.cs",
+        "sha256": "828b3860a656b039501cd429e1dff91eaa00ab46c5cbeac169a47b4be73db38b",
+        "bytes": 16144,
+        "original_workspace_path": ".supervisor-stage/root-observed-history-nullable-call-source-correction/WarpCLR.Tests/WarpCoreCLRWorkerTests.ZObservedWordHistory.cs"
+      },
+      {
+        "path": "observed-history-nullable-correction/manifest.json",
+        "sha256": "9d56b8ba788ac18c4435078cb6698dd84de86783da486144d3706f554f909d45",
+        "bytes": 2359,
+        "original_workspace_path": ".supervisor-evidence/root-observed-history-nullable-call-source-correction/prepared-source-application-manifest.json"
+      },
+      {
+        "path": "observed-history-struct-correction/WarpCLR.Runtime.Host/WarpCompiledSourcePlan.ObservedCalls.cs",
+        "sha256": "b4f1dfa279be98846b99dcb133431bf943eb8f7ef294475d3a81fe3051b3809e",
+        "bytes": 7708,
+        "original_workspace_path": ".supervisor-stage/root-observed-call-struct-match-source-correction/WarpCLR.Runtime.Host/WarpCompiledSourcePlan.ObservedCalls.cs"
+      },
+      {
+        "path": "observed-history-struct-correction/manifest.json",
+        "sha256": "ba9f21d50079a5b8a09cb1c9328d2443e06899b24625c85dbbb17b5053b92475",
+        "bytes": 1695,
+        "original_workspace_path": ".supervisor-evidence/root-observed-call-struct-match-source-correction/prepared-source-application-manifest.json"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCompiledObservedCall.cs",
+        "sha256": "e6f8f0e54dde89a8e506608ca78d712c5f7e81d1f2cfcafacbc3ac9f44f85cff",
+        "bytes": 984,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCompiledObservedCall.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCompiledSourceContext.CompletionCalls.cs",
+        "sha256": "40b6497c36b514d3bec13417da2e9c113d72bfabd32698baa563c967364bfa66",
+        "bytes": 1720,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.CompletionCalls.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCompiledSourceContext.Completions.cs",
+        "sha256": "3adec5e34d9d6588a25d79700afc2b23daa7fd5ec516f683e4358b61a1287efa",
+        "bytes": 4899,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCompiledSourceContext.Completions.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCompiledSourcePlan.ObservedCalls.cs",
+        "sha256": "08242a38df731ff049018dc01a67210e2e611397831e744db6e49957a9bd9668",
+        "bytes": 7477,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCompiledSourcePlan.ObservedCalls.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRStoppedCommands.cs",
+        "sha256": "6fd03aef020908ba5e23337edc5320a7d9adeb13756715330e9b871f687eace0",
+        "bytes": 5022,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRStoppedCommands.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerKernel.cs",
+        "sha256": "41aab6501e2f4c18523fa1a2ffee2d7cc9a4549ddbe5681c14533142e82358a5",
+        "bytes": 5057,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerKernel.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerLease.cs",
+        "sha256": "3ff30ca61b046f9c8806ece4e56f3b4bcda55b2eebc82a8bfa23d5ac84ada2b8",
+        "bytes": 4799,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerLease.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Observed.cs",
+        "sha256": "66d55d376c331a8b07d2d4f60d0e2baa5c7b6db5e8d00a53ca053b262f8eabb8",
+        "bytes": 2433,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Observed.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.ObservedHistory.cs",
+        "sha256": "732fcfbf144733aff5b03cf655a6e1959b8da0338cabacaf5611c03d50b83eba",
+        "bytes": 1320,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.ObservedHistory.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Registry.cs",
+        "sha256": "ff8381e1c63327db6e2b8ef8209f170449ec527f1e430cebbb774b57d176926c",
+        "bytes": 6730,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Registry.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Transactions.cs",
+        "sha256": "49c4746d6e6f63fc048a03c03942b6642512a2ffb424107e8a92ca70e1726752",
+        "bytes": 14574,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.Transactions.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.WordCheckpoints.cs",
+        "sha256": "95f9d1aa272a4b59e54f4dd6094ae1c4e11df21223754e261b9007af7c696ed5",
+        "bytes": 8807,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.WordCheckpoints.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.WordHistory.cs",
+        "sha256": "434cc00dc1e16ec482e80af02010fd1fd6b315fd3f370a8acdfe098e8119b1c2",
+        "bytes": 3446,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Runtime.Host/WarpCoreCLRWorkerProcess.WordHistory.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ObservedCalls.cs",
+        "sha256": "d90969d77ab2df64c1aa0d8302c2e15fb3b5061c335ae453d256c01a693e5644",
+        "bytes": 9936,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Tests/WarpCompiledSourceSchedulerTests.ObservedCalls.cs"
+      },
+      {
+        "path": "observed-history/WarpCLR.Tests/WarpCoreCLRWorkerTests.ZObservedWordHistory.cs",
+        "sha256": "5dde7709a34c04be82d327f83d1a9250d60b14b73d786df3e89c27a13cb62b34",
+        "bytes": 16138,
+        "original_workspace_path": ".supervisor-stage/delivery-source/observed-word-history-v5-source-only/WarpCLR.Tests/WarpCoreCLRWorkerTests.ZObservedWordHistory.cs"
+      },
+      {
+        "path": "observed-history/manifest.json",
+        "sha256": "1e3d550da841efb07875c278e0cb26e97ff44402485f976b42fc9e523cf1dc97",
+        "bytes": 19950,
+        "original_workspace_path": ".supervisor-evidence/delivery-source/observed-word-history-v5-source-only/prepared-source-application-manifest.json"
+      },
+      {
+        "path": "original-numeric-proof-tool-bodies/compare_numeric_cpu.py",
+        "sha256": "cfd23db835d5d52bca87ec7b6506f099283dd5887123721c0492f8a2154ce94b",
+        "bytes": 5626,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/compare_numeric_cpu.py"
+      },
+      {
+        "path": "original-numeric-proof-tool-bodies/retarget_numeric.py",
+        "sha256": "3ba05dcdbd46f2b8fb6467e6b43a02757d240e4fe06a89056b3656c21a335d32",
+        "bytes": 2135,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/retarget_numeric.py"
+      },
+      {
+        "path": "original-numeric-proof-tool-bodies/seal_images.py",
+        "sha256": "9a3fa5b5e3eb72bddf770b5c633b0eb47b74ebd4ea52373268d783617435b7b5",
+        "bytes": 5954,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/current-numeric-source-proof-packet/seal_images.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/ComparisonVectors.cs",
+        "sha256": "b6576fc9680a6dfa7189d972c191a84ffec878a9f7b2a5869e2188ef454cc8c9",
+        "bytes": 5872,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/ComparisonVectors.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/Evidence.cs",
+        "sha256": "8fb8963121e55d1bec613891c10b4014c2c85a8819dee22d45b02ba0d51951be",
+        "bytes": 1710,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/Evidence.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/HelperBinding.cs",
+        "sha256": "e9154f30da5bfe127c207a50c86efd788732a39bea8e48ac3746e3428290dcbc",
+        "bytes": 5075,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/HelperBinding.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/InvalidCases.cs",
+        "sha256": "a2800617c61e79242c4f18a1456964ed6535834b55aa7098eacfc69e34a1ddcd",
+        "bytes": 7461,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/InvalidCases.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/ProfileRequirements.cs",
+        "sha256": "7b65ec38d8ec06327e2591b0a446127d989f92e627a6655d2f06c8a04e01f37c",
+        "bytes": 1881,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/ProfileRequirements.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/Program.cs",
+        "sha256": "6193c23449c01a40a0822224a2c132534c1d1c64bc39a8c865b6baeed2da4b65",
+        "bytes": 2786,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/Program.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/ProgramArtifacts.cs",
+        "sha256": "cdb814ff983c4de38d9525ad1df1cc422cbdb3548a2bd0c6e45638503682164d",
+        "bytes": 4259,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/ProgramArtifacts.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/ProofPreparation.cs",
+        "sha256": "251dfab4b1e8908462852a148b37ab3d63675ca67ce530a220be2d00dc90078a",
+        "bytes": 4868,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/ProofPreparation.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/ProofProgram.cs",
+        "sha256": "03fa4e814c57b80766c81a36fd9f0e35f27abcd5426149e796e1597540487e87",
+        "bytes": 5019,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/ProofProgram.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/README.md",
+        "sha256": "94f893bbfd7706d6dfa6a734083d79002f75812b736835531db2fa8d8cbcb23d",
+        "bytes": 13338,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/README.md"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/ScopeSeeds.cs",
+        "sha256": "4cd2e3364bd6e3a491ca3ac1c99911660c0d9c6c7a4cc6f7eb10d5045567f418",
+        "bytes": 2156,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/ScopeSeeds.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/SeedInventory.cs",
+        "sha256": "890fa8a5c1348ed022150e1715bfd7abcacb4365d6eaaf50ec6e88cd6f6a8d64",
+        "bytes": 1810,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/SeedInventory.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/SourceKernels.cs",
+        "sha256": "d4a2fe999e1a5e892057be79f4b8a535bea82cf008e7e08e6081d01c244db7a1",
+        "bytes": 295,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/SourceKernels.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/TraceCases.cs",
+        "sha256": "1460c690786923075bcf9a41ff6522ccc714a20c1c1acb33e79fae9098847c2d",
+        "bytes": 8062,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/TraceCases.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/WarpCLR.Tests.csproj",
+        "sha256": "d0f7cec3ce135f93ede681f3b54fc4f0f9bf61da871513b6dee580803ea8edfd",
+        "bytes": 1729,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/WarpCLR.Tests.csproj"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/bank_format.py",
+        "sha256": "336a5f6438c4a3f5333707e7f6b41d4830d4e71b65a581a960f79c530a400cb3",
+        "bytes": 3150,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/bank_format.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/existing-tool-cache-candidates.json",
+        "sha256": "b643bd90b0621b67a7556538325550d1c5b812527ccb6314aa41686dc5b6445c",
+        "bytes": 1710,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/existing-tool-cache-candidates.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/global.json",
+        "sha256": "ae09c63e5ae884e5ccd1aad0d36e4f078d18f492a9f53c689af3a7a6f4f1c698",
+        "bytes": 79,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/global.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/immutable-inputs.json",
+        "sha256": "4963f3b505997c01f29c72f64de21d2002ed33c9fbc5b3d42d2c15038a06d1e2",
+        "bytes": 1840,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/immutable-inputs.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/join_results.py",
+        "sha256": "28e1ea398d034687a3b890ce53100dae707192be362d3a1d60fa54a4f1245ec6",
+        "bytes": 7504,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/join_results.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/make_root_plan.py",
+        "sha256": "56ccf28f048ed8ddc1cea936b1cea3340d50ea991f2fe1764bf017b82d5c15b2",
+        "bytes": 7497,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/make_root_plan.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/packet-manifest.json",
+        "sha256": "a5749924f5a90c09e4a15df97fac8796aa815d89108a3d06cbe09dba9e2ad75b",
+        "bytes": 23114,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/packet-manifest.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/proof.globalconfig",
+        "sha256": "2cf5b809819e19c8c9dc2558078dcb87adeb97b150f934a4308e50982a0265c8",
+        "bytes": 813,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/proof.globalconfig"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/proposed-case-inventory.json",
+        "sha256": "8eb0de0f6264e7f338a4865a0bb17e336f494ac39e2022d936ebd010af1b46fb",
+        "bytes": 2080,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/proposed-case-inventory.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/proposed-seeds.json",
+        "sha256": "304e45b4e2ba62a46040069b0a091bda623f3735b14fabb8dca3ad264c55327a",
+        "bytes": 1045,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/proposed-seeds.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/Evidence.cs",
+        "sha256": "e48c0c9fb9c1e6266e5ad9289477d5738bcb8c6a26ae25f3a9ab0039bd7b0fdb",
+        "bytes": 1666,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/Evidence.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/HelperBinding.cs",
+        "sha256": "ff07605cb7fcece03c0de42ebfcab23b88c256317de120bf8f3835986f72bd80",
+        "bytes": 3870,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/HelperBinding.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/Program.cs",
+        "sha256": "4e670732f0527ec78232b585903c10b69e2d80f72a1dac62316b13805f6e4dba",
+        "bytes": 1379,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/Program.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/SourceKernels.cs",
+        "sha256": "d4a2fe999e1a5e892057be79f4b8a535bea82cf008e7e08e6081d01c244db7a1",
+        "bytes": 295,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/SourceKernels.cs"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/WarpCLR.Tests.csproj",
+        "sha256": "13f5ee1c8ddc59c1c6569120141da0cac781f8069e8f3ac61f3d6a16dd2d9bda",
+        "bytes": 1623,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/WarpCLR.Tests.csproj"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/global.json",
+        "sha256": "ae09c63e5ae884e5ccd1aad0d36e4f078d18f492a9f53c689af3a7a6f4f1c698",
+        "bytes": 79,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/global.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/immutable-inputs.json",
+        "sha256": "4963f3b505997c01f29c72f64de21d2002ed33c9fbc5b3d42d2c15038a06d1e2",
+        "bytes": 1840,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/immutable-inputs.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retained-partial-source/proposed-seeds.json",
+        "sha256": "304e45b4e2ba62a46040069b0a091bda623f3735b14fabb8dca3ad264c55327a",
+        "bytes": 1045,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retained-partial-source/proposed-seeds.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/retarget_cpu.py",
+        "sha256": "d93253f9f2a10b59310df4bb231dacc1b0f86adfd90e0900ee6f265fd9fc568c",
+        "bytes": 5401,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/retarget_cpu.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/root-inputs.template.json",
+        "sha256": "525577f523754cb5ad463e6e5e9f83cc66a04c638e8fd9f5b5517698d9ab45d8",
+        "bytes": 979,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/root-inputs.template.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/root-tools.template.json",
+        "sha256": "9a1eefece0d55bb287e7d052c48edb7107039c001930d947e2c4302c6520b91e",
+        "bytes": 546,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/root-tools.template.json"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/run_cpu_vectors.py",
+        "sha256": "a0c4269ccf10c52e42d9c94ff0132127a6541c384a3e3078fc82733752b57365",
+        "bytes": 5943,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/run_cpu_vectors.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/seal_cpu_image.py",
+        "sha256": "ebeb018cf76962c456dcf47091291b146ddd5f198aabd536a1a49c23e0252594",
+        "bytes": 1758,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/seal_cpu_image.py"
+      },
+      {
+        "path": "private-helper-v4-comparison-harness/source-preparation-log.json",
+        "sha256": "4eced2a9d310d99c9c7c3f3fdb0796f8b17e90efa08dd881ffcf3ae745c69266",
+        "bytes": 1207,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-comparison-packet/source-preparation-log.json"
+      },
+      {
+        "path": "private-helper-v4-native-commands/README.md",
+        "sha256": "bb5595a53a59b019a6c2ad22306b4bb9c6195a154e6b1756062dc94821546098",
+        "bytes": 8091,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-native-command-packet/README.md"
+      },
+      {
+        "path": "private-helper-v4-native-commands/native_command_plan.py",
+        "sha256": "92a0ed5d1292862c20fac39e7a36e496dcc50777b897f053314952d90ad41119",
+        "bytes": 20858,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-native-command-packet/native_command_plan.py"
+      },
+      {
+        "path": "private-helper-v4-native-commands/packet-manifest.json",
+        "sha256": "656de0eda8f06ab4ca4b18b656eba53524452b13a9d7513883dc4583df5fd720",
+        "bytes": 5419,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-native-command-packet/packet-manifest.json"
+      },
+      {
+        "path": "private-helper-v4-native-commands/provenance.json",
+        "sha256": "2fef459f2ed74ef1c5200192d98c3b6cec8226b0223758a89ef10e188d34abb1",
+        "bytes": 9339,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-native-command-packet/provenance.json"
+      },
+      {
+        "path": "private-helper-v4-native-commands/root-native-inputs.template.json",
+        "sha256": "73157fdbc645ab0a1f25254632f89f64677d74f0c13b7fd002a84ff5e075293e",
+        "bytes": 3878,
+        "original_workspace_path": ".supervisor-stage/numeric-worker/private-helper-v4-native-command-packet/root-native-inputs.template.json"
+      },
+      {
+        "path": "resumption-tools/launch_persistent_linked_validation.py",
+        "sha256": "0b6161d2a85ac492efc85a464eb6e8f7ecbc62a7950cbb1e6c84d3b8023b8f10",
+        "bytes": 4589,
+        "original_workspace_path": ".supervisor-evidence/main-proof-tools/launch_persistent_linked_validation.py"
+      },
+      {
+        "path": "resumption-tools/prepare_cumulative1082_runtime_fixture_corrections_v1.py",
+        "sha256": "b68086fb29a03f7749f44056cec800b4e1a3d4fd06f9a34874b35164087ab49a",
+        "bytes": 7936,
+        "original_workspace_path": ".supervisor-evidence/main-proof-tools/prepare_cumulative1082_runtime_fixture_corrections_v1.py"
+      },
+      {
+        "path": "resumption-tools/prepare_linked_core_corrections_v4.py",
+        "sha256": "caae6fb3ecbd06bc6b64f48e1f5049aade7e956dd580ec3441018c60d304b2c7",
+        "bytes": 8970,
+        "original_workspace_path": ".supervisor-evidence/main-proof-tools/prepare_linked_core_corrections_v4.py"
+      },
+      {
+        "path": "resumption-tools/preserve_linked_core_owner_pause_v1.py",
+        "sha256": "b9001575ac1866d4d31f92defa4cb788037a5546d3668d901ffba43314255b75",
+        "bytes": 10667,
+        "original_workspace_path": ".supervisor-evidence/main-proof-tools/preserve_linked_core_owner_pause_v1.py"
+      },
+      {
+        "path": "resumption-tools/validate_linked_core_boundary_v2.py",
+        "sha256": "db433e9d44beb9dadcfc25ad93e34d2e561e4ff24329678e27c2af5c49e52d63",
+        "bytes": 7266,
+        "original_workspace_path": ".supervisor-evidence/main-proof-tools/validate_linked_core_boundary_v2.py"
+      },
+      {
+        "path": "source-authority-design/source-authority-design.md",
+        "sha256": "d52cb299cecc5ecc8ddf8c554cd550b3db02b7b79d029ef5cc027601e7c6b4ff",
+        "bytes": 20944,
+        "original_workspace_path": ".supervisor-stage/delivery-source/source-authority-prerequisite1054-source-only/source-authority-design.md"
+      }
+    ]
+  },
+  "remaining_work": [
+    "Correct actual fixture failures and repeat fresh build, personal CIL oracle, all targeted and full tests.",
+    "Review and compose unapplied packets against the current corrected source; archived original local paths require deliberate rebasing.",
+    "Implement actual source grant, independent controller CAS, held-bank RPC, publication, normal release and authenticated end/EH continuations.",
+    "Build and execute current numeric and private-helper proof matrices with complete bank comparisons and actual backend compilation.",
+    "Complete full CoreCLR and SDK production requirements, freeze all producers, and request the required external Review."
+  ],
+  "authorization_gates_preserved": [
+    "full production Review",
+    "owner acceptance",
+    "deployment maturity",
+    "Windows",
+    "installation",
+    "certificate",
+    "inference",
+    "GPU"
+  ],
+  "bulky_artifacts_or_evidence_copies": 0,
+  "work_paused": true,
+  "implementation_complete": false
+}

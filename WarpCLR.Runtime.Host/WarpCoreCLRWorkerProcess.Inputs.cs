@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using WarpCLR.Backend.CoreCLR;
+using WarpCLR.IR;
 
 namespace WarpCLR.Runtime.Host;
 
@@ -9,17 +10,19 @@ internal sealed partial class WarpCoreCLRWorkerProcess
 
     internal async Task<WarpCoreCLRInputBinding> BindInputsAsync(uint[][] inputs, uint[] scalars, CancellationToken cancellationToken)
     {
+        using WarpOrdinaryArrayAdmission ordinary = WarpOrdinaryArrayAdmission.Acquire(inputs, scalars, [], []);
+        uint[][] capturedInputs = CaptureOrdinaryInputs(ordinary, inputs.Length);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetimeToken);
         deadline.CancelAfter(options.QuantumTimeout);
         using WarpCoreCLRAsyncGate.Lease transaction = await transactions.AcquireAsync(deadline.Token).ConfigureAwait(false);
         if (IsFaulted || nextInputTag == uint.MaxValue) { throw new WarpHostException("WRPCORECLR3002", "Immutable input binding cannot use a stopped worker or exhausted namespace."); }
-        long bytes = WarpCoreCLRWorkerInputWords.Estimate(inputs, scalars);
+        long bytes = WarpCoreCLRWorkerInputWords.Estimate(capturedInputs, scalars);
         WarpCoreCLRTransferAdmission.Lease retention = await WarpCoreCLRTransferAdmission.AcquireAsync(bytes * 10 + 4096, deadline.Token).ConfigureAwait(false);
         uint tag = ++nextInputTag;
         bool started = false;
         try
         {
-            byte[] request = WarpCoreCLRWorkerInputWords.Write(tag, inputs, scalars);
+            byte[] request = WarpCoreCLRWorkerInputWords.Write(tag, capturedInputs, scalars);
             deadline.Token.ThrowIfCancellationRequested(); started = true;
             WarpCoreCLRWorkerProtocol.Frame response = await ControlAsync(WarpCoreCLRWorkerProtocol.BindInputs, request, deadline.Token).ConfigureAwait(false);
             byte[] identity = SHA256.HashData(request);
@@ -32,7 +35,7 @@ internal sealed partial class WarpCoreCLRWorkerProcess
                 if (faulted) { throw new WarpHostException("WRPCORECLR3002", "A stopping CoreCLR worker cannot publish a new input binding."); }
                 deadline.Token.ThrowIfCancellationRequested();
                 retention.Retain(bytes * 2);
-                return new(this, tag, identity, retention);
+                return CreateInputBinding(tag, identity, retention, capturedInputs, scalars);
             }
         }
         catch

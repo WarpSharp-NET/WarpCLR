@@ -74,6 +74,13 @@ internal static partial class Program
         for (ulong sequence = 2; sequence != 0; sequence++)
         {
             WarpCoreCLRWorkerProtocol.Frame frame = await WarpCoreCLRWorkerProtocol.ReadAsync(input, key, sequence, CancellationToken.None).ConfigureAwait(false);
+            if (frame.Kind == WarpCoreCLRWorkerCallObservations.ExecuteObserved)
+            {
+                byte[] observed = ExecuteObserved(frame, key, sequence, kernel);
+                await WarpCoreCLRWorkerProtocol.WriteAsync(output, key, WarpCoreCLRWorkerCallObservations.Observed,
+                    sequence, observed, CancellationToken.None).ConfigureAwait(false);
+                continue;
+            }
             if (frame.Kind != WarpCoreCLRWorkerProtocol.Execute)
             { await ExecuteBoundCommandAsync(output, key, sequence, frame, kernel, bindings).ConfigureAwait(false); continue; }
             WarpCoreCLRWorkerWords.Invocation call = WarpCoreCLRWorkerWords.ReadRequest(frame.Payload);

@@ -1,5 +1,4 @@
 using WarpCLR.IR;
-using System.Runtime.InteropServices;
 
 namespace WarpCLR.Runtime.Host.Native;
 
@@ -18,33 +17,32 @@ internal static class WarpNativeMachineDispatch
         WarpMachineMemoryOperations operations,
         CancellationToken cancellationToken)
     {
-        WarpNativeMachineLaunch launch = WarpNativeMachineLaunch.Admit(image, states, inputs, scalars,
-            itemCount, inputBase, maximumCallDepth, quantum);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (itemCount == 0) { return []; }
-        var allocations = new List<ulong>();
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(operations);
+        using var bankUse = WarpNativeBankRetention.Acquire(inputs, scalars, states);
         bool launched = false;
         try
         {
-            var result = (uint[])states.Clone();
+            WarpNativeMachineLaunch launch = WarpNativeMachineLaunch.Admit(image, bankUse.State,
+                bankUse.Inputs, bankUse.Scalars, itemCount, inputBase, maximumCallDepth, quantum);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (itemCount == 0) { bankUse.PreparePublication(); return []; }
+            var result = (uint[])bankUse.State.Clone();
             using var statePin = new WarpPinnedUInt32(result);
             nuint stateBytes = checked((nuint)result.Length * sizeof(uint));
-            ulong statePointer = operations.Allocate(stateBytes);
-            allocations.Add(statePointer);
+            ulong statePointer = bankUse.Allocate(stateBytes, operations.Allocate);
             operations.Upload(statePointer, statePin.Pointer, stateBytes);
-            var inputPointers = new List<ulong>(inputs.Count);
-            foreach (uint[] input in inputs)
+            var inputPointers = new List<ulong>(bankUse.Inputs.Count);
+            foreach (uint[] input in bankUse.Inputs)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 nuint bytes = checked((nuint)Math.Max(input.Length, 1) * sizeof(uint));
-                ulong pointer = operations.Allocate(bytes);
-                allocations.Add(pointer);
+                ulong pointer = bankUse.Allocate(bytes, operations.Allocate);
                 inputPointers.Add(pointer);
                 using var pin = new WarpPinnedUInt32(input);
                 if (input.Length != 0) { operations.Upload(pointer, pin.Pointer, bytes); }
             }
-
-            using var arguments = new WarpNativeKernelArguments(statePointer, inputPointers, scalars,
+            using var arguments = new WarpNativeKernelArguments(statePointer, inputPointers, bankUse.Scalars,
                 checked((uint)itemCount), checked((uint)inputBase), checked((uint)maximumCallDepth), checked((uint)quantum));
             cancellationToken.ThrowIfCancellationRequested();
             launched = true;
@@ -52,19 +50,20 @@ internal static class WarpNativeMachineDispatch
             operations.Synchronize();
             operations.Readback(statePin.Pointer, statePointer, stateBytes);
             WarpNativeMachineLaunch.ValidateReturnedStates(image.MachineLayout!, result, itemCount, maximumCallDepth);
-            // Every launch is bounded by the logical quantum. Cancellation discards the completed quantum,
-            // never publishes partial state, and is handled by the shared scheduler between launches.
             cancellationToken.ThrowIfCancellationRequested();
+            bankUse.PreparePublication();
             return result;
         }
-        catch (WarpHostException)
+        catch (Exception failure)
         {
-            if (launched) { operations.Quarantine(); }
+            bankUse.RecordFailure(failure);
+            if (launched && failure is not OperationCanceledException) { bankUse.RequestQuarantine(operations.Quarantine); }
             throw;
         }
         finally
         {
-            foreach (ref readonly ulong allocation in CollectionsMarshal.AsSpan(allocations)) { operations.Free(allocation); }
+            bankUse.Retire(operations.Free, operations.Quarantine);
+            bankUse.ThrowFirstFailure();
         }
     }
 }

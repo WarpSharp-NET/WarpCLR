@@ -6,19 +6,25 @@ namespace WarpCLR.Backend.CoreCLR;
 
 internal static partial class WarpCoreCLRBinaryPlanCodec
 {
-    internal const string Version = "warp.coreclr.binary-plan/owned-alias-managed-terminal-logical-worker-pair-atomics-raw-utf16-private-controller/0.5";
+    internal const string Version = "warp.coreclr.binary-plan/owned-alias-managed-terminal-logical-worker-pair-atomics-raw-utf16-private-controller-helper-boundaries/0.6";
     private const string SupportedMachine = "warp.logical-machine/0.8";
     private const string SupportedFrames = "warp.logical-source-frames/0.6";
     private const string SupportedPrivateFrames = "warp.logical-source-frames/private-controller-service-projection/0.7";
+    private const string SupportedPrivateHelperFrames = "warp.logical-source-frames/private-controller-zero-charge-helper-boundaries/0.8";
+    private const string SupportedPrivateHelperReturnFrames = "warp.logical-source-frames/private-controller-helper-return-scoped-publication-fence/0.10";
+    private const string SupportedPrivateHelperScope = "warp.logical-machine/private-helper-scope/header28-call-pc-plus1-header29-caller-depth-header30-caller-activation-header31-helper-activation/0.1";
     internal const int MaximumBytes = WarpCompilationAdmission.MaximumSourceBytes;
-    private const uint Magic = 0x57425035;
+    private const uint Magic = 0x57425036;
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private static void RequireSupportedSchemas()
     {
         if (!string.Equals(WarpLogicalMachineLayout.Version, SupportedMachine, StringComparison.Ordinal) ||
             !string.Equals(WarpLogicalExecutionMetadata.Version, SupportedFrames, StringComparison.Ordinal) ||
-            !string.Equals(WarpLogicalExecutionMetadata.PrivateControllerVersion, SupportedPrivateFrames, StringComparison.Ordinal))
+            !string.Equals(WarpLogicalExecutionMetadata.PrivateControllerVersion, SupportedPrivateFrames, StringComparison.Ordinal) ||
+            !string.Equals(WarpLogicalExecutionMetadata.PrivateHelperBoundaryVersion, SupportedPrivateHelperFrames, StringComparison.Ordinal) ||
+            !string.Equals(WarpLogicalExecutionMetadata.PrivateHelperReturnFenceVersion, SupportedPrivateHelperReturnFrames, StringComparison.Ordinal) ||
+            !string.Equals(WarpLogicalMachineLayout.PrivateHelperScopeVersion, SupportedPrivateHelperScope, StringComparison.Ordinal))
         {
             throw new NotSupportedException("The binary codec requires a separately validated version for changed logical metadata.");
         }
@@ -31,8 +37,9 @@ internal static partial class WarpCoreCLRBinaryPlanCodec
         WarpCompilationAdmission.Validate(kernel);
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Utf8, leaveOpen: true);
-        writer.Write(Magic);
-        WriteString(writer, Version);
+        bool returnFences = kernel.Execution?.PrivateControllerProjection?.RequiresHelperReturnFences == true;
+        writer.Write(returnFences ? ReturnFenceMagic : Magic);
+        WriteString(writer, returnFences ? ReturnFenceVersion : Version);
         WriteString(writer, WarpProfileCatalog.ProfileId);
         WriteString(writer, WarpRuntimeAbi.Version);
         WriteString(writer, WarpRuntimeAbi.SafepointPolicy);

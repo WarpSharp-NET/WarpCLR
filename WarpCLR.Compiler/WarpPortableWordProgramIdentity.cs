@@ -11,6 +11,8 @@ internal sealed partial class WarpPortableWordProgramIdentity
 {
     internal const string Version = "warp.source-program-identity/closed-graph-typed-schema-cli-maps-constructor-storage-root-initializer-invocation-services-layout-final-ir-private-exception-attachment-compiler-seal-raw-utf16-snapshot/0.5";
     internal const string PrivateControllerVersion = "warp.source-program-identity/closed-compiler-private-controller-source-invocation-prelude-service-projection-raw-utf16/0.6";
+    internal const string PrivateHelperBoundaryVersion = "warp.source-program-identity/compiler-private-controller-zero-charge-helper-boundaries-raw-utf16/0.7";
+    internal const string PrivateHelperReturnFenceVersion = "warp.source-program-identity/compiler-private-controller-helper-return-scoped-publication-fence-raw-utf16/0.9";
     internal const string LayoutProjection = "warp.source-program.layout/full-common-ir-except-final-entry-label/0.1";
 
     private WarpPortableWordProgramIdentity(WarpPortableMethodGraph graph, WarpPortableSourceHeapSchema schema, WarpPortableWordLoweredProgram program,
@@ -27,7 +29,9 @@ internal sealed partial class WarpPortableWordProgramIdentity
         KernelIrHash = WarpIrHash.Compute(program.Kernel); StructuralLayoutHash = ComputeLayoutProjection(program.Kernel);
         ExecutionBindingHash = program.ExecutionBindingHash; ExecutionPlanHash = program.ExecutionPlanHash;
         RequiredServices = program.RequiredServices; BankCatalogIdentity = WarpPortableSourceServiceBanks.Semantics;
-        IdentityVersion = program.Kernel.Execution?.PrivateControllerProjection is null ? Version : PrivateControllerVersion;
+        IdentityVersion = program.Kernel.Execution?.PrivateControllerProjection is not { } projection ? Version :
+            projection.RequiresHelperReturnFences ? PrivateHelperReturnFenceVersion :
+            projection.RequiresHelperBoundaries ? PrivateHelperBoundaryVersion : PrivateControllerVersion;
         IdentityHash = SnapshotHash(new
         {
             Version = IdentityVersion, GraphHash, VerifiedHash, TypeSchemaHash, CliContractHash, NativeEvaluationBits, RuntimeProfile,

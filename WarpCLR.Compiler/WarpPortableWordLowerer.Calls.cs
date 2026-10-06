@@ -32,7 +32,8 @@ internal static partial class WarpPortableWordLowerer
                     if (construction) { throw Error("Object construction requires its generated portable owner allocation service.", input.Offset); }
                     return;
                 }
-                if (intrinsic.Contains("math.strict.", StringComparison.Ordinal)) { MathIntrinsic(target, typed, depth, operands); return; }
+                if (intrinsic.Contains("math.strict.", StringComparison.Ordinal) || WarpPortableMethodGraphIntrinsics.RotateLeftWordWidth(target.SourceMethod) != 0)
+                { MathIntrinsic(target, typed, depth, operands); return; }
                 throw Error("The intrinsic requires a registered generated execution service: " + intrinsic, input.Offset);
             }
             if (construction) { throw Error("Object/value construction requires its portable owner allocation service.", input.Offset); }
