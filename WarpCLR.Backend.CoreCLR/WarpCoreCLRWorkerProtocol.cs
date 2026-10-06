@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 
 namespace WarpCLR.Backend.CoreCLR;
 
-internal static class WarpCoreCLRWorkerProtocol
+internal static partial class WarpCoreCLRWorkerProtocol
 {
     internal const string Version = "warp.coreclr.worker/authenticated-native-jit-owned-alias-managed-terminal-logical-worker-pair-atomics/0.3";
     internal const int MaximumPayloadBytes = WarpCoreCLRBinaryPlanCodec.MaximumBytes + 65536;
@@ -55,11 +55,17 @@ internal static class WarpCoreCLRWorkerProtocol
         await stream.ReadExactlyAsync(mac, cancellationToken).ConfigureAwait(false);
         byte[] payload = new byte[length];
         await stream.ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
-        if (!CryptographicOperations.FixedTimeEquals(mac, Authenticate(key, header, payload)))
+        // Bind the receipt to the exact bytes used for HMAC verification even
+        // if a caller subsequently changes its mutable session-key array.
+        byte[] authenticatedKey = (byte[])key.Clone();
+        if (!CryptographicOperations.FixedTimeEquals(mac, Authenticate(authenticatedKey, header, payload)))
         {
             throw new InvalidDataException("Worker frame authentication failed.");
         }
-        return new Frame(BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(6)), payload);
+        ushort kind = BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(6));
+        var frame = new Frame(kind, payload);
+        AuthenticatedReads.Add(frame, AuthenticatedReadReceipt.Issue(ReadReceiptIssuer, frame, key, authenticatedKey, kind, sequence));
+        return frame;
     }
 
     private static byte[] Authenticate(byte[] key, byte[] header, byte[] payload)

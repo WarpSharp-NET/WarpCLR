@@ -8,7 +8,7 @@ namespace WarpCLR.Tests.Production;
 
 [TestClass]
 [SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "MSTest discovers and instantiates this fixture through reflection.")]
-internal sealed class WarpToolProcessBoundaryTests
+internal sealed partial class WarpToolProcessBoundaryTests
 {
     private static readonly string[] TimeoutArguments = ["-c", "printf 'compiler stdout before timeout\\n'; printf 'compiler stderr before timeout\\n' >&2; exec /bin/sleep 30"];
     private static readonly string[] FailureArguments = ["-c", "printf 'compiler stdout before failure\\n'; printf 'compiler stderr before failure\\n' >&2; exit 17"];

@@ -9,7 +9,7 @@ internal sealed partial class WarpCoreCLRWorkerTests
     [TestMethod]
     public async Task ControllerAdmissionRejectsUnboundIdentityAndMutationBeforeAnyChildEffect()
     {
-        ControllerModules modules = await ControllerModules.CreateAsync(WarpCoreCLRControllerOperation.RequestCollection).ConfigureAwait(false);
+        ControllerModules modules = await ControllerModules.CreateAsync(WarpCoreCLRControllerOperation.RequestCollection, TestContext).ConfigureAwait(false);
         await using var moduleOwner = modules.ConfigureAwait(false);
         uint[] arena = SeedRecoveryArena(33, 3, true, RegistryController);
         uint scheduler = arena[WarpPortableSchedulerLayout.HeapDescriptor];

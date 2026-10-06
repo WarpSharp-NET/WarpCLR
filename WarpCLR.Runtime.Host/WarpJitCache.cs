@@ -18,6 +18,8 @@ public sealed partial class WarpJitCache : IAsyncDisposable
     private readonly Dictionary<string, CacheEntry> entries = new(StringComparer.Ordinal);
     private readonly LinkedList<string> recency = new();
     private readonly WarpJitCacheOptions options;
+    private readonly Func<WarpCoreCLRWorkerKernel, Task>? beforeCorePublication;
+    private readonly WarpCoreCLRWorkerTestHooks? coreProbes;
     private readonly CancellationTokenSource compilationLifetime = new();
     private Task? shutdown;
     private bool shutdownRequested;
@@ -25,9 +27,16 @@ public sealed partial class WarpJitCache : IAsyncDisposable
     private long memoryHitCount;
     private long diskHitCount;
 
-    public WarpJitCache(WarpJitCacheOptions? options = null)
+    public WarpJitCache(WarpJitCacheOptions? options = null) : this(options, null, null)
+    {
+    }
+
+    internal WarpJitCache(WarpJitCacheOptions? options,
+        Func<WarpCoreCLRWorkerKernel, Task>? beforeCorePublication, WarpCoreCLRWorkerTestHooks? coreProbes)
     {
         this.options = options ?? new WarpJitCacheOptions();
+        this.beforeCorePublication = beforeCorePublication;
+        this.coreProbes = coreProbes;
         WarpJitCacheOptions.Validate(this.options);
         if (this.options.DirectoryPath is not null)
         {
@@ -63,7 +72,7 @@ public sealed partial class WarpJitCache : IAsyncDisposable
                     WarpCoreCLRWorkerLease? lease = kernel.TryAcquireLease();
                     if (lease is not null) { return lease; }
                     entries.Remove(key); recency.Remove(current.Recency);
-                    coreByKey.Remove(key); RecordRetirement(kernel);
+                    coreByKey.Remove(key); _ = RecordRetirementAsync(kernel);
                 }
             }
         }
@@ -100,7 +109,7 @@ public sealed partial class WarpJitCache : IAsyncDisposable
         lock (sync) { ObjectDisposedException.ThrowIf(shutdownRequested, this); }
     }
 
-    internal const string ShutdownSemantics = "warp.coreclr-cache-shutdown/first-snapshot-bounded-complete-fault-aggregate-child-stop/0.3";
+    internal const string ShutdownSemantics = "warp.coreclr-cache-shutdown/first-snapshot-bounded-complete-fault-aggregate-owned-late-child-stop-propagate-cleanup-failure/0.5";
 
     internal ValueTask ShutdownOwnedAsync()
     {
@@ -149,8 +158,10 @@ public sealed partial class WarpJitCache : IAsyncDisposable
         }
     }
 
-    private static bool ExpectedShutdownFailure(Exception error) => error is WarpHostException or OperationCanceledException or IOException or
-        ObjectDisposedException or PlatformNotSupportedException or CoreCLRCompilationResourceException or WarpCompilationResourceException;
+    private static bool ExpectedShutdownFailure(Exception error) =>
+        error is WarpHostException hostError && !string.Equals(hostError.Code, "WRPCORECLR3003", StringComparison.Ordinal) ||
+        error is OperationCanceledException or IOException or ObjectDisposedException or PlatformNotSupportedException or
+            CoreCLRCompilationResourceException or WarpCompilationResourceException;
 
     private async Task<T> GetOrCompileAsync<T>(string key, Func<CancellationToken, Task<T>> compile, CancellationToken cancellationToken)
         where T : class
@@ -323,7 +334,7 @@ public sealed partial class WarpJitCache : IAsyncDisposable
             }
 
             if (coreByKey.TryGetValue(node.Value, out WarpCoreCLRWorkerKernel? worker))
-            { coreByKey.Remove(node.Value); RecordRetirement(worker); }
+            { coreByKey.Remove(node.Value); _ = RecordRetirementAsync(worker); }
             entries.Remove(node.Value);
             recency.Remove(node);
         }
@@ -338,7 +349,7 @@ public sealed partial class WarpJitCache : IAsyncDisposable
             CacheEntry entry = entries[key];
             _ = entry.Compilation.Exception;
             if (coreByKey.TryGetValue(key, out WarpCoreCLRWorkerKernel? worker))
-            { coreByKey.Remove(key); RecordRetirement(worker); }
+            { coreByKey.Remove(key); _ = RecordRetirementAsync(worker); }
             entries.Remove(key);
             recency.Remove(entry.Recency);
         }

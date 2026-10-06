@@ -4,31 +4,43 @@ namespace WarpCLR.Runtime.Host.Native;
 
 internal sealed class WarpToolProcessExecution(Process process, WarpToolProcessLifetime ownership)
 {
-    private static readonly TimeSpan CleanupDeadline = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan CleanupDeadline = TimeSpan.FromSeconds(2);
     private readonly WarpToolProcessCapture standardOutput = new();
     private readonly WarpToolProcessCapture standardError = new();
+    private readonly Lock observationGate = new();
+    private bool outcomeFrozen;
+    private string frozenOutput = string.Empty;
+    private string frozenError = string.Empty;
+    private bool frozenOutputEndOfStream;
+    private bool frozenErrorEndOfStream;
 
-    public string StandardOutput => standardOutput.Snapshot();
-    public string StandardError => standardError.Snapshot();
+    public string StandardOutput { get { lock (observationGate) { return outcomeFrozen ? frozenOutput : standardOutput.Snapshot(); } } }
+    public string StandardError { get { lock (observationGate) { return outcomeFrozen ? frozenError : standardError.Snapshot(); } } }
     public string Output => "stdout:" + Environment.NewLine + StandardOutput + Environment.NewLine + "stderr:" + Environment.NewLine + StandardError;
     public string Cleanup { get; private set; } = string.Empty;
     public bool CleanupIncomplete { get; private set; }
     public bool RootExitObserved { get; private set; }
     public bool ReadersStopped { get; private set; }
-    public bool StandardOutputEndOfStream => standardOutput.EndOfStream;
-    public bool StandardErrorEndOfStream => standardError.EndOfStream;
+    public bool StandardOutputEndOfStream { get { lock (observationGate) { return outcomeFrozen ? frozenOutputEndOfStream : standardOutput.EndOfStream; } } }
+    public bool StandardErrorEndOfStream { get { lock (observationGate) { return outcomeFrozen ? frozenErrorEndOfStream : standardError.EndOfStream; } } }
 
     public async Task<Exception?> RunAsync(CancellationToken deadline)
     {
-        using var stopReaders = new CancellationTokenSource();
-        using var stopRootWait = new CancellationTokenSource();
-        Task stdout = standardOutput.DrainAsync(process.StandardOutput, stopReaders.Token);
-        Task stderr = standardError.DrainAsync(process.StandardError, stopReaders.Token);
-        Task exited = process.WaitForExitAsync(stopRootWait.Token);
+        WarpToolProcessOwnedExecution resources = ownership.BeginExecution();
+        try { return await resources.Own(RunOwnedAsync(resources, deadline)).ConfigureAwait(false); }
+        finally { try { FreezeOutcome(); } finally { resources.Seal(); } }
+    }
+
+    private async Task<Exception?> RunOwnedAsync(WarpToolProcessOwnedExecution resources, CancellationToken deadline)
+    {
+        Task stdout = resources.Own(standardOutput.DrainAsync(process.StandardOutput, resources.ReaderToken));
+        Task stderr = resources.Own(standardError.DrainAsync(process.StandardError, resources.ReaderToken));
+        Task exited = resources.Own(process.WaitForExitAsync(resources.RootWaitToken));
+        Task normal = resources.Own(Task.WhenAll(exited, stdout, stderr));
         Exception failure;
         try
         {
-            await Task.WhenAll(exited, stdout, stderr).WaitAsync(deadline).ConfigureAwait(false);
+            await resources.Own(normal.WaitAsync(deadline)).ConfigureAwait(false);
             RootExitObserved = true;
             ReadersStopped = true;
             return null;
@@ -38,15 +50,23 @@ internal sealed class WarpToolProcessExecution(Process process, WarpToolProcessL
             failure = error;
         }
 
-        using var cleanupDeadline = new CancellationTokenSource(CleanupDeadline);
-        Task<string> termination = ownership.TerminateAsync();
+        await resources.Own(CleanupAsync(resources, exited, stdout, stderr)).ConfigureAwait(false);
+        CompleteObservations(exited, stdout, stderr);
+        return failure;
+    }
+
+    private async Task CleanupAsync(WarpToolProcessOwnedExecution resources, Task exited, Task stdout, Task stderr)
+    {
+        CancellationToken cleanupDeadline = resources.StartCleanupDeadline(CleanupDeadline);
+        Task<string> termination = resources.Own(ownership.TerminateAsync());
+        Task readers = resources.Own(StopReadersAsync(resources, stdout, stderr, cleanupDeadline));
         try
         {
-            Cleanup = await termination.WaitAsync(cleanupDeadline.Token).ConfigureAwait(false);
-            await stopReaders.CancelAsync().WaitAsync(cleanupDeadline.Token).ConfigureAwait(false);
-            process.StandardOutput.Dispose();
-            process.StandardError.Dispose();
-            await Task.WhenAll(exited, stdout, stderr).WaitAsync(cleanupDeadline.Token).ConfigureAwait(false);
+            Task<string> terminationWait = termination.WaitAsync(cleanupDeadline);
+            _ = resources.Own(terminationWait);
+            Cleanup = await terminationWait.ConfigureAwait(false);
+            Task stopped = resources.Own(Task.WhenAll(exited, readers));
+            await resources.Own(stopped.WaitAsync(cleanupDeadline)).ConfigureAwait(false);
         }
         catch (Exception error) when (error is OperationCanceledException or IOException or InvalidOperationException)
         {
@@ -57,7 +77,11 @@ internal sealed class WarpToolProcessExecution(Process process, WarpToolProcessL
         {
             try
             {
-                await ShutdownAsync(stopReaders, stopRootWait, cleanupDeadline.Token).ConfigureAwait(false);
+                // These exact drain/cancellation tasks were started by this execution.
+                // Cached CancelAsync work has no caller-context dependency; retain it through retirement.
+#pragma warning disable VSTHRD003 // Join owned cached cancellation tasks under the unchanged original deadline.
+                await resources.Own(ShutdownAsync(resources, stdout, stderr, readers, cleanupDeadline)).ConfigureAwait(false);
+#pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
             {
@@ -66,21 +90,48 @@ internal sealed class WarpToolProcessExecution(Process process, WarpToolProcessL
             }
         }
 
-        RootExitObserved = exited.IsCompletedSuccessfully;
-        ReadersStopped = stdout.IsCompleted && stderr.IsCompleted;
-        CleanupIncomplete |= !RootExitObserved || !ReadersStopped || !standardOutput.EndOfStream || !standardError.EndOfStream ||
-            Cleanup.StartsWith("Tree termination failed:", StringComparison.Ordinal);
-        Cleanup += " Root exit observed: " + RootExitObserved + "; readers stopped: " + ReadersStopped +
-            "; stdout EOF: " + standardOutput.EndOfStream + "; stderr EOF: " + standardError.EndOfStream +
-            ". Remaining descendant cleanup is unverified; the caller owns containment and recovery.";
-        return failure;
     }
 
-    private async Task ShutdownAsync(CancellationTokenSource stopReaders, CancellationTokenSource stopRootWait, CancellationToken deadline)
+    private void FreezeOutcome()
     {
-        Task cancellation = Task.WhenAll(stopReaders.CancelAsync(), stopRootWait.CancelAsync());
+        lock (observationGate)
+        {
+            if (outcomeFrozen) { return; }
+            frozenOutput = standardOutput.Snapshot();
+            frozenError = standardError.Snapshot();
+            frozenOutputEndOfStream = standardOutput.EndOfStream;
+            frozenErrorEndOfStream = standardError.EndOfStream;
+            outcomeFrozen = true;
+        }
+    }
+
+    private void CompleteObservations(Task exited, Task stdout, Task stderr)
+    {
+        FreezeOutcome();
+        RootExitObserved = exited.IsCompletedSuccessfully;
+        ReadersStopped = stdout.IsCompleted && stderr.IsCompleted;
+        CleanupIncomplete |= !RootExitObserved || !ReadersStopped || !StandardOutputEndOfStream || !StandardErrorEndOfStream ||
+            Cleanup.StartsWith("Tree termination failed:", StringComparison.Ordinal);
+        Cleanup += " Root exit observed: " + RootExitObserved + "; readers stopped: " + ReadersStopped +
+            "; stdout EOF: " + StandardOutputEndOfStream + "; stderr EOF: " + StandardErrorEndOfStream +
+            ". Remaining descendant cleanup is unverified; the caller owns containment and recovery.";
+    }
+
+    private async Task StopReadersAsync(WarpToolProcessOwnedExecution resources, Task stdout, Task stderr, CancellationToken deadline)
+    {
+        await resources.Own(resources.CancelReadersAsync().WaitAsync(deadline)).ConfigureAwait(false);
         process.StandardOutput.Dispose();
         process.StandardError.Dispose();
-        await cancellation.WaitAsync(deadline).ConfigureAwait(false);
+        Task drains = resources.Own(Task.WhenAll(stdout, stderr));
+        await resources.Own(drains.WaitAsync(deadline)).ConfigureAwait(false);
+    }
+
+    private async Task ShutdownAsync(WarpToolProcessOwnedExecution resources, Task stdout, Task stderr, Task readers, CancellationToken deadline)
+    {
+        Task cancellation = resources.Own(Task.WhenAll(resources.CancelReadersAsync(), resources.CancelRootWaitAsync()));
+        process.StandardOutput.Dispose();
+        process.StandardError.Dispose();
+        Task stopped = resources.Own(Task.WhenAll(cancellation, stdout, stderr, readers));
+        await resources.Own(stopped.WaitAsync(deadline)).ConfigureAwait(false);
     }
 }

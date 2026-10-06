@@ -37,7 +37,7 @@ internal sealed class WarpCompiledRuntimeServices
             nameof(WarpPortableSchedulerServices.AcknowledgeOutputRoots), nameof(WarpPortableSchedulerServices.ReleaseOutputRoots),
             nameof(WarpPortableSchedulerServices.BeginDispatch), nameof(WarpPortableSchedulerServices.ArriveBarrier),
             nameof(WarpPortableSchedulerServices.DetectStalledCollective), nameof(WarpPortableSchedulerServices.RecordSourceMachineFault),
-            nameof(WarpPortableSchedulerServices.DisposeStoppedCensus),
+            nameof(WarpPortableSchedulerServices.DisposeStoppedCensus), nameof(WarpPortableSchedulerServices.DisposeStoppedController),
         ];
         scheduler = schedulerNames.ToFrozenDictionary(name => name,
             name => WarpCompiledWordService.Create(typeof(WarpPortableSchedulerServices), name), StringComparer.Ordinal);
@@ -68,7 +68,7 @@ internal sealed class WarpCompiledRuntimeServices
         nameof(WarpPortableSchedulerServices.RecordSourceMachineFault), nameof(WarpPortableSchedulerServices.AbortHeapService),
         nameof(WarpPortableSchedulerServices.CancelWorker), nameof(WarpPortableSchedulerServices.RequestCancellation),
         nameof(WarpPortableSchedulerServices.RequestDisposal), nameof(WarpPortableSchedulerServices.FinishDisposal),
-        nameof(WarpPortableSchedulerServices.DisposeStoppedCensus),
+        nameof(WarpPortableSchedulerServices.DisposeStoppedCensus), nameof(WarpPortableSchedulerServices.DisposeStoppedController),
     ];
 
     internal uint Invoke(string name, uint[] arena, uint schedulerOffset, WarpCompiledControllerGrant grant,

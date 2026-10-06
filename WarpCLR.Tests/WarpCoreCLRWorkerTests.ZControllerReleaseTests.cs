@@ -13,7 +13,7 @@ internal sealed partial class WarpCoreCLRWorkerTests
     [DataRow(WarpCoreCLRControllerOperation.BeginDispatch, true)]
     public async Task FailedNormalPublicationUsesDistinctAlreadyPreparedEmergencyCas(WarpCoreCLRControllerOperation operation, bool largeQuantum)
     {
-        ControllerModules modules = await ControllerModules.CreateAsync(operation).ConfigureAwait(false);
+        ControllerModules modules = await ControllerModules.CreateAsync(operation, TestContext).ConfigureAwait(false);
         await using var moduleOwner = modules.ConfigureAwait(false);
         ControllerFixture fixture = await CreateControllerFixtureAsync(modules, operation, 33, 3, largeQuantum).ConfigureAwait(false);
         WarpCoreCLRGenerationTransition receipt = await CompleteControllerAsync(modules, fixture).ConfigureAwait(false);
@@ -43,7 +43,7 @@ internal sealed partial class WarpCoreCLRWorkerTests
     [TestMethod]
     public async Task CommittedPartialWorkerResetCanOnlyDrainThroughBoundStoppedController()
     {
-        ControllerModules modules = await ControllerModules.CreateAsync(WarpCoreCLRControllerOperation.BeginDispatch).ConfigureAwait(false);
+        ControllerModules modules = await ControllerModules.CreateAsync(WarpCoreCLRControllerOperation.BeginDispatch, TestContext).ConfigureAwait(false);
         await using var moduleOwner = modules.ConfigureAwait(false);
         ControllerFixture fixture = await CreateControllerFixtureAsync(modules, WarpCoreCLRControllerOperation.BeginDispatch, 33, 3, false).ConfigureAwait(false);
         uint start = fixture.Arena[WarpPortableSchedulerLayout.LogicalStateStart];

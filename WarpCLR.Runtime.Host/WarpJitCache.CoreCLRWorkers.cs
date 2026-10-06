@@ -12,21 +12,41 @@ public sealed partial class WarpJitCache
     {
         byte[] plan = WarpCoreCLRBinaryPlanCodec.Serialize(entry.Kernel);
         ValidateDiskPlan(key, plan);
-        WarpCoreCLRWorkerKernel compiled = await WarpCoreCLRWorkerKernel.CompileAsync(entry.Layout, options.CoreCLR, compilationToken).ConfigureAwait(false);
+        WarpCoreCLRWorkerKernel compiled = await WarpCoreCLRWorkerKernel.CompileAsync(entry.Layout, options.CoreCLR,
+            compilationToken, coreProbes).ConfigureAwait(false);
+        await PauseCorePublicationAsync(compiled).ConfigureAwait(false);
+        Task? lateRetirement = null;
         lock (sync)
         {
             coreWorkers.Add(compiled); coreByKey.Add(key, compiled); compilationCount++;
-            if (shutdownRequested) { RecordRetirement(compiled); }
+            if (shutdownRequested) { lateRetirement = RecordRetirementAsync(compiled); }
         }
+        // Shutdown already captured this compilation task. Keep the late child
+        // owned by that task until its original retirement outcome is terminal.
+        if (lateRetirement is not null) { await lateRetirement.ConfigureAwait(false); }
         compilationToken.ThrowIfCancellationRequested();
         PersistPlan(key, plan);
         return compiled;
     }
 
-    private void RecordRetirement(WarpCoreCLRWorkerKernel kernel)
+    private async Task PauseCorePublicationAsync(WarpCoreCLRWorkerKernel compiled)
+    {
+        if (beforeCorePublication is null) { return; }
+        try { await beforeCorePublication(compiled).ConfigureAwait(false); }
+        catch (Exception publicationError)
+        {
+            try { await compiled.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception cleanupError) { throw new AggregateException(publicationError, cleanupError); }
+            throw;
+        }
+    }
+
+    private Task RecordRetirementAsync(WarpCoreCLRWorkerKernel kernel)
     {
         retirements.RemoveAll(task => task.IsCompletedSuccessfully);
-        retirements.Add(kernel.RetireAsync().AsTask());
+        Task retirement = kernel.RetireAsync().AsTask();
+        retirements.Add(retirement);
+        return retirement;
     }
 
     private void AdmitCoreWorker()

@@ -18,21 +18,29 @@ internal sealed partial class WarpCoreCLRWorkerTests
     public async Task StoppedControllerAuthenticatesIndependentCensusAndDrainsPartialGeneration(WarpCoreCLRControllerOperation operation,
         int workers, int residents, bool largeQuantum, bool afterGeneration)
     {
-        ControllerModules modules = await ControllerModules.CreateAsync(operation).ConfigureAwait(false);
+        ControllerModules modules = await ControllerModules.CreateAsync(operation, TestContext).ConfigureAwait(false);
         await using var moduleOwner = modules.ConfigureAwait(false);
-        ControllerFixture fixture = await CreateControllerFixtureAsync(modules, operation, workers, residents, largeQuantum).ConfigureAwait(false);
-        await AssertControllerSourceExcludedAsync(modules, fixture).ConfigureAwait(false);
-        if (afterGeneration) { modules.FailReturnedGeneration(); } else { modules.FailNextServiceResponse(); }
-        WarpHostException failure = await FailControllerAsync(modules, fixture).ConfigureAwait(false);
-        Assert.IsNotNull(modules.FailedReturnedArena); Assert.IsNotNull(modules.FailedReturnedState);
-        if (afterGeneration)
+        try
         {
-            uint offset = operation == WarpCoreCLRControllerOperation.RequestCollection ? WarpPortableSchedulerLayout.GCEpoch : WarpPortableSchedulerLayout.DispatchGeneration;
-            Assert.AreEqual(operation == WarpCoreCLRControllerOperation.RequestCollection ? 1u : 2u, modules.FailedReturnedArena[fixture.Scheduler + offset]);
-            Assert.AreEqual(operation == WarpCoreCLRControllerOperation.RequestCollection ? 0u : 1u, fixture.Arena[fixture.Scheduler + offset]);
+            ControllerFixture fixture = await CreateControllerFixtureAsync(modules, operation, workers, residents, largeQuantum).ConfigureAwait(false);
+            await AssertControllerSourceExcludedAsync(modules, fixture).ConfigureAwait(false);
+            if (afterGeneration) { modules.FailReturnedGeneration(); } else { modules.FailNextServiceResponse(); }
+            WarpHostException failure = await FailControllerAsync(modules, fixture).ConfigureAwait(false);
+            Assert.IsNotNull(modules.FailedReturnedArena); Assert.IsNotNull(modules.FailedReturnedState);
+            if (afterGeneration)
+            {
+                uint offset = operation == WarpCoreCLRControllerOperation.RequestCollection ? WarpPortableSchedulerLayout.GCEpoch : WarpPortableSchedulerLayout.DispatchGeneration;
+                Assert.AreEqual(operation == WarpCoreCLRControllerOperation.RequestCollection ? 1u : 2u, modules.FailedReturnedArena[fixture.Scheduler + offset]);
+                Assert.AreEqual(operation == WarpCoreCLRControllerOperation.RequestCollection ? 0u : 1u, fixture.Arena[fixture.Scheduler + offset]);
+            }
+            await RecoverControllerAsync(modules, fixture, failure).ConfigureAwait(false);
+            TestContext.WriteLine($"Stopped independent controller census: workers={workers}, residents={residents}, count={workers + 1}, afterReturnedGeneration={afterGeneration}, quantum={fixture.Quantum}.");
         }
-        await RecoverControllerAsync(modules, fixture, failure).ConfigureAwait(false);
-        TestContext.WriteLine($"Stopped independent controller census: workers={workers}, residents={residents}, count={workers + 1}, afterReturnedGeneration={afterGeneration}, quantum={fixture.Quantum}.");
+        catch (Exception failure)
+        {
+            modules.RecordBodyFailure(failure);
+            throw;
+        }
     }
 
     private static async Task<WarpHostException> FailControllerAsync(ControllerModules modules, ControllerFixture fixture)
@@ -44,6 +52,7 @@ internal sealed partial class WarpCoreCLRWorkerTests
             try { await modules.Service.ExecuteOwnedControllerQuantumAsync(fixture.Controller, fixture.Quantum).ConfigureAwait(false); }
             catch (WarpHostException failure)
             {
+                modules.RecordReturnedServiceFailure(failure);
                 CollectionAssert.AreEqual(arena, fixture.Arena); CollectionAssert.AreEqual(state, fixture.Controller.Preparation.State);
                 AssertTerminated(modules.Service.ProcessId); return failure;
             }
